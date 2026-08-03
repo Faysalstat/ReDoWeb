@@ -1,0 +1,134 @@
+import { Component, input } from '@angular/core';
+
+/**
+ * Minimal, dependency-free stand-ins for the handful of Lucide glyphs this app uses.
+ * @lucide/angular ships every icon in one 11MB bundle with no per-icon deep import,
+ * which made esbuild fail outright ("Array buffer allocation failed") when tree-shaking
+ * down to just these 5 — so the exact Lucide path data is inlined here instead, each as a
+ * self-contained <svg> template (Angular requires SVG children like <path> to be nested
+ * inside a literal <svg> in the same template, so an attribute-selector-on-host-svg
+ * approach like lucide-angular's doesn't compile without its internal tooling).
+ */
+
+@Component({
+  selector: 'app-icon-check',
+  standalone: true,
+  host: { class: 'inline-flex' },
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  `,
+})
+export class IconCheck {
+  readonly size = input(24);
+}
+
+@Component({
+  selector: 'app-icon-alert-triangle',
+  standalone: true,
+  host: { class: 'inline-flex' },
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  `,
+})
+export class IconAlertTriangle {
+  readonly size = input(24);
+}
+
+@Component({
+  selector: 'app-icon-external-link',
+  standalone: true,
+  host: { class: 'inline-flex' },
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  `,
+})
+export class IconExternalLink {
+  readonly size = input(24);
+}
+
+@Component({
+  selector: 'app-icon-maximize2',
+  standalone: true,
+  host: { class: 'inline-flex' },
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M15 3h6v6" />
+      <path d="m21 3-7 7" />
+      <path d="m3 21 7-7" />
+      <path d="M9 21H3v-6" />
+    </svg>
+  `,
+})
+export class IconMaximize2 {
+  readonly size = input(24);
+}
+
+@Component({
+  selector: 'app-icon-x',
+  standalone: true,
+  host: { class: 'inline-flex' },
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  `,
+})
+export class IconX {
+  readonly size = input(24);
+}

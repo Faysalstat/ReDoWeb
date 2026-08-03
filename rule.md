@@ -1,0 +1,2 @@
+- Folder structure docs, frontend ,backend, standalone ( for docker compose files)
+- Make no AI api call without my permission

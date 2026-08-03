@@ -1,0 +1,35 @@
+# Host ports are remapped (15432, 6380) because this machine already runs
+# unrelated Postgres/Redis containers from a different project on the
+# standard 5432/6379 ports. Inside the Docker network these still listen on
+# the standard ports -- only the host-side mapping differs.
+name: redowebs
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: redowebs
+      POSTGRES_PASSWORD: redowebs
+      POSTGRES_DB: redowebs
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U redowebs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
