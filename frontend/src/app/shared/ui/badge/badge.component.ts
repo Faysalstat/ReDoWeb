@@ -1,6 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 
-export type BadgeVariant = 'accent' | 'muted' | 'warning';
+export type BadgeVariant = 'accent' | 'muted' | 'warning' | 'success' | 'danger';
 
 @Component({
   selector: 'app-badge',
@@ -17,6 +17,8 @@ export class BadgeComponent {
       accent: 'border-accent/30 bg-accent/10 text-accent-bright',
       muted: 'border-white/10 bg-white/5 text-ink-muted normal-case tracking-normal',
       warning: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+      success: 'border-success/30 bg-success/10 text-success',
+      danger: 'border-error/30 bg-error/10 text-red-300',
     };
     return `${base} ${variants[this.variant()]}`;
   });

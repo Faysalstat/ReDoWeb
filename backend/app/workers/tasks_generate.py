@@ -6,7 +6,8 @@ from ..ai.site_generator import generate_site
 from ..config import get_settings
 from ..db.session import SessionLocal
 from ..models import Blueprint, GenerationJob, GenerationOutput, Project
-from ..services import token_usage_service
+from ..services import token_usage_service, wallet_service
+from ..services.wallet_service import InsufficientCreditsError
 from .celery_app import celery_app
 
 
@@ -35,6 +36,32 @@ def generate_tier_task(self, project_id: str, tier: str) -> dict:
         db.add(job)
         project.status = "generating"
         db.commit()
+
+        # Charged once per project regardless of how many tiers are enabled --
+        # the idempotency_key is scoped to project_id only, so a second
+        # generate_tier_task for the same project (a future multi-tier
+        # parallel group) sees the existing ledger row and is a no-op here.
+        # This runs after crawl+blueprint have already succeeded, so a
+        # rejected/failed project never reaches this line -- no charge on
+        # reject, per docs/implementation-plan.md's Milestone 4 note.
+        try:
+            wallet_service.spend(
+                db,
+                user_id=project.user_id,
+                amount=wallet_service.GENERATION_SPEND_CREDITS,
+                reason="generation_spend",
+                related_project_id=project.id,
+                related_job_id=job.id,
+                idempotency_key=f"generation_spend:{project_id}",
+            )
+            db.commit()
+        except InsufficientCreditsError as exc:
+            job.overall_status = "failed"
+            job.failure_reason = str(exc)
+            project.status = "failed"
+            project.rejection_reason = "Insufficient credits"
+            db.commit()
+            raise
 
         try:
             result = generate_site(project_root, tier)

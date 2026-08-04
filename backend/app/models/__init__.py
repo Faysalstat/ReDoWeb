@@ -2,7 +2,8 @@ from .blueprint import Blueprint
 from .job import GenerationJob, GenerationOutput
 from .project import Asset, CrawlPage, CrawlSnapshot, Project, SubmissionLog
 from .token_usage import TokenUsageLog
-from .user import AuthIdentity, RefreshToken, User
+from .user import AuthIdentity, User
+from .wallet import CreditTransaction, CreditWallet
 
 __all__ = [
     "Project",
@@ -15,6 +16,7 @@ __all__ = [
     "GenerationOutput",
     "User",
     "AuthIdentity",
-    "RefreshToken",
     "TokenUsageLog",
+    "CreditWallet",
+    "CreditTransaction",
 ]

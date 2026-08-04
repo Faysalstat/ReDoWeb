@@ -4,15 +4,24 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  --color-canvas-deep: #020203;
-  --color-canvas: #050506;
-  --color-canvas-elevated: #0a0a0c;
+  --color-canvas-deep: #0a0a17;
+  --color-canvas: #0f0f23;
+  --color-canvas-elevated: #1a1a2e;
+  --color-canvas-elevated-2: #12121f;
 
-  --color-ink: #ededef;
-  --color-ink-muted: #8a8f98;
+  --color-ink: #f0f0f0;
+  --color-ink-muted: #888888;
+  --color-ink-faint: #555555;
 
-  --color-accent: #5e6ad2;
-  --color-accent-bright: #6872d9;
+  --color-accent: #6c63ff;
+  --color-accent-bright: #7d75ff;
+  --color-accent-teal: #4ecdc4;
+  --color-accent-magenta: #a855f7;
+
+  --color-border-card: #2a2a45;
+
+  --color-success: #34d399;
+  --color-error: #ef4444;
 }
 
 html {
@@ -54,13 +63,13 @@ body {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 8px 40px rgba(0, 0, 0, 0.5),
-    0 0 80px rgba(94, 106, 210, 0.1);
+    0 0 80px rgba(108, 99, 255, 0.1);
 }
 
 .shadow-cta-glow {
   box-shadow:
-    0 0 0 1px rgba(94, 106, 210, 0.5),
-    0 4px 12px rgba(94, 106, 210, 0.3),
+    0 0 0 1px rgba(108, 99, 255, 0.5),
+    0 4px 12px rgba(108, 99, 255, 0.3),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -137,7 +146,7 @@ body {
   transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
   background: radial-gradient(
     300px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-    rgba(94, 106, 210, 0.15),
+    rgba(108, 99, 255, 0.15),
     transparent 80%
   );
 }

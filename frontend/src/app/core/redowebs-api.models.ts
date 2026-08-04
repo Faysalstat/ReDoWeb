@@ -105,6 +105,7 @@ export interface ProjectListItem {
   source_url: string;
   status: string;
   created_at: string;
+  tier?: string | null;
 }
 
 // --- Auth (Google SSO) ---
@@ -115,8 +116,6 @@ export interface UserOut {
   is_admin: boolean;
 }
 
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-  user: UserOut;
+export interface WalletResponse {
+  balance: number;
 }

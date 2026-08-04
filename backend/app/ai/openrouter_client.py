@@ -1,17 +1,40 @@
 import base64
+import io
 import json
 import mimetypes
 from pathlib import Path
 
 import httpx
+from PIL import Image
 
 from ..config import get_settings
 from .errors import OpenRouterError
 
 
-def _image_to_data_url(path: Path) -> str:
+def _image_to_data_url(path: Path, max_dimension: int | None = None) -> str:
+    """Encodes an image as a base64 data URL, downscaling it first (long
+    edge capped at max_dimension) so vision-token cost doesn't scale with
+    the original source photo's resolution -- the blueprint extractor only
+    needs enough detail to guess colors/fonts/tone, not pixel-level fidelity.
+    """
     mime_type, _ = mimetypes.guess_type(path.name)
     mime_type = mime_type or "application/octet-stream"
+
+    if max_dimension is not None:
+        try:
+            with Image.open(path) as img:
+                if max(img.size) > max_dimension:
+                    img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+                    img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+                    buffer = io.BytesIO()
+                    save_format = "JPEG" if img.mode == "RGB" else "PNG"
+                    img.save(buffer, format=save_format)
+                    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+                    mime_type = "image/jpeg" if save_format == "JPEG" else "image/png"
+                    return f"data:{mime_type};base64,{encoded}"
+        except Exception:
+            pass  # fall through to sending the original bytes unresized
+
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 
@@ -34,7 +57,8 @@ def vision_json_chat(
 
     content: list[dict] = [{"type": "text", "text": user_text}]
     for path in image_paths:
-        content.append({"type": "image_url", "image_url": {"url": _image_to_data_url(path)}})
+        url = _image_to_data_url(path, max_dimension=settings.vision_max_image_dimension)
+        content.append({"type": "image_url", "image_url": {"url": url}})
 
     payload = {
         "model": settings.vision_model,
@@ -43,6 +67,7 @@ def vision_json_chat(
             {"role": "user", "content": content},
         ],
         "response_format": {"type": "json_object"},
+        "max_tokens": settings.vision_max_tokens,
     }
 
     try:

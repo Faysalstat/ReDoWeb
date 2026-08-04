@@ -1,294 +1,165 @@
 <div class="relative min-h-screen text-ink">
-  <!-- Nav -->
-  <header class="sticky top-0 z-30 border-b border-white/6 bg-canvas/70 backdrop-blur-md">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <div class="flex items-center gap-2.5">
+  <app-header />
+
+  <section class="relative">
+    <div appParallaxHero class="mx-auto max-w-4xl px-6 py-20 text-center sm:py-28">
+      <app-badge variant="accent" class="animate-fade-up inline-flex">
+        AI-powered website modernization
+      </app-badge>
+
+      <h1
+        class="animate-fade-up mt-6 text-4xl font-semibold tracking-tight text-ink sm:text-6xl"
+        style="--fade-delay: 0.08s"
+      >
+        Turn your outdated website into a
+        <span
+          class="text-shimmer bg-gradient-to-r from-accent via-accent-teal to-accent bg-clip-text text-transparent"
+        >
+          modern masterpiece
+        </span>
+      </h1>
+
+      <p
+        class="animate-fade-up mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-muted"
+        style="--fade-delay: 0.16s"
+      >
+        Paste your website's URL. Our AI crawls it, understands your brand, and rebuilds it with
+        modern design, sharper copy, and stronger SEO — while keeping everything that makes your
+        business yours.
+      </p>
+
+      <form
+        id="submit"
+        (ngSubmit)="submit()"
+        class="animate-fade-up mx-auto mt-10 max-w-xl text-left"
+        style="--fade-delay: 0.24s"
+      >
         <div
-          class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-bright text-sm font-bold text-white shadow-cta-glow"
+          class="flex items-center gap-2 rounded-[14px] border border-white/10 bg-canvas-elevated/60 py-2 pl-4 pr-2 transition-colors duration-200 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30"
         >
-          R
-        </div>
-        <span class="text-lg font-bold tracking-tight text-ink">ReDoWebs</span>
-      </div>
-      <nav class="hidden items-center gap-8 text-sm font-medium text-ink-muted md:flex">
-        <a href="#how-it-works" class="transition-colors duration-200 hover:text-ink">How it works</a>
-        <a href="#" class="transition-colors duration-200 hover:text-ink">Pricing</a>
-      </nav>
-      <a appButton variant="primary" href="#submit">Get Started</a>
-    </div>
-  </header>
-
-  <!-- Hero + submission form -->
-  @if (stage() === 'idle' || stage() === 'error') {
-    <section class="relative">
-      <div appParallaxHero class="mx-auto max-w-4xl px-6 py-20 text-center sm:py-28">
-        <app-badge variant="accent" class="animate-fade-up inline-flex">
-          AI-powered website modernization
-        </app-badge>
-
-        <h1
-          class="animate-fade-up mt-6 text-4xl font-semibold tracking-tight text-ink sm:text-6xl"
-          style="--fade-delay: 0.08s"
-        >
-          Turn your outdated website into a
-          <span
-            class="text-shimmer bg-gradient-to-r from-accent via-indigo-400 to-accent bg-clip-text text-transparent"
+          <app-icon-link [size]="18" class="shrink-0 text-ink-muted" />
+          <input
+            id="url"
+            name="url"
+            type="url"
+            required
+            placeholder="https://example.com"
+            [(ngModel)]="url"
+            class="w-full bg-transparent py-2 text-base text-ink placeholder-ink-muted/70 outline-none"
+          />
+          <button
+            appButton
+            variant="primary"
+            type="submit"
+            [disabled]="!canSubmit"
+            class="shrink-0 !px-5 !py-2.5"
           >
-            modern masterpiece
-          </span>
-        </h1>
+            @if (isSubmitting()) {
+              <app-spinner size="sm" />
+            }
+            Generate My Redesign
+          </button>
+        </div>
 
-        <p
-          class="animate-fade-up mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-muted"
-          style="--fade-delay: 0.16s"
-        >
-          Paste your website's URL. Our AI crawls it, understands your brand, and rebuilds it with
-          modern design, sharper copy, and stronger SEO — while keeping everything that makes your
-          business yours.
-        </p>
+        @if (errorMessage()) {
+          <div
+            class="mt-3 flex items-start gap-2 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-300"
+          >
+            <app-icon-alert-triangle [size]="16" class="mt-0.5 shrink-0" />
+            <span>{{ errorMessage() }}</span>
+          </div>
+        }
 
-        <app-card
-          id="submit"
-          variant="glass"
-          class="animate-fade-up mx-auto mt-10 max-w-xl text-left"
-          style="--fade-delay: 0.24s"
-        >
-          @if (auth.isAuthenticated()) {
-            <div class="mb-4 flex items-center justify-between text-xs text-ink-muted">
-              <span>Signed in as {{ auth.currentUser()?.email }}</span>
-              <button type="button" (click)="signOut()" class="font-semibold text-accent hover:underline">
-                Sign out
-              </button>
-            </div>
+        <label class="mt-4 flex items-start gap-3 text-sm text-ink-muted">
+          <input
+            type="checkbox"
+            name="tos"
+            [(ngModel)]="tosAccepted"
+            class="mt-0.5 h-4 w-4 rounded border-white/20 bg-canvas-elevated text-accent focus:ring-accent"
+          />
+          <span>I own this website, or am authorized to have it redesigned.</span>
+        </label>
 
-            <form (ngSubmit)="submit()" class="space-y-4">
-              <div>
-                <label for="url" class="mb-1.5 block text-sm font-semibold text-ink"> Your website URL </label>
-                <input
-                  id="url"
-                  name="url"
-                  type="url"
-                  required
-                  placeholder="https://example.com"
-                  [(ngModel)]="url"
-                  class="w-full rounded-lg border border-white/10 bg-[#0F0F12] px-4 py-3 text-base text-ink placeholder-ink-muted/70 outline-none transition-colors duration-200 focus:border-accent focus:ring-2 focus:ring-accent/30"
-                />
-              </div>
-
-              <label class="flex items-start gap-3 text-sm text-ink-muted">
-                <input
-                  type="checkbox"
-                  name="tos"
-                  [(ngModel)]="tosAccepted"
-                  class="mt-0.5 h-4 w-4 rounded border-white/20 bg-canvas-elevated text-accent focus:ring-accent"
-                />
-                <span>I own this website, or am authorized to have it redesigned.</span>
-              </label>
-
-              <button appButton variant="primary" type="submit" [disabled]="!canSubmit" class="w-full">
-                Generate My Redesign
-              </button>
-
-              @if (stage() === 'error') {
-                <div
-                  class="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-                >
-                  <app-icon-alert-triangle [size]="16" class="mt-0.5 shrink-0" />
-                  <span>{{ errorMessage() }}</span>
-                </div>
-              }
-            </form>
-
-            <p class="mt-4 text-center text-xs text-ink-muted">Free preview • No credit card required</p>
-          } @else {
-            <div class="flex flex-col items-center gap-4 py-6 text-center">
-              <p class="text-sm font-semibold text-ink">Sign in to generate your redesign</p>
-              <app-google-sign-in-button (credential)="onGoogleCredential($event)" />
-              @if (authError()) {
-                <div
-                  class="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-                >
-                  <app-icon-alert-triangle [size]="16" class="mt-0.5 shrink-0" />
-                  <span>{{ authError() }}</span>
-                </div>
-              }
-            </div>
+        <p class="mt-4 text-center text-xs text-ink-muted">
+          Free preview • No credit card required
+          @if (balance(); as b) {
+            <span class="mx-1">•</span>
+            <span class="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-medium text-accent-bright">
+              {{ b }} credit{{ b === 1 ? '' : 's' }}
+            </span>
+            available
           }
+        </p>
+      </form>
+
+      <div class="animate-fade-up mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-muted" style="--fade-delay: 0.3s">
+        <span>🔒 Your original site is never modified</span>
+        <span>⚡ Ready in under a minute</span>
+        <span>👀 Preview before you pay</span>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div id="how-it-works" class="mx-auto max-w-5xl px-6 pb-24">
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <app-card [spotlight]="true">
+          <app-icon-container tone="accent">1</app-icon-container>
+          <p class="mt-4 font-semibold text-ink">Paste your URL</p>
+          <p class="mt-1 text-sm text-ink-muted">We crawl your site's pages, content, and brand assets.</p>
+        </app-card>
+        <app-card [spotlight]="true">
+          <app-icon-container tone="accent">2</app-icon-container>
+          <p class="mt-4 font-semibold text-ink">AI rebuilds it</p>
+          <p class="mt-1 text-sm text-ink-muted">A modern, responsive redesign — same brand, same content.</p>
+        </app-card>
+        <app-card [spotlight]="true">
+          <app-icon-container tone="accent">3</app-icon-container>
+          <p class="mt-4 font-semibold text-ink">Preview instantly</p>
+          <p class="mt-1 text-sm text-ink-muted">
+            See it live in your browser before you decide to download it.
+          </p>
         </app-card>
       </div>
+    </div>
 
-      <!-- How it works -->
-      <div id="how-it-works" class="mx-auto max-w-5xl px-6 pb-24">
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <app-card [spotlight]="true">
-            <app-icon-container tone="accent">1</app-icon-container>
-            <p class="mt-4 font-semibold text-ink">Paste your URL</p>
-            <p class="mt-1 text-sm text-ink-muted">We crawl your site's pages, content, and brand assets.</p>
-          </app-card>
-          <app-card [spotlight]="true">
-            <app-icon-container tone="accent">2</app-icon-container>
-            <p class="mt-4 font-semibold text-ink">AI rebuilds it</p>
-            <p class="mt-1 text-sm text-ink-muted">A modern, responsive redesign — same brand, same content.</p>
-          </app-card>
-          <app-card [spotlight]="true">
-            <app-icon-container tone="accent">3</app-icon-container>
-            <p class="mt-4 font-semibold text-ink">Preview instantly</p>
-            <p class="mt-1 text-sm text-ink-muted">
-              See it live in your browser before you decide to download it.
-            </p>
-          </app-card>
-        </div>
-      </div>
-    </section>
-  }
-
-  <!-- Progress -->
-  @if (isBusy) {
-    <section class="mx-auto max-w-2xl px-6 py-24">
-      <app-card>
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-xl font-bold text-ink">Building your redesign…</h2>
-            <p class="mt-1 text-sm text-ink-muted">This can take a couple of minutes — hang tight.</p>
-          </div>
-          <span class="rounded-full border border-white/10 bg-canvas-elevated px-3 py-1 text-xs font-medium text-ink-muted">
-            {{ formattedElapsed }} elapsed
-          </span>
-        </div>
-
-        <ol class="mt-10 space-y-7">
-          <li
-            appStepItem
-            [index]="1"
-            label="Crawling your site"
-            description="Reading pages, content, and brand assets"
-            [subStatus]="subStatus()"
-            [status]="stepStatus('crawling')"
-          ></li>
-          <li
-            appStepItem
-            [index]="2"
-            label="Extracting your brand blueprint"
-            description="Identifying your logo, colors, fonts, and tone"
-            [subStatus]="subStatus()"
-            [status]="stepStatus('extracting')"
-          ></li>
-          <li
-            appStepItem
-            [index]="3"
-            label="Generating your new design"
-            description="An AI agent is writing HTML, CSS, and JS for your site"
-            [subStatus]="subStatus()"
-            [status]="stepStatus('generating')"
-          ></li>
-        </ol>
-
-        <div class="mt-10 h-2 w-full overflow-hidden rounded-full bg-white/5">
-          <div
-            class="animate-shimmer h-full rounded-full bg-gradient-to-r from-accent via-indigo-400 to-accent transition-[width] duration-700 ease-out"
-            [style.width.%]="progressPercent"
-          ></div>
-        </div>
+    <!-- See it in action -->
+    <div class="mx-auto max-w-5xl px-6 pb-24">
+      <app-card variant="glass">
+        <app-generation-demo />
       </app-card>
-    </section>
-  }
+    </div>
 
-  <!-- Result -->
-  @if (stage() === 'ready') {
-    @if (status(); as s) {
-      @if (s.generation; as gen) {
-        <section class="mx-auto max-w-6xl px-6 py-16">
-          <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p class="flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
-                <app-icon-check [size]="16" />
-                Your redesign is ready
-              </p>
-              <h2 class="mt-1 text-3xl font-bold tracking-tight text-ink">
-                {{ s.blueprint?.site_name }}
-              </h2>
-            </div>
-            <button appButton variant="secondary" (click)="reset()">Start Over</button>
-          </div>
+    <!-- Pricing -->
+    <div id="pricing" class="mx-auto max-w-5xl px-6 pb-24">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Simple, one-time pricing</h2>
+        <p class="mt-3 text-ink-muted">
+          Pay once per redesign, no subscriptions. Every tier includes a free live preview before
+          you pay for the download.
+        </p>
+      </div>
 
-          <div class="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
-            <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
-              <button
-                appButton
-                toolbar-actions
-                variant="secondary"
-                title="Full page preview"
-                class="!px-2.5 !py-1 text-xs"
-                (click)="toggleFullscreenPreview()"
-              >
-                <app-icon-maximize2 [size]="14" />
-                Full preview
-              </button>
-              <button
-                appButton
-                toolbar-actions
-                variant="secondary"
-                title="Open in new tab"
-                class="!px-2.5 !py-1 text-xs"
-                (click)="openPreviewInNewTab()"
-              >
-                <app-icon-external-link [size]="14" />
-              </button>
-            </app-browser-frame>
+      <div class="mt-12 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3">
+        @for (tier of pricingTiers; track tier.name) {
+          <app-pricing-tier
+            [name]="tier.name"
+            [price]="tier.price"
+            [period]="tier.period"
+            [tagline]="tier.tagline"
+            [features]="tier.features"
+            [highlighted]="tier.highlighted"
+            [ctaLabel]="tier.ctaLabel"
+          />
+        }
+      </div>
 
-            <!-- Sidebar -->
-            <aside class="space-y-4">
-              <app-card>
-                <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
-                <p class="mt-3 text-sm text-ink-muted">
-                  Template: <span class="font-medium text-ink">{{ gen.template_used }}</span>
-                </p>
-              </app-card>
-
-              @if (gen.contrast_warnings.length > 0) {
-                <app-card>
-                  <p class="flex items-center gap-1.5 text-sm font-semibold text-amber-300">
-                    <app-icon-alert-triangle [size]="16" />
-                    Accessibility note
-                  </p>
-                  <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-200/80">
-                    @for (warning of gen.contrast_warnings; track warning) {
-                      <li>{{ warning }}</li>
-                    }
-                  </ul>
-                </app-card>
-              }
-
-              <app-card>
-                <button appButton variant="secondary" disabled title="Payment integration coming soon" class="w-full">
-                  Download Source (requires purchase)
-                </button>
-                <p class="mt-2 text-center text-xs text-ink-muted">
-                  Previews are always free. Payment unlocks the download.
-                </p>
-              </app-card>
-            </aside>
-          </div>
-        </section>
-      }
-    }
-  }
+      <p class="mt-6 text-center text-xs text-ink-muted">
+        Placeholder pricing shown for preview — final pricing will be confirmed before launch.
+      </p>
+    </div>
+  </section>
 
   <footer class="border-t border-white/6 py-8 text-center text-sm text-ink-muted">
     © 2026 ReDoWebs. All rights reserved.
   </footer>
-
-  <!-- Fullscreen preview overlay -->
-  @if (isFullscreenPreview()) {
-    <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="openPreviewInNewTab()">
-        <app-icon-external-link [size]="14" />
-        Open in new tab
-      </button>
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="toggleFullscreenPreview()">
-        <app-icon-x [size]="14" />
-        Close
-      </button>
-    </app-browser-frame>
-  }
 </div>

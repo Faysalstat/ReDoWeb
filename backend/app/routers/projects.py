@@ -17,7 +17,7 @@ from ..schemas.project import (
     ProjectStatusResponse,
     ProjectSubmitResponse,
 )
-from ..services import tier_service
+from ..services import tier_service, wallet_service
 from ..workers.tasks_blueprint import extract_blueprint_task
 from ..workers.tasks_crawl import run_crawl_task
 from ..workers.tasks_generate import generate_tier_task
@@ -34,6 +34,14 @@ def submit_project(
     current_user: User = Depends(get_current_user),
 ) -> ProjectSubmitResponse:
     client_ip = request.client.host if request.client else None
+
+    # Fast-fail before spending any crawl/AI cost -- this is a UX
+    # optimization only, not the real enforcement (that's the row-locking
+    # spend() call in generate_tier_task once crawl+blueprint have actually
+    # succeeded, which is what actually decides whether the charge happens).
+    wallet = wallet_service.get_or_create_wallet(db, current_user.id)
+    if wallet.balance < wallet_service.GENERATION_SPEND_CREDITS:
+        raise HTTPException(status_code=402, detail="Insufficient credits to start a generation")
 
     project = Project(
         user_id=current_user.id,
@@ -81,9 +89,26 @@ def list_projects(
         .order_by(Project.created_at.desc())
         .all()
     )
+
+    # Most recent GenerationJob.tier per project, for the list's tier badge.
+    # None while a project is still crawling/extracting (no job started yet).
+    jobs = (
+        db.query(GenerationJob)
+        .filter(GenerationJob.project_id.in_([p.id for p in projects]))
+        .order_by(GenerationJob.created_at.desc())
+        .all()
+    )
+    latest_tier_by_project: dict[uuid.UUID, str] = {}
+    for job in jobs:
+        latest_tier_by_project.setdefault(job.project_id, job.tier)
+
     return [
         ProjectListItem(
-            project_id=str(p.id), source_url=p.source_url, status=p.status, created_at=p.created_at
+            project_id=str(p.id),
+            source_url=p.source_url,
+            status=p.status,
+            created_at=p.created_at,
+            tier=latest_tier_by_project.get(p.id),
         )
         for p in projects
     ]

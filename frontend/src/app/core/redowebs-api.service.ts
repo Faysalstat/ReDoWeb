@@ -7,8 +7,10 @@ import {
   BlueprintResponse,
   CrawlResponse,
   GenerationResponse,
+  ProjectListItem,
   ProjectStatusResponse,
   ProjectSubmitResponse,
+  WalletResponse,
 } from './redowebs-api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -50,5 +52,13 @@ export class RedoWebsApiService {
 
   getProjectStatus(projectId: string): Observable<ProjectStatusResponse> {
     return this.http.get<ProjectStatusResponse>(`${API_BASE_URL}/api/v1/projects/${projectId}`);
+  }
+
+  listProjects(): Observable<ProjectListItem[]> {
+    return this.http.get<ProjectListItem[]>(`${API_BASE_URL}/api/v1/projects`);
+  }
+
+  getWallet(): Observable<WalletResponse> {
+    return this.http.get<WalletResponse>(`${API_BASE_URL}/api/v1/credits/wallet`);
   }
 }

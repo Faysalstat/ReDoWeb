@@ -16,7 +16,7 @@ export class IconContainerComponent {
     const tones: Record<IconContainerTone, string> = {
       accent: 'border-accent/30 bg-gradient-to-br from-accent to-accent-bright text-white shadow-cta-glow',
       neutral: 'border-white/10 bg-white/5 text-ink',
-      success: 'border-emerald-500/30 bg-emerald-500 text-white',
+      success: 'border-success/30 bg-success text-white',
     };
     return `${base} ${tones[this.tone()]}`;
   });

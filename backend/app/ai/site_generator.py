@@ -1,3 +1,4 @@
+import hashlib
 import json
 import random
 import shutil
@@ -21,7 +22,7 @@ IMPORTANT project-specific constraints (these override anything above that confl
 - Build a plain static website: one .html file per page, a single shared style.css, and an optional shared script.js. Use the write_file tool for every file you create.
 - You may use Tailwind CSS via its CDN script tag, Bootstrap via its CDN link, or hand-written CSS in style.css -- whichever best expresses the design system above. Do not run any build step; everything must work as plain static files.
 - An images/ folder already exists in the output directory with the site's real logo and photos, downloaded from the original site. Do not invent placeholder images -- reference only the exact filenames listed in the user message, e.g. <img src="images/...">.
-- Skip the questions you would normally ask a user about tech stack or scope -- there is no user to ask right now. The content below is your complete brief; just build the site.
+- There is no user to ask questions of -- the content below is your complete brief; just build the site.
 - When completely finished, respond with a final plain-text summary of the pages and files you created, and do not request any more tool calls.
 """
 
@@ -77,21 +78,100 @@ def generate_site(project_root: Path, tier_key: str) -> dict:
     }
 
 
+def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> None:
+    """Shrinks previously-resolved write_file arguments and large
+    read_file/list_files results in messages[:before_index] down to short
+    summaries, in place. Once a write_file call has succeeded the file is
+    on disk -- the model doesn't need its exact bytes echoed back into
+    context on every later iteration, only proof that it was written (it
+    can call read_file again if it genuinely needs the current content).
+
+    Messages are mutated in place and never removed or reordered, so every
+    assistant message's tool_calls keep their matching role:"tool" results
+    immediately after them -- required by the OpenAI-style tool-calling
+    wire format this loop speaks to OpenRouter.
+    """
+    for message in messages[:before_index]:
+        if message.get("role") == "assistant":
+            for tool_call in message.get("tool_calls") or []:
+                fn = tool_call.get("function") or {}
+                if fn.get("name") != "write_file":
+                    continue
+                try:
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(args, dict) or args.get("_compacted") or "note" in args:
+                    # "_compacted" -- already shrunk; "note" -- this was a
+                    # discarded malformed/truncated call (see the discard
+                    # markers below), not a real write -- leave it as-is so
+                    # the "discarded, not executed" signal isn't overwritten
+                    # with a misleading "<written, 0 chars>" marker.
+                    continue
+                path = args.get("path", "?")
+                size = len(args.get("content") or "")
+                fn["arguments"] = json.dumps(
+                    {"path": path, "content": f"<written, {size} chars>", "_compacted": True}
+                )
+        elif message.get("role") == "tool":
+            content = message.get("content") or ""
+            # write_file's own confirmation ("Wrote N characters to X") and
+            # short results are already small -- only shrink large
+            # read_file/list_files payloads.
+            if len(content) > 300 and not content.startswith("(compacted"):
+                message["content"] = (
+                    f"(compacted -- {len(content)} chars previously returned here; "
+                    "call the tool again if you need the current content)"
+                )
+
+
 def _run_agent_loop(
     settings, system_prompt: str, user_message: str, dispatch: dict, trace_path: Path | None = None
 ):
-    messages = [
+    caching_enabled = settings.generation_prompt_caching_enabled
+    user_content: str | list[dict] = user_message
+    if caching_enabled:
+        # design.md + image list are 100% static for the whole run, and this
+        # is the last block of the static prefix (tools -> system -> this
+        # message) -- caching it here covers the entire fixed portion of
+        # every iteration's request in one breakpoint.
+        user_content = [
+            {
+                "type": "text",
+                "text": user_message,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+
+    messages: list[dict] = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
+        {"role": "user", "content": user_content},
     ]
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
     trace: list[dict] = []
+
+    session_id = None
+    if caching_enabled and trace_path is not None:
+        # Stable per generation run (one project + tier) so OpenRouter's
+        # sticky routing keeps every iteration on the same upstream
+        # provider that holds the warm cache -- without this, cache hits
+        # across the loop aren't guaranteed even with correct markers.
+        session_id = hashlib.sha256(str(trace_path).encode("utf-8")).hexdigest()
+
+    consecutive_failures = 0
+    last_failure_signature: str | None = None
 
     def _flush_trace():
         if trace_path is not None:
             trace_path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
 
     for iteration in range(1, settings.generation_max_iterations + 1):
+        current_iter_start = len(messages)
+        if caching_enabled:
+            # Compact every prior iteration's resolved tool turns, but
+            # leave the iteration we're about to append fully intact.
+            _compact_resolved_tool_turns(messages, current_iter_start)
+
         payload = {
             "model": settings.generation_model,
             "messages": messages,
@@ -99,6 +179,9 @@ def _run_agent_loop(
             "tool_choice": "auto",
             "max_tokens": settings.generation_max_tokens,
         }
+        if session_id:
+            payload["session_id"] = session_id
+
         data = chat_completion(payload, timeout=180.0)
 
         usage = data.get("usage") or {}
@@ -118,6 +201,7 @@ def _run_agent_loop(
             "iteration": iteration,
             "finish_reason": choice.get("finish_reason"),
             "assistant_content": message.get("content"),
+            "cache_usage": usage.get("prompt_tokens_details"),
             "tool_calls": [],
         }
 
@@ -126,8 +210,11 @@ def _run_agent_loop(
             _flush_trace()
             return message.get("content") or "", total_usage, iteration
 
+        iteration_had_success = False
+        iteration_failure_signature: str | None = None
+
         for tool_call in tool_calls:
-            fn = tool_call.get("function", {})
+            fn = tool_call.get("function") or {}
             name = fn.get("name")
             raw_args = fn.get("arguments") or "{}"
 
@@ -138,6 +225,14 @@ def _run_agent_loop(
                     "shorter file contents, or split this file's content across a "
                     "smaller first write_file call plus follow-up edits, then retry."
                 )
+                # Discard the truncated payload immediately (it can be a
+                # multi-KB cut-off write_file) instead of letting it linger
+                # in context and get resent on every later iteration.
+                fn["arguments"] = json.dumps(
+                    {"note": "discarded -- response truncated before this call finished"}
+                )
+                if iteration_failure_signature is None:
+                    iteration_failure_signature = f"length:{name}"
             else:
                 try:
                     args = json.loads(raw_args)
@@ -147,18 +242,30 @@ def _run_agent_loop(
                         f"{raw_args[:200]!r}) -- retry with well-formed, complete arguments."
                     )
                     args = None
+                    fn["arguments"] = json.dumps(
+                        {"note": "discarded -- malformed JSON, not executed"}
+                    )
+                    if iteration_failure_signature is None:
+                        iteration_failure_signature = f"malformed_json:{name}"
 
                 if args is not None:
                     handler = dispatch.get(name)
                     if handler is None:
                         result = f"Unknown tool: {name}"
+                        if iteration_failure_signature is None:
+                            iteration_failure_signature = f"unknown_tool:{name}"
                     else:
                         try:
                             result = handler(**args)
+                            iteration_had_success = True
                         except GenerationError as exc:
                             result = f"Error: {exc}"
+                            if iteration_failure_signature is None:
+                                iteration_failure_signature = f"error:{name}"
                         except TypeError as exc:
                             result = f"Error: invalid arguments for {name}: {exc}"
+                            if iteration_failure_signature is None:
+                                iteration_failure_signature = f"bad_args:{name}"
 
             trace_entry["tool_calls"].append(
                 {"name": name, "arguments": raw_args, "result": str(result)[:500]}
@@ -174,6 +281,24 @@ def _run_agent_loop(
 
         trace.append(trace_entry)
         _flush_trace()
+
+        if iteration_had_success:
+            consecutive_failures = 0
+            last_failure_signature = None
+        else:
+            signature = iteration_failure_signature or "unknown"
+            if signature == last_failure_signature:
+                consecutive_failures += 1
+            else:
+                consecutive_failures = 1
+                last_failure_signature = signature
+
+            if consecutive_failures >= settings.generation_max_consecutive_failures:
+                raise GenerationError(
+                    f"Aborting after {consecutive_failures} consecutive identical "
+                    f"failures ({signature}) -- the agent appears stuck and unlikely "
+                    "to recover within the remaining iteration budget."
+                )
 
     raise GenerationError(
         f"Agent did not finish within {settings.generation_max_iterations} iterations"

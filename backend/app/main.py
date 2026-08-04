@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from .config import get_settings
 from .rate_limit import limiter
-from .routers import auth, blueprint, crawl, generation, projects
+from .routers import auth, blueprint, crawl, credits, downloads, generation, projects
 
 app = FastAPI(title="ReDoWebs API", version="0.1.0")
 
@@ -23,10 +23,12 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(credits.router)
 app.include_router(crawl.router)
 app.include_router(blueprint.router)
 app.include_router(generation.router)
 app.include_router(projects.router)
+app.include_router(downloads.router)
 
 _settings = get_settings()
 _projects_dir = f"{_settings.storage_root}/projects"

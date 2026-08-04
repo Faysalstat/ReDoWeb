@@ -1,4 +1,3 @@
-import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -18,7 +17,7 @@ def create_access_token(user_id: uuid.UUID) -> str:
     payload = {
         "sub": str(user_id),
         "iat": now,
-        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
+        "exp": now + timedelta(days=settings.jwt_expire_days),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
@@ -35,17 +34,9 @@ def decode_access_token(token: str) -> uuid.UUID:
         raise InvalidTokenError(str(exc)) from exc
 
 
-def new_refresh_token() -> tuple[str, str, datetime]:
-    """Returns (raw_token, token_hash, expires_at). Only the hash is ever
-    persisted -- the raw value is handed to the client once (in the httpOnly
-    cookie) and can't be recovered from the DB, so a leaked DB doesn't expose
-    usable refresh tokens."""
-    settings = get_settings()
-    raw_token = secrets.token_urlsafe(48)
-    token_hash = hash_refresh_token(raw_token)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    return raw_token, token_hash, expires_at
-
-
-def hash_refresh_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+def new_oauth_state() -> str:
+    """A short-lived CSRF nonce for the Google authorization-code redirect
+    dance -- set in a cookie before redirecting to Google, compared against
+    the value Google echoes back on the callback. Not a credential, so no
+    hashing is needed (unlike the raw refresh tokens this replaced)."""
+    return secrets.token_urlsafe(32)

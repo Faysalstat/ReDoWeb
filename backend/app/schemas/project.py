@@ -13,6 +13,7 @@ class ProjectListItem(BaseModel):
     source_url: str
     status: str
     created_at: datetime
+    tier: str | None = None
 
 
 class ProjectBlueprintSummary(BaseModel):

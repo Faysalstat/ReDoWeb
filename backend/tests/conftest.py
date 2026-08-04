@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.base import Base
-from app.models import AuthIdentity, RefreshToken, User
+from app.models import AuthIdentity, CreditTransaction, CreditWallet, User
 
 
 @pytest.fixture(autouse=True)
@@ -15,8 +15,8 @@ def _test_settings(monkeypatch):
     instance."""
     monkeypatch.setenv("REDOWEBS_JWT_SECRET_KEY", "test-secret-key")
     monkeypatch.setenv("REDOWEBS_GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
-    monkeypatch.setenv("REDOWEBS_ACCESS_TOKEN_EXPIRE_MINUTES", "15")
-    monkeypatch.setenv("REDOWEBS_REFRESH_TOKEN_EXPIRE_DAYS", "30")
+    monkeypatch.setenv("REDOWEBS_GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("REDOWEBS_JWT_EXPIRE_DAYS", "7")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -28,7 +28,15 @@ def db_session():
     created -- Project/SubmissionLog use Postgres-only column types (INET)
     that SQLite can't compile, and auth logic doesn't need them."""
     engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine, tables=[User.__table__, AuthIdentity.__table__, RefreshToken.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            User.__table__,
+            AuthIdentity.__table__,
+            CreditWallet.__table__,
+            CreditTransaction.__table__,
+        ],
+    )
     session = Session(bind=engine)
     try:
         yield session

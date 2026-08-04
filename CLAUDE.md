@@ -7,6 +7,7 @@ AI-powered website modernization platform. A user submits a URL to a small stati
 - **[docs/PRD.md](docs/PRD.md)** — product requirements: problem, users, scope (in/out), core journey, functional & non-functional requirements, success metrics, assumptions, risks. Read this first for *what* and *why*.
 - **[docs/implementation-plan.md](docs/implementation-plan.md)** — technical plan: tech stack, repo structure, DB schema, API surface, Celery task design, crawler/AI pipeline, admin panel, auth, frontend routes, testing bar, build-order milestones. Read this for *how*.
 - **[docs/PROGRESS.md](docs/PROGRESS.md)** — current build status against the milestones in the implementation plan. Check this before assuming anything is or isn't built yet, and update it as milestones complete.
+- **[docs/INSTALLATION.md](docs/INSTALLATION.md)** — how to actually get `standalone/` (Postgres + Redis), the backend (FastAPI + Celery), and the frontend running locally, with exact commands. Read this before trying to run anything.
 - **[rule.md](rule.md)** — mandates the top-level repo layout: `frontend/`, `backend/`, `docs/`, `standalone/` (Docker Compose files).
 
 ## Settled decisions — do not re-litigate without the user's explicit sign-off

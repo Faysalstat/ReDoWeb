@@ -4,13 +4,7 @@ from datetime import datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 
-from app.auth.jwt import (
-    InvalidTokenError,
-    create_access_token,
-    decode_access_token,
-    hash_refresh_token,
-    new_refresh_token,
-)
+from app.auth.jwt import InvalidTokenError, create_access_token, decode_access_token, new_oauth_state
 from app.config import get_settings
 
 
@@ -63,20 +57,5 @@ def test_decode_rejects_missing_subject_claim():
         decode_access_token(token)
 
 
-def test_new_refresh_token_hash_matches_and_expiry_in_range():
-    settings = get_settings()
-    before = datetime.now(timezone.utc)
-    raw_token, token_hash, expires_at = new_refresh_token()
-
-    assert hash_refresh_token(raw_token) == token_hash
-    assert token_hash != raw_token
-
-    expected_expiry = before + timedelta(days=settings.refresh_token_expire_days)
-    assert abs((expires_at - expected_expiry).total_seconds()) < 5
-
-
-def test_new_refresh_token_is_unique_each_call():
-    raw_a, hash_a, _ = new_refresh_token()
-    raw_b, hash_b, _ = new_refresh_token()
-    assert raw_a != raw_b
-    assert hash_a != hash_b
+def test_new_oauth_state_is_unique_each_call():
+    assert new_oauth_state() != new_oauth_state()

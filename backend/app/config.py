@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     generation_model: str = "anthropic/claude-sonnet-4.5"
     generation_max_tokens: int = 16000
     generation_max_iterations: int = 24
+    generation_max_consecutive_failures: int = 3
+    generation_prompt_caching_enabled: bool = True
+
+    vision_max_image_dimension: int = 1024
+    vision_max_tokens: int = 1024
 
     database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:15432/redowebs"
 
@@ -25,10 +30,12 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6380/0"
 
     google_client_id: str = ""
+    google_client_secret: str = ""
+    google_oauth_redirect_uri: str = "http://localhost:8123/api/v1/auth/google/callback"
+    frontend_url: str = "http://localhost:4200"
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 30
+    jwt_expire_days: int = 7
 
     rate_limit_auth: str = "10/minute"
     rate_limit_submit: str = "5/minute"
