@@ -1,7 +1,7 @@
 <div class="relative min-h-screen text-ink">
   <app-header />
 
-  <section class="mx-auto max-w-[900px] px-6 py-16">
+  <section class="mx-auto max-w-[1120px] px-6 py-16">
     <a routerLink="/app" class="text-sm text-ink-muted transition-colors duration-200 hover:text-ink">
       ← Back to Dashboard
     </a>
@@ -12,7 +12,7 @@
 
     <!-- In-progress -->
     @if (isBusy) {
-      <app-card class="mt-8">
+      <app-card class="mx-auto mt-8 max-w-2xl">
         <div class="flex flex-col items-center text-center">
           <ol class="flex w-full items-start">
             <li
@@ -55,7 +55,7 @@
 
     <!-- Failed / rejected -->
     @if (stage() === 'error') {
-      <app-card variant="danger" class="mt-8">
+      <app-card variant="danger" class="mx-auto mt-8 max-w-2xl">
         <div class="flex flex-col items-center text-center">
           <div
             class="flex h-14 w-14 items-center justify-center rounded-full border border-error/30 bg-error/10 text-error"
@@ -74,16 +74,26 @@
       @if (status(); as s) {
         @if (s.generation; as gen) {
           <div class="mt-8">
-            <div class="mb-6 flex items-center gap-2.5">
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-success/15 text-success"
-              >
-                <app-icon-check [size]="16" />
+            <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
+                >
+                  <app-icon-check [size]="18" />
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">
+                    {{ s.blueprint?.site_name || 'Your modernized site' }} is ready ✨
+                  </h2>
+                  <p class="mt-0.5 text-sm text-ink-muted">
+                    Modern, responsive, and built to impress — take a look, then make it yours.
+                  </p>
+                </div>
               </div>
-              <h2 class="text-xl font-bold tracking-tight text-ink">Your modernized site is ready</h2>
+              <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
             </div>
 
-            <div class="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
               <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
                 <button
                   appButton
@@ -109,12 +119,37 @@
               </app-browser-frame>
 
               <!-- Sidebar -->
-              <aside class="space-y-4">
-                <app-card>
-                  <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
-                  <p class="mt-3 text-sm text-ink-muted">
-                    Template: <span class="font-medium text-ink">{{ gen.template_used }}</span>
+              <aside class="space-y-4 self-start">
+                <!-- Primary conversion CTA -->
+                <app-card variant="gradient" [spotlight]="true">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-accent-bright">Like what you see?</p>
+                  <h3 class="mt-1.5 text-lg font-bold leading-snug text-ink">Unlock the full download</h3>
+                  <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+                    Get the complete HTML/CSS source, ready to host anywhere — one payment, yours to keep.
                   </p>
+                  <button
+                    appButton
+                    shape="pill"
+                    variant="primary"
+                    disabled
+                    title="Coming soon"
+                    class="mt-5 w-full !py-3 text-base"
+                  >
+                    Download ZIP
+                  </button>
+                  <p class="mt-2.5 text-center text-xs font-medium text-accent-bright">Coming soon</p>
+                  <div class="my-4 border-t border-white/10"></div>
+                  <button appButton shape="pill" variant="ghost" disabled title="Coming soon" class="w-full">
+                    Try a different tier
+                  </button>
+                  <p class="mt-3 text-center text-xs text-ink-muted">
+                    Previews are always free — payment only unlocks the download.
+                  </p>
+                </app-card>
+
+                <app-card>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Template</p>
+                  <p class="mt-1 text-sm font-medium text-ink">{{ gen.template_used }}</p>
                 </app-card>
 
                 @if (gen.contrast_warnings.length > 0) {
@@ -130,18 +165,6 @@
                     </ul>
                   </app-card>
                 }
-
-                <app-card>
-                  <button appButton shape="pill" variant="secondary" disabled title="Coming soon" class="w-full">
-                    Download ZIP
-                  </button>
-                  <button appButton shape="pill" variant="ghost" disabled title="Coming soon" class="mt-2.5 w-full">
-                    Redesign
-                  </button>
-                  <p class="mt-3 text-center text-xs text-ink-muted">
-                    Previews are always free. Payment unlocks the download.
-                  </p>
-                </app-card>
               </aside>
             </div>
           </div>

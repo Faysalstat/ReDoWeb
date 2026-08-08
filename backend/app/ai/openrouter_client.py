@@ -1,5 +1,6 @@
 import base64
 import io
+import itertools
 import json
 import mimetypes
 from pathlib import Path
@@ -9,6 +10,40 @@ from PIL import Image
 
 from ..config import get_settings
 from .errors import OpenRouterError
+
+_call_counter = itertools.count(1)
+
+
+def _content_preview(content, limit: int = 300) -> str:
+    """Flattens a message's `content` (plain string, or the list-of-blocks
+    shape used for cache_control text blocks / vision image_url blocks)
+    down to a short single-line preview for console logging.
+    """
+    if isinstance(content, list):
+        text = " ".join(
+            block.get("text", "") for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+        image_count = sum(1 for block in content if isinstance(block, dict) and block.get("type") == "image_url")
+        if image_count:
+            text += f" [+{image_count} image(s)]"
+    else:
+        text = content or ""
+    text = " ".join(text.split())
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+
+def _message_preview(message: dict, limit: int = 300) -> str:
+    role = message.get("role", "?")
+    parts = []
+    content_preview = _content_preview(message.get("content"), limit)
+    if content_preview:
+        parts.append(content_preview)
+    tool_calls = message.get("tool_calls") or []
+    if tool_calls:
+        names = [tc.get("function", {}).get("name") for tc in tool_calls]
+        parts.append(f"[tool_calls: {', '.join(names)}]")
+    return f"({role}) " + (" | ".join(parts) if parts else "(empty)")
 
 
 def _image_to_data_url(path: Path, max_dimension: int | None = None) -> str:
@@ -70,6 +105,14 @@ def vision_json_chat(
         "max_tokens": settings.vision_max_tokens,
     }
 
+    call_num = next(_call_counter)
+    print(
+        f"\n[AI CALL #{call_num}] vision_json_chat -> model={settings.vision_model} "
+        f"| images={len(image_paths)}"
+    )
+    print(f"    system: {_content_preview(system_prompt, 200)}")
+    print(f"    user:   {_content_preview(user_text, 300)}")
+
     try:
         response = httpx.post(
             f"{settings.openrouter_base_url}/chat/completions",
@@ -110,6 +153,20 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
         raise OpenRouterError(
             "REDOWEBS_OPENROUTER_API_KEY is not configured (set it in backend/.env)"
         )
+
+    messages = payload.get("messages") or []
+    system_message = next((m for m in messages if m.get("role") == "system"), None)
+    latest_message = messages[-1] if messages else None
+
+    call_num = next(_call_counter)
+    print(
+        f"\n[AI CALL #{call_num}] chat_completion -> model={payload.get('model')} "
+        f"| messages_in_context={len(messages)} | tools={len(payload.get('tools') or [])}"
+    )
+    if system_message is not None:
+        print(f"    system: {_content_preview(system_message.get('content'), 200)}")
+    if latest_message is not None:
+        print(f"    latest: {_message_preview(latest_message, 300)}")
 
     try:
         response = httpx.post(

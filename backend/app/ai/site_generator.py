@@ -167,10 +167,12 @@ def _run_agent_loop(
 
     for iteration in range(1, settings.generation_max_iterations + 1):
         current_iter_start = len(messages)
-        if caching_enabled:
-            # Compact every prior iteration's resolved tool turns, but
-            # leave the iteration we're about to append fully intact.
-            _compact_resolved_tool_turns(messages, current_iter_start)
+        # Compact every prior iteration's resolved tool turns, but leave the
+        # iteration we're about to append fully intact. This is pure local
+        # context hygiene -- independent of whether OpenRouter's upstream
+        # cache_control is honored, so it always runs even when
+        # caching_enabled is off.
+        _compact_resolved_tool_turns(messages, current_iter_start)
 
         payload = {
             "model": settings.generation_model,

@@ -13,12 +13,12 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_app_url: str = "https://redowebs.local"
     openrouter_app_name: str = "ReDoWebs"
-    vision_model: str = "openai/gpt-4o-mini"
+    vision_model: str = "anthropic/claude-opus-5"
 
-    generation_model: str = "anthropic/claude-sonnet-4.5"
+    generation_model: str = "anthropic/claude-opus-5"
     generation_max_tokens: int = 16000
     generation_max_iterations: int = 24
-    generation_max_consecutive_failures: int = 3
+    generation_max_consecutive_failures: int = 5
     generation_prompt_caching_enabled: bool = True
 
     vision_max_image_dimension: int = 1024

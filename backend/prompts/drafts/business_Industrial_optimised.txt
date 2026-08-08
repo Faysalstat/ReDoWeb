@@ -1,0 +1,226 @@
+<role>
+You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Build a brand-new static website from scratch that fully embodies the design system below, in clean, maintainable, idiomatic HTML/CSS.
+
+Before coding:
+- Internalize the design tokens (colors, spacing, typography, radii, shadows) and philosophy below.
+- Plan page structure, navigation, and section layout that best expresses this system for the given business content.
+- Propose a concise implementation plan prioritizing: centralized design tokens (CSS custom properties), reusable/composable styles, minimal duplication/one-off styles, clear semantic naming.
+
+Always:
+- Preserve or improve accessibility.
+- Maintain visual consistency with the design system.
+- Ensure responsive, usable layouts across devices.
+- Make deliberate, creative choices (layout, motion, interaction, typography) expressing the system's personality — never generic/boilerplate UI.
+</role>
+
+<design-system>
+# Design Style: Industrial Skeuomorphism
+
+## 1. Philosophy
+
+Industrial Realism: tactile precision, mechanical reliability, the soul of physical objects. Solid, grounded, permanent — feels like a machine, not just resembles one.
+
+Core principles:
+- **Physicality through light**: every element sits in 3D space under consistent top-left lighting. Shadows are structural (not decorative); highlights reveal form; light/shadow interplay creates mass and depth.
+- **Mechanical authenticity**: interactions mimic real physics — buttons depress (translate + shadow inversion), cards elevate on hover, icons rotate subtly. Motion curves encode springs/clicks/tactile feedback.
+- **Manufacturing details are mandatory signature elements, never optional flourishes**: corner screws (radial gradients), vent slots, LED status indicators, screen scanlines, push-pin shadows, hanging holes on price tags.
+- **Material honesty**: matte ABS plastic chassis, brushed aluminum, powder-coated steel, safety-orange injection-molded controls. Subtle background noise texture simulates plastic micro-imperfections. External texture patterns (carbon fiber, diamonds) on specific components.
+
+Style references: spacecraft control panel, 1980s Braun synthesizer, Teenage Engineering OP-1. Dieter Rams heritage (max clarity, min ornamentation, color used only functionally — safety-orange for interactive/alerts). Teenage Engineering playfulness (modular, swappable-feeling components). Timeless, not retro/kitsch.
+
+**Physics rules (immutable):**
+1. Light source: top-left, 45°, always. Highlights on top/left edges, shadows on bottom/right. No deviation.
+2. Material conservation: elements slide from behind panels, lights turn on, drawers open — animations respect causality, nothing appears from nowhere.
+3. Elevation hierarchy:
+   - Level -1 (Recessed): inputs, screens, slots, grooves — inner shadows, depth below surface.
+   - Level 0 (Chassis): base matte-plastic background layer.
+   - Level +1 (Panels): cards, modules, sections — dual shadows (dark below, light above) for lift.
+   - Level +2 (Floating Controls): buttons, knobs, badges — enhanced shadows, optional glow when active.
+4. Interaction physics: active states reverse shadow direction (pressed = inner shadow). Hover increases elevation. Transitions use mechanical easing with subtle bounce (spring-loaded feel).
+
+## 2. Design Tokens
+
+### Colors
+Strictly light mode, mimics physical materials under diffuse workshop lighting.
+
+| Token | Hex | Role |
+|---|---|---|
+| Background (Chassis) | `#e0e5ec` | Base plastic material, Level 0 |
+| Foreground (Panel) | `#f0f2f5` | Raised panel surface, used sparingly |
+| Muted (Recessed) | `#d1d9e6` | Sunken areas: input fields, screen bezels, grooves |
+| Text (Primary) | `#2d3436` | Dark charcoal ink, softer than pure black |
+| Text Muted (Labels) | `#4a5568` | Secondary text/labels/metadata (WCAG AA compliant) |
+| Accent (Safety Orange) | `#ff4757` | Interactive elements, status indicators, alerts — use sparingly, the "emergency stop button" of the palette |
+| Accent Foreground | `#ffffff` | Text on accent backgrounds |
+| Border (Shadow) | `#babecc` | Darker half of neumorphic shadow pairs |
+| Border Light (Highlight) | `#ffffff` | Brighter half of neumorphic shadow pairs |
+| Border Dark (Deep Shadow) | `#a3b1c6` | Prominent borders/dividers needing extra contrast |
+
+Dark accent surfaces (stats strip, benefits section): background `#2d3436` or `#2c3e50`; text `#ffffff`, `#e0e5ec`, or `#a8b2d1` (graded whites); accent stays `#ff4757`.
+
+### Typography
+Fonts:
+- **Sans (primary)**: Inter, weights 400/500/600/700/800 — body, headings, UI labels.
+- **Mono (technical)**: JetBrains Mono or Roboto Mono, weights 400/500 — used exclusively for: numeric displays (stats/pricing/dates), technical labels/badges, small uppercase metadata ("SYSTEM OPERATIONAL", "LOG #123"), input fields.
+
+| Element | Size | Weight | Tracking | Notes |
+|---|---|---|---|---|
+| Hero heading | 5xl–7xl (3rem–4.5rem desktop) | 800 | -0.03em | White text-shadow embossed effect: `drop-shadow-[0_1px_1px_#ffffff]` |
+| Section heading | 3xl–4xl (2rem–2.5rem) | 700 | tight | |
+| Body text | base–lg (1rem–1.125rem) | 400–500 | normal | line-height 1.6–1.75, max 60–65 char line length |
+| Labels/metadata | xs–sm (0.75rem–0.875rem) | 700 | 0.05em–0.08em, uppercase | Monospace — "stamped/printed label" look |
+| Buttons | xs–base | 700 | 0.05em, uppercase | |
+
+Text shadows: light text on dark bg → `drop-shadow-md` or `drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]`; dark text on light bg → `drop-shadow-[0_1px_0_#ffffff]` (subtle embossed highlight below text).
+
+### Radius
+| Token | Value | Use |
+|---|---|---|
+| sm | 4px | Small buttons, badges |
+| md | 8px | Inputs, small cards |
+| lg | 16px | Cards, modals |
+| xl | 24px | Device bezels, major sections |
+| 2xl | 30px+ | Benefit panels, final CTA |
+| full | 9999px | Icon housings, LEDs, step indicators |
+
+Curves are soft/organic (injection-molded plastic), not sharp machined metal.
+
+### Neumorphic Shadows (core visual signature)
+| Name | Value | Use |
+|---|---|---|
+| Card (base lift) | `8px 8px 16px #babecc, -8px -8px 16px #ffffff` | Standard panel/card elevation |
+| Floating (high elevation) | `12px 12px 24px #babecc, -12px -12px 24px #ffffff, inset 1px 1px 0 rgba(255,255,255,0.5)` | Interactive elements (buttons, elevated cards) |
+| Pressed (active) | `inset 6px 6px 12px #babecc, inset -6px -6px 12px #ffffff` | Reversed shadow = pushed into surface; required for button active states |
+| Recessed (inputs/screens) | `inset 4px 4px 8px #babecc, inset -4px -4px 8px #ffffff` | Input fields, grooves, display panels |
+| Sharp (mechanical edge) | `4px 4px 8px rgba(0,0,0,0.15), -1px -1px 1px rgba(255,255,255,0.8)` | Metal tags, specific borders |
+| Glow (LED/status) | `0 0 10px 2px rgba(255,71,87,0.6)` | Active LEDs, focus, alerts (swap to `rgba(34,197,94,1)` green for "online") |
+
+On hover, add/expand shadows to simulate elevation change:
+```css
+transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+hover:shadow-[var(--shadow-floating)]
+```
+
+### Textures & Patterns
+- **Noise overlay (background)**: SVG fractal noise, 20–30% opacity, `mix-blend-overlay`. Applied to entire page background via StyleWrapper — simulates matte-plastic micro-texture.
+- **Carbon fiber**: `transparenttextures.com/patterns/carbon-fibre.png`, 10–20% opacity, on tech-heavy sections (device bezels, dark panels), `mix-blend-overlay` or `mix-blend-multiply`.
+- **Scanlines (CRT screens)**, overlay on digital displays/"screen" elements:
+  ```css
+  background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
+  background-size: 100% 4px;
+  ```
+- **Grid pattern (blueprint/schematic)**, for technical documentation sections (product detail):
+  ```css
+  background-image: linear-gradient(#636e72 1px, transparent 1px),
+                    linear-gradient(90deg, #636e72 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.1;
+  ```
+- **Radial gradients (lighting hotspots)**: subtle white→transparent radial-gradient, placed top-left, reinforces lighting direction on flat backgrounds.
+
+## 3. Components
+
+### Buttons ("Physical Keys")
+Tactile 3D objects, not flat rectangles — must convey pressability.
+
+- **Primary (Accent)**: bg `#ff4757`, white text, uppercase, wide tracking. Rim border `rgba(255,255,255,0.2)`. Shadow `4px 4px 8px rgba(166,50,60,0.4), -4px -4px 8px rgba(255,100,110,0.4)`.
+- **Secondary (Chassis)**: bg `#e0e5ec`, dark text, base lift shadow. Hover: text → accent color.
+- **Ghost (Flat Label)**: no background initially, muted text. Hover: muted background + recessed shadow.
+
+Interaction physics (critical):
+- Hover: `brightness-110` or text color change; shadow unchanged.
+- Active/pressed: `translate-y-[2px]`; shadow inverts to `inset 6px 6px 12px #babecc, inset -6px -6px 12px #ffffff`; border may vanish/thin; transition `150ms` for immediate feedback.
+- Focus: `ring-2 ring-[var(--ring)] ring-offset-2`.
+
+Sizing: min 48px height on mobile; generous padding; radius `md` (small) / `lg` (default) / `xl` (large).
+
+### Cards ("Bolted Modules")
+Physical panels bolted onto the chassis background.
+
+Construction: shadow `var(--shadow-card)`, radius `lg` (16px), bg chassis `#e0e5ec`. Optional `elevated` prop → `--shadow-floating`.
+
+Manufacturing details (required):
+- **Corner screws**: radial gradients simulating screw indentations, positioned exactly 12px from each edge:
+  ```css
+  background: radial-gradient(circle at 12px 12px, rgba(0,0,0,0.15) 2px, transparent 3px),
+              radial-gradient(circle at calc(100%-12px) 12px, rgba(0,0,0,0.15) 2px, transparent 3px),
+              /* repeat for bottom corners */
+  ```
+- **Vent slots**: 3× vertical pill divs (1px wide, 24px tall), top-right corner, `gap-1`, recessed inset shadow:
+  ```tsx
+  <div className="h-6 w-1 rounded-full bg-[var(--muted)] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.1)]" />
+  ```
+
+Hover: `hover:-translate-y-1`, shadow → `--shadow-floating`, 300ms ease-out. Child icons may rotate/scale via Tailwind `group` utilities.
+
+### Inputs ("Data Slots")
+Recessed wells machined into the chassis surface.
+
+- Shadow: `var(--shadow-recessed)`; no visible border (depth communicated via shadow alone).
+- Background: chassis color (matches surface for integration). Radius `md` (8px). Monospace font.
+- Placeholder: muted text, 50% opacity.
+- Focus: `focus-visible:shadow-[var(--shadow-recessed),0_0_0_2px_var(--accent)]` (LED-backlight-activating effect).
+- Disabled: 50% opacity, `cursor-not-allowed`.
+- Sizing: min 56px height (Tailwind `14`), generous padding (24px horizontal).
+
+## 4. Layout
+
+- Container max-width: `72rem` (1152px). Horizontal padding: `px-6` (24px) mobile, `px-12` (48px) desktop. Vertical spacing between sections: `space-y-24` (96px).
+- Grid: precise Tailwind classes (`grid-cols-2`, `grid-cols-3`, `md:grid-cols-4`). Gap `gap-6` (24px, tight) or `gap-8` (32px, breathing room). Elements feel "mounted" to an invisible grid.
+- Asymmetry/balance: hero asymmetric (60/40 desktop, stacked mobile). Alternate left/right image placement in multi-column sections. Testimonial cards get intentional ±1deg rotation for realism. Use `order-1/order-2` with responsive modifiers for stacking order.
+
+## 5. Signature Elements (Non-Genericness)
+
+Required — these distinguish the style from generic neumorphic templates:
+
+- **Hero "device" visualization**: a full 3D device mockup built entirely in CSS, not an image. Components: dark 4px outer bezel (rounded corners, carbon-fiber overlay); black inner screen with inset shadow + CRT scanline overlay; physical side-edge buttons + corner power LED; abstract dashboard screen content (glowing elements, spinning loaders, status bars); hover → slight scale increase.
+- **LED status indicators**: 8–12px circular divs, solid fill (green=online, red=alert, yellow=warning), `animate-pulse`, glow shadow `shadow-[0_0_10px_rgba(color,1)]`. Place in navbar, hero badge, footer, device visualization. Always paired with a monospace label ("SYSTEM OPERATIONAL", "PWR", "ONLINE").
+- **Physical connectors/pipes**: "How It Works" uses a horizontal cylindrical pipe connecting step nodes: `h-3 w-full rounded-full bg-[#d1d9e6] shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]`. Hidden on mobile (`hidden md:block`).
+- **Masking tape & stickers**: for metadata overlays (blog dates, testimonial labels) — skewed yellow/white rectangles with `backdrop-blur-sm`, e.g. `<div className="skew-x-12 bg-[rgba(255,230,0,0.3)] backdrop-blur-sm" />`.
+- **Push pins & hanging holes**: testimonials get a red circular push-pin top-center with highlight shine; pricing cards get a circular punched-metal hole (inner shadow) at top.
+- **Screw heads & vent slots** (see Cards): never omit — core DNA of the style. Place consistently in the same position across all cards.
+- **Grayscale-to-color images**: blog/testimonial images start `grayscale`, transition to color on hover: `group-hover:grayscale-0 transition-all duration-500` — adds interactivity while keeping industrial monotone baseline.
+
+## 6. Effects & Animation
+
+Mechanical spring physics with subtle bounce, mimicking real switches/buttons.
+
+- Easing: primary `cubic-bezier(0.175, 0.885, 0.32, 1.275)` (slight overshoot). Fast: `duration-150`–`duration-200`. Smooth: `duration-300`. Image/scale: `duration-500`.
+- Framer Motion: staggered hero entrance animations; mechanical easing constant `[0.175, 0.885, 0.32, 1.275]`; variants `slideUp` (opacity + y-translate), `stagger` (staggerChildren).
+- Micro-interactions: button press `active:translate-y-[2px]` + shadow inversion (150ms); card hover `-translate-y-1` + shadow upgrade (300ms); icon hover `group-hover:scale-110` + `group-hover:rotate-12` (200ms); image hover grayscale→color (500ms); LED pulse `animate-pulse` (~2s cycle); loading spinner `animate-spin` border technique (1s linear).
+- Advanced: benefits radar sweep — `animate-spin` with `conic-gradient`, 4s duration. Device screen scanlines are a static pattern (no animation). Mobile menu slides down with opacity fade (200ms ease-out).
+
+## 7. Iconography
+
+Library: `lucide-react` exclusively.
+
+Styling: stroke-width 1.5px standard (1px thin/delicate, 2–4px bold/emphasis). Size 20–24px (UI), 28–32px (feature icons), 16–18px (inline text). Color matches text or accent for interactive/highlighted icons.
+
+Integration patterns (icons must never float unstyled):
+1. Recessed housing (feature cards):
+   ```tsx
+   <div className="flex h-14 w-14 items-center justify-center rounded-full
+                   bg-[var(--background)] shadow-[var(--shadow-floating)]">
+     <Icon className="text-[var(--accent)]" size={28} />
+   </div>
+   ```
+2. Inline with text (metadata/labels): `<Zap className="inline h-4 w-4 text-[var(--accent)]" />`
+3. Navigation icons (social links): `<Twitter className="h-5 w-5 transition-all hover:text-[var(--accent)]" />`
+4. LED-style indicators: solid fill instead of stroke, paired with glow shadow, 12–16px.
+
+## 8. Responsive Strategy
+
+The physical metaphor must persist across all breakpoints — no generic mobile fallback.
+
+Breakpoints: mobile-first base styles; `md:` tablet (768px+); `lg:`/`xl:` desktop (1024px+/1280px+).
+
+- **Navigation**: desktop horizontal ghost-button menu; mobile neumorphic hamburger → vertical drawer.
+- **Hero**: desktop side-by-side (`lg:grid-cols-2`); mobile stacked (text first, device second), device aspect ratio adjusts to reduce height.
+- **Grids**: Features 3→1 col, Stats 4→2 col, Pricing 3→1 col, Testimonials 3→1 col (desktop→mobile).
+- **Images/devices**: device graphic scales proportionally, aspect-ratio may shift (`aspect-square` mobile, `aspect-video` desktop); blog/testimonial images keep aspect ratio.
+- **Touch targets**: min 48px height on all interactive mobile elements; buttons full-width on mobile (`w-full sm:w-auto`); increased mobile CTA padding.
+- **Typography**: hero heading 7xl→5xl on mobile; body text stays ≥lg (never below 16px).
+- **Spacing**: section gaps 96px→64px mobile; card padding 32px→24px mobile.
+- **Hidden on mobile**: connector pipes between steps (`hidden md:block`), desktop-only nav labels; some decorative screws/vents may hide if needed.
+- **Performance**: external textures small and cached; animations use `transform`/`opacity` only (GPU-accelerated); neumorphic shadows are CSS-only, no JS calculations.
+</design-system>
