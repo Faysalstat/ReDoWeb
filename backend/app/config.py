@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     storage_root: str = "./storage_data"
-    max_pages: int = 3
+    max_pages: int = 5
     crawler_user_agent: str = "ReDoWebsBot/0.1 (+https://redowebs.example/bot)"
     request_timeout_seconds: float = 15.0
 
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_app_url: str = "https://redowebs.local"
     openrouter_app_name: str = "ReDoWebs"
-    vision_model: str = "anthropic/claude-opus-5"
+    vision_model: str = "openai/gpt-4o-mini"
 
     generation_model: str = "anthropic/claude-opus-5"
     generation_max_tokens: int = 16000
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     generation_prompt_caching_enabled: bool = True
 
     vision_max_image_dimension: int = 1024
-    vision_max_tokens: int = 1024
+    vision_max_tokens: int = 2048
 
     database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:15432/redowebs"
 

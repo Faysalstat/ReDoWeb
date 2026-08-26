@@ -1,29 +1,63 @@
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urljoin
 
 import yaml
 from bs4 import BeautifulSoup
 
+from .color_extraction import extract_colors_from_css, extract_colors_from_image, gather_css_text
 from .errors import BlueprintExtractionError, OpenRouterError
 from .openrouter_client import vision_json_chat
 
-VISION_SYSTEM_PROMPT = (
-    "You are a brand analyst. You will be shown a website's logo and/or "
-    "representative images. Respond with ONLY a JSON object (no prose, no "
-    "markdown fences) matching this exact shape: "
-    '{"site_name": string, "colors": {"primary": "#rrggbb", "secondary": '
-    '"#rrggbb", "accent": "#rrggbb"}, "fonts": {"heading": string, "body": '
-    'string}, "tone": string}. Infer fonts as common web-safe or Google '
-    "Font family names that visually match the image style if you cannot "
-    "read exact font names. Keep tone to one short phrase (e.g. 'warm and "
-    "friendly', 'corporate and minimal')."
+BRAND_REVIEW_SYSTEM_PROMPT = (
+    "You are a brand analyst reviewing scraped website data. You may be shown "
+    "the site's logo image and a business-name guess scraped from the page "
+    "title. Correct the guess only if the logo clearly shows a different or "
+    "better-formatted name; otherwise leave it unchanged. Infer heading/body "
+    "font families that visually match the logo's style (real web-safe or "
+    "Google Font names, not the literal wordmark font). Infer an overall "
+    "tone in one short phrase (e.g. 'warm and friendly', 'corporate and "
+    "minimal'). If the logo gives no useful signal for a field, omit that "
+    "field.\n\n"
+    "Respond with ONLY a JSON object (no prose, no markdown fences) in this "
+    "exact shape:\n"
+    '{"site_name": string, "fonts": {"heading": string, "body": string}, '
+    '"tone": string}'
+)
+
+CONTENT_GAP_SYSTEM_PROMPT = (
+    "You are a content analyst reviewing scraped text content from a small "
+    "business website. You'll be shown a digest of the site's scraped "
+    "content (page titles, headings, opening lines, and whether contact "
+    "info was found).\n\n"
+    "Check the digest against these four section types: About/Value "
+    "Proposition, Services/Features summary, Call To Action, FAQ. For any "
+    "of these that the digest shows no real coverage of, draft a short "
+    "replacement (one short paragraph, or 3-5 bullet points) in a tone "
+    "matching the site's existing content -- but ONLY using facts already "
+    "present in the digest. Do not invent services, claims, numbers, or "
+    "names not already there. If a section is already covered, even "
+    "briefly, do not draft a replacement for it.\n\n"
+    "Absolute rule: never draft, imply, or fill in testimonials/customer "
+    "quotes, statistics or numeric claims, pricing, credentials/awards/"
+    "certifications, or contact details (email/phone/address). If the "
+    "digest doesn't already contain real ones, leave them out entirely -- "
+    "do not add placeholder or example versions of these under any "
+    "circumstance.\n\n"
+    "Respond with ONLY a JSON object (no prose, no markdown fences) in this "
+    "exact shape:\n"
+    '{"added_sections": [{"heading": string, "body": string}]}\n'
+    '"added_sections" should only contain entries for section types you '
+    "determined were genuinely missing per the rules above -- return an "
+    "empty list if nothing needed drafting."
 )
 
 DEFAULT_COLORS = {"primary": "#333333", "secondary": "#f5f5f5", "accent": "#0066cc"}
 DEFAULT_FONTS = {"heading": "Inter", "body": "Inter"}
 MAX_PARAGRAPHS_PER_PAGE = 20
+DIGEST_OPENING_WORDS = 20
 
 
 def extract_blueprint(project_root: Path) -> dict:
@@ -57,26 +91,45 @@ def extract_blueprint(project_root: Path) -> dict:
 
     site_name_guess = _guess_site_name(homepage_html, pages_content[0][1])
     logo_asset = _guess_logo_asset(homepage_html, homepage_url, assets_meta)
-    hero_assets = _pick_hero_images(assets_meta, logo_asset, limit=2)
 
-    image_assets = ([logo_asset] if logo_asset else []) + hero_assets
-    image_paths = [project_root / a["storage_path"] for a in image_assets]
+    css_text = gather_css_text(homepage_html, homepage_url)
+    colors = extract_colors_from_css(css_text)
+    if colors is None and logo_asset:
+        colors = extract_colors_from_image(project_root / logo_asset["storage_path"])
+    if colors is None:
+        colors = DEFAULT_COLORS
 
-    if image_paths:
-        try:
-            brand, usage = vision_json_chat(
-                VISION_SYSTEM_PROMPT,
+    image_paths = [project_root / logo_asset["storage_path"]] if logo_asset else []
+    digest = _build_content_digest(pages_content)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        content_future = executor.submit(
+            vision_json_chat, CONTENT_GAP_SYSTEM_PROMPT, digest, []
+        )
+        brand_future = (
+            executor.submit(
+                vision_json_chat,
+                BRAND_REVIEW_SYSTEM_PROMPT,
                 f"Business name guess from page title: {site_name_guess or 'unknown'}. "
-                "Analyze the attached logo/brand images and return the JSON described.",
+                "Analyze the attached logo image and return the JSON described.",
                 image_paths,
             )
-        except OpenRouterError:
-            raise
-    else:
-        brand = {}
-        usage = {}
+            if image_paths
+            else None
+        )
 
-    colors = {**DEFAULT_COLORS, **(brand.get("colors") or {})}
+        try:
+            content_result, content_usage = content_future.result()
+        except OpenRouterError:
+            # Gap-filling is a purely additive enhancement -- degrade to "no
+            # sections added" rather than failing the whole extraction over it.
+            content_result, content_usage = {}, {}
+
+        if brand_future is not None:
+            brand, brand_usage = brand_future.result()  # propagates OpenRouterError, as before
+        else:
+            brand, brand_usage = {}, {}
+
     fonts = {**DEFAULT_FONTS, **(brand.get("fonts") or {})}
 
     frontmatter = {
@@ -88,7 +141,8 @@ def extract_blueprint(project_root: Path) -> dict:
     if brand.get("tone"):
         frontmatter["tone"] = brand["tone"]
 
-    body = _build_markdown_body(pages_content)
+    added_sections = content_result.get("added_sections") or []
+    body = _build_markdown_body(pages_content, added_sections)
     design_md = _render_design_md(frontmatter, body)
 
     blueprint_dir = project_root / "blueprint"
@@ -101,8 +155,9 @@ def extract_blueprint(project_root: Path) -> dict:
         "frontmatter": frontmatter,
         "design_md": design_md,
         "usage": {
-            "prompt_tokens": usage.get("prompt_tokens", 0),
-            "completion_tokens": usage.get("completion_tokens", 0),
+            "prompt_tokens": brand_usage.get("prompt_tokens", 0) + content_usage.get("prompt_tokens", 0),
+            "completion_tokens": brand_usage.get("completion_tokens", 0)
+            + content_usage.get("completion_tokens", 0),
         },
     }
 
@@ -190,13 +245,29 @@ def _guess_logo_asset(homepage_html: str, homepage_url: str, assets: list[dict])
     return None
 
 
-def _pick_hero_images(assets: list[dict], logo_asset: dict | None, limit: int) -> list[dict]:
-    logo_url = logo_asset["original_url"] if logo_asset else None
-    hero = [a for a in assets if a["asset_type"] == "image" and a["original_url"] != logo_url]
-    return hero[:limit]
+def _build_content_digest(pages_content: list[tuple[str, dict]]) -> str:
+    """Compact, cheap-to-send summary of the already-scraped content for the
+    content-gap review call -- page titles, heading text, a short opening
+    snippet, and contact-info presence, NOT the full paragraph text. Kept
+    small on purpose since this is sent as live (uncached) tokens."""
+    blocks: list[str] = []
+    for url, content in pages_content:
+        lines = [f"Page: {content['title'] or url} ({url})"]
+        if content["headings"]:
+            lines.append("Headings: " + " | ".join(h["text"] for h in content["headings"]))
+        if content["paragraphs"]:
+            words = content["paragraphs"][0].split()
+            snippet = " ".join(words[:DIGEST_OPENING_WORDS])
+            if len(words) > DIGEST_OPENING_WORDS:
+                snippet += "..."
+            lines.append(f'Opening line: "{snippet}"')
+        has_contact = bool(content["email"] or content["phone"])
+        lines.append(f"Contact info found: {'yes' if has_contact else 'no'}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
 
 
-def _build_markdown_body(pages_content: list[tuple[str, dict]]) -> str:
+def _build_markdown_body(pages_content: list[tuple[str, dict]], added_sections: list[dict] | None = None) -> str:
     lines: list[str] = []
 
     home_url, home_content = pages_content[0]
@@ -236,6 +307,17 @@ def _build_markdown_body(pages_content: list[tuple[str, dict]]) -> str:
             if content["phone"]:
                 lines.append(f"- Phone: {content['phone']}")
             lines.append("")
+
+        if index == 0:
+            for section in added_sections or []:
+                heading = section.get("heading")
+                text = section.get("body")
+                if not heading or not text:
+                    continue
+                lines.append("<!-- ai-drafted -->")
+                lines.append(f"### {heading}")
+                lines.append(text)
+                lines.append("")
 
     return "\n".join(lines).strip() + "\n"
 

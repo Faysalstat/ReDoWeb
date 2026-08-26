@@ -4,7 +4,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
 
-import { API_BASE_URL } from '../../core/api-config';
+import { PreviewService } from '../../core/preview.service';
 import { STAGE_ORDER, Stage, TERMINAL_STATUSES, stageOf } from '../../core/project-status';
 import { ProjectStatusResponse } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
@@ -84,6 +84,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: RedoWebsApiService,
+    private readonly preview: PreviewService,
     private readonly sanitizer: DomSanitizer
   ) {}
 
@@ -187,12 +188,12 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
         takeWhile((res) => !TERMINAL_STATUSES.has(res.status), true)
       )
       .subscribe({
-        next: (res) => this.handleStatus(res),
+        next: (res) => this.handleStatus(projectId, res),
         error: (err: HttpErrorResponse) => this.fail(err),
       });
   }
 
-  private handleStatus(res: ProjectStatusResponse): void {
+  private handleStatus(projectId: string, res: ProjectStatusResponse): void {
     this.status.set(res);
     const stage = stageOf(res.status);
 
@@ -206,7 +207,11 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     this.stage.set(stage);
 
     if (stage === 'ready' && res.generation) {
-      this.previewUrl.set(`${API_BASE_URL}${res.generation.preview_url_path}`);
+      const previewUrlPath = res.generation.preview_url_path;
+      this.preview.getAuthedPreviewUrl(projectId, previewUrlPath).subscribe({
+        next: (url) => this.previewUrl.set(url),
+        error: () => this.previewUrl.set(''),
+      });
       this.stopLiveIndicators();
     }
   }

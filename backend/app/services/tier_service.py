@@ -1,18 +1,21 @@
-"""Tier registry.
+"""Tier registry -- DB-backed via the `tiers` table (Milestone 11).
 
-Tiers are a dynamic, admin-manageable concept, not a fixed Basic/Premium/Pro
-enum -- see docs/implementation-plan.md's `tiers` table design. Until the DB
-layer is wired up, this module is the *single* place tier data and the
-on/off toggle live; every caller (routers, Celery tasks once added) must go
-through get_enabled_tiers()/is_tier_enabled() rather than hardcoding a tier
-list, so swapping this for a real DB-backed admin-editable table later is a
-one-file change.
-
-Current build/test phase: only "pro" is enabled while the generation
-mechanism and its prompts are being validated.
+Every function keeps its original zero-argument call shape (an optional
+trailing `db` opens a short-lived session when the caller doesn't already
+have one open), so the existing call sites in routers/projects.py and
+routers/downloads.py needed no changes when this moved off the hardcoded
+list that used to live here. The public return shape is still the frozen
+`Tier` dataclass -- callers do `tier.key`/`tier.is_active`/etc regardless of
+where the data actually comes from.
 """
 
 from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..db.session import SessionLocal
+from ..models import Tier as TierORM
 
 
 @dataclass(frozen=True)
@@ -24,29 +27,49 @@ class Tier:
     download_credit_cost: int
 
 
-_TIERS: list[Tier] = [
-    Tier(key="basic", label="Basic", is_active=False, sort_order=1, download_credit_cost=3),
-    Tier(key="premium", label="Premium", is_active=False, sort_order=2, download_credit_cost=5),
-    Tier(key="pro", label="Pro", is_active=True, sort_order=3, download_credit_cost=10),
-]
+def _to_dataclass(row: TierORM) -> Tier:
+    return Tier(
+        key=row.key,
+        label=row.label,
+        is_active=row.is_active,
+        sort_order=row.sort_order,
+        download_credit_cost=row.download_credit_cost,
+    )
 
-_TIERS_BY_KEY = {tier.key: tier for tier in _TIERS}
+
+def _with_session(db: Session | None, fn):
+    if db is not None:
+        return fn(db)
+    session = SessionLocal()
+    try:
+        return fn(session)
+    finally:
+        session.close()
 
 
-def get_all_tiers() -> list[Tier]:
+def get_all_tiers(db: Session | None = None) -> list[Tier]:
     """All known tiers regardless of enabled state, ordered for display."""
-    return sorted(_TIERS, key=lambda t: t.sort_order)
+
+    def _query(session: Session) -> list[Tier]:
+        rows = session.scalars(select(TierORM).order_by(TierORM.sort_order)).all()
+        return [_to_dataclass(row) for row in rows]
+
+    return _with_session(db, _query)
 
 
-def get_enabled_tiers() -> list[Tier]:
+def get_enabled_tiers(db: Session | None = None) -> list[Tier]:
     """Tiers that should actually be generated/previewed right now."""
-    return [tier for tier in get_all_tiers() if tier.is_active]
+    return [tier for tier in get_all_tiers(db) if tier.is_active]
 
 
-def get_tier(key: str) -> Tier | None:
-    return _TIERS_BY_KEY.get(key)
+def get_tier(key: str, db: Session | None = None) -> Tier | None:
+    def _query(session: Session) -> Tier | None:
+        row = session.scalar(select(TierORM).where(TierORM.key == key))
+        return _to_dataclass(row) if row is not None else None
+
+    return _with_session(db, _query)
 
 
-def is_tier_enabled(key: str) -> bool:
-    tier = get_tier(key)
+def is_tier_enabled(key: str, db: Session | None = None) -> bool:
+    tier = get_tier(key, db)
     return tier is not None and tier.is_active

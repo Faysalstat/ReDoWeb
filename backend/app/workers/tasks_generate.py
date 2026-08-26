@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..ai.errors import GenerationError
@@ -7,6 +8,7 @@ from ..config import get_settings
 from ..db.session import SessionLocal
 from ..models import Blueprint, GenerationJob, GenerationOutput, Project
 from ..services import token_usage_service, wallet_service
+from ..services.preview_service import build_preview_url_path
 from ..services.wallet_service import InsufficientCreditsError
 from .celery_app import celery_app
 
@@ -58,6 +60,7 @@ def generate_tier_task(self, project_id: str, tier: str) -> dict:
         except InsufficientCreditsError as exc:
             job.overall_status = "failed"
             job.failure_reason = str(exc)
+            job.finished_at = datetime.now(timezone.utc)
             project.status = "failed"
             project.rejection_reason = "Insufficient credits"
             db.commit()
@@ -68,6 +71,7 @@ def generate_tier_task(self, project_id: str, tier: str) -> dict:
         except Exception as exc:
             job.overall_status = "failed"
             job.failure_reason = str(exc)
+            job.finished_at = datetime.now(timezone.utc)
             project.status = "failed"
             project.rejection_reason = str(exc)
             db.commit()
@@ -79,7 +83,7 @@ def generate_tier_task(self, project_id: str, tier: str) -> dict:
                 job_id=job.id,
                 template_used=result["template_used"],
                 output_storage_path=result["output_dir"],
-                preview_url_path=f"/preview/{project_id}/{result['output_dir']}/index.html",
+                preview_url_path=build_preview_url_path(project_id, result["output_dir"]),
                 summary=result["summary"],
                 prompt_tokens=result["usage"]["prompt_tokens"],
                 completion_tokens=result["usage"]["completion_tokens"],
@@ -102,6 +106,7 @@ def generate_tier_task(self, project_id: str, tier: str) -> dict:
         )
 
         job.overall_status = "succeeded"
+        job.finished_at = datetime.now(timezone.utc)
         project.status = "ready"
         db.commit()
         return result

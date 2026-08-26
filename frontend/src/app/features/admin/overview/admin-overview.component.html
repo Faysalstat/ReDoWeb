@@ -1,0 +1,66 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-ink">Overview</h1>
+      <p class="text-sm text-ink-muted">AI usage, cost, revenue, and platform activity at a glance.</p>
+    </div>
+
+    <div class="flex items-center gap-1 rounded-full border border-white/6 bg-white/5 p-1 text-sm font-medium">
+      @for (days of rangePresets; track days) {
+        <button
+          type="button"
+          (click)="selectRange(days)"
+          [class]="
+            selectedDays() === days
+              ? 'rounded-full bg-accent/15 px-4 py-1.5 text-ink'
+              : 'rounded-full px-4 py-1.5 text-ink-muted transition-colors duration-200 hover:text-ink'
+          "
+        >
+          {{ days }}d
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="flex items-center justify-center py-24">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <app-card variant="danger">
+      <p class="text-sm text-red-300">{{ errorMessage() }}</p>
+    </app-card>
+  } @else if (stats(); as s) {
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <app-stat-tile label="Total users" [value]="s.users_total" [note]="'+' + s.users_new_in_range + ' in range'" />
+      <app-stat-tile
+        label="Total projects"
+        [value]="s.projects_total"
+        [note]="'+' + s.projects_in_range + ' in range'"
+      />
+      <app-stat-tile
+        label="Generation success rate"
+        [value]="s.generation_success_rate_pct !== null ? s.generation_success_rate_pct + '%' : 'No data'"
+      />
+      <app-stat-tile
+        label="AI cost (in range)"
+        [value]="formatUsd(s.ai_cost_usd_in_range)"
+        [note]="'all-time ' + formatUsd(s.ai_cost_usd_all_time)"
+        variant="accent"
+      />
+      <app-stat-tile
+        label="Revenue (in range)"
+        [value]="formatUsd(s.revenue_usd_in_range)"
+        [note]="'all-time ' + formatUsd(s.revenue_usd_all_time)"
+        variant="accent"
+      />
+      <app-stat-tile
+        label="Net margin (in range)"
+        [value]="formatUsd(s.net_margin_usd_in_range)"
+        [variant]="s.net_margin_usd_in_range < 0 ? 'danger' : 'default'"
+      />
+      <app-stat-tile label="Credits outstanding" [value]="s.credits_outstanding" />
+      <app-stat-tile label="Active jobs running" [value]="s.active_jobs_running" />
+    </div>
+  }
+</div>

@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, redirectIfAuthenticatedGuard } from './core/auth.guard';
+import { adminGuard, authGuard, redirectIfAuthenticatedGuard } from './core/auth.guard';
 import { AuthCallbackComponent } from './features/auth-callback/auth-callback.component';
 import { GenerationProgressComponent } from './features/generation/generation-progress.component';
 import { HistoryComponent } from './features/history/history.component';
@@ -13,5 +13,10 @@ export const routes: Routes = [
   { path: 'app', component: HomeComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: GenerationProgressComponent, canActivate: [authGuard] },
   { path: 'history', component: HistoryComponent, canActivate: [authGuard] },
+  {
+    path: 'admin',
+    canActivate: [adminGuard],
+    loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
+  },
   { path: '**', redirectTo: '' },
 ];

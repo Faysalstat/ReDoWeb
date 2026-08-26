@@ -1,6 +1,9 @@
 from .blueprint import Blueprint
 from .job import GenerationJob, GenerationOutput
+from .model_pricing import ModelPricing
 from .project import Asset, CrawlPage, CrawlSnapshot, Project, SubmissionLog
+from .purchase import Purchase
+from .tier import Tier
 from .token_usage import TokenUsageLog
 from .user import AuthIdentity, User
 from .wallet import CreditTransaction, CreditWallet
@@ -19,4 +22,7 @@ __all__ = [
     "TokenUsageLog",
     "CreditWallet",
     "CreditTransaction",
+    "Purchase",
+    "Tier",
+    "ModelPricing",
 ]

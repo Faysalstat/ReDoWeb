@@ -2,6 +2,7 @@ import hashlib
 import json
 import random
 import shutil
+import time
 from pathlib import Path
 
 from ..config import get_settings
@@ -27,6 +28,38 @@ IMPORTANT project-specific constraints (these override anything above that confl
 """
 
 
+def _rmtree_with_retry(path: Path, attempts: int = 5, delay_seconds: float = 1.0) -> None:
+    """Empties `path` (deletes everything inside it) rather than removing
+    the directory object itself, then retries briefly on Windows
+    PermissionError (WinError 32) for individual entries.
+
+    On Windows, a file watcher (an editor, a search indexer, antivirus)
+    commonly holds a directory handle open purely for change-notification
+    purposes (ReadDirectoryChangesW) -- this blocks removing/renaming the
+    directory itself but does NOT block creating, writing, or deleting
+    files inside it. shutil.rmtree(path) fails on that outer handle even
+    though every individual delete would succeed, so this clears contents
+    one entry at a time (each with its own short retry) and leaves the
+    directory in place instead of trying to remove it.
+    """
+    last_error: OSError | None = None
+    for entry in path.iterdir():
+        for attempt in range(attempts):
+            try:
+                if entry.is_dir() and not entry.is_symlink():
+                    shutil.rmtree(entry)
+                else:
+                    entry.unlink()
+                last_error = None
+                break
+            except OSError as exc:
+                last_error = exc
+                if attempt < attempts - 1:
+                    time.sleep(delay_seconds)
+        if last_error is not None:
+            raise last_error
+
+
 def generate_site(project_root: Path, tier_key: str) -> dict:
     if not tier_service.is_tier_enabled(tier_key):
         raise GenerationError(f"Tier '{tier_key}' is not currently enabled")
@@ -43,7 +76,7 @@ def generate_site(project_root: Path, tier_key: str) -> dict:
 
     output_dir = project_root / "generated" / tier_key
     if output_dir.exists():
-        shutil.rmtree(output_dir)
+        _rmtree_with_retry(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     image_names = _copy_images(project_root, output_dir, assets)
@@ -79,12 +112,22 @@ def generate_site(project_root: Path, tier_key: str) -> dict:
 
 
 def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> None:
-    """Shrinks previously-resolved write_file arguments and large
-    read_file/list_files results in messages[:before_index] down to short
-    summaries, in place. Once a write_file call has succeeded the file is
-    on disk -- the model doesn't need its exact bytes echoed back into
-    context on every later iteration, only proof that it was written (it
-    can call read_file again if it genuinely needs the current content).
+    """Shrinks large read_file/list_files results in messages[:before_index]
+    down to short summaries, in place, leaving assistant tool_calls
+    (including write_file's) completely untouched.
+
+    write_file calls used to have their arguments rewritten to a compacted
+    placeholder here. That was removed: regardless of the placeholder's
+    exact shape (tried both a fake {"path","content"} object and a
+    {"note": ...} marker), some models will echo their own visible history
+    back verbatim as a new tool call -- so the moment history contains
+    ANYTHING that looks like a prior write_file call, it risks being
+    replayed and failing dispatch, burning the iteration budget on repeats
+    of the identical error. Leaving real write_file calls (and their
+    genuinely small "Wrote N characters..." results) alone in history
+    avoids giving the model anything synthetic to latch onto; only
+    read_file/list_files results are compacted here, since those are
+    unmodified data the model retrieved, not calls it might reissue.
 
     Messages are mutated in place and never removed or reordered, so every
     assistant message's tool_calls keep their matching role:"tool" results
@@ -92,45 +135,35 @@ def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> Non
     wire format this loop speaks to OpenRouter.
     """
     for message in messages[:before_index]:
-        if message.get("role") == "assistant":
-            for tool_call in message.get("tool_calls") or []:
-                fn = tool_call.get("function") or {}
-                if fn.get("name") != "write_file":
-                    continue
-                try:
-                    args = json.loads(fn.get("arguments") or "{}")
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(args, dict) or args.get("_compacted") or "note" in args:
-                    # "_compacted" -- already shrunk; "note" -- this was a
-                    # discarded malformed/truncated call (see the discard
-                    # markers below), not a real write -- leave it as-is so
-                    # the "discarded, not executed" signal isn't overwritten
-                    # with a misleading "<written, 0 chars>" marker.
-                    continue
-                path = args.get("path", "?")
-                size = len(args.get("content") or "")
-                fn["arguments"] = json.dumps(
-                    {"path": path, "content": f"<written, {size} chars>", "_compacted": True}
-                )
-        elif message.get("role") == "tool":
-            content = message.get("content") or ""
-            # write_file's own confirmation ("Wrote N characters to X") and
-            # short results are already small -- only shrink large
-            # read_file/list_files payloads.
-            if len(content) > 300 and not content.startswith("(compacted"):
-                message["content"] = (
-                    f"(compacted -- {len(content)} chars previously returned here; "
-                    "call the tool again if you need the current content)"
-                )
+        if message.get("role") != "tool":
+            continue
+        content = message.get("content") or ""
+        if len(content) > 300 and not content.startswith("(compacted"):
+            message["content"] = (
+                f"(compacted -- {len(content)} chars previously returned here; "
+                "call the tool again if you need the current content)"
+            )
 
 
 def _run_agent_loop(
     settings, system_prompt: str, user_message: str, dispatch: dict, trace_path: Path | None = None
 ):
     caching_enabled = settings.generation_prompt_caching_enabled
+    system_content: str | list[dict] = system_prompt
     user_content: str | list[dict] = user_message
     if caching_enabled:
+        # The design-strategy template + TECH_CONSTRAINTS is the largest
+        # static block in the request (2.4K-6K tokens) and is byte-identical
+        # on every iteration -- this is the first and biggest cache
+        # breakpoint, separate from the user-turn breakpoint below so both
+        # get cached independently of each other.
+        system_content = [
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
         # design.md + image list are 100% static for the whole run, and this
         # is the last block of the static prefix (tools -> system -> this
         # message) -- caching it here covers the entire fixed portion of
@@ -144,7 +177,7 @@ def _run_agent_loop(
         ]
 
     messages: list[dict] = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
@@ -158,8 +191,12 @@ def _run_agent_loop(
         # across the loop aren't guaranteed even with correct markers.
         session_id = hashlib.sha256(str(trace_path).encode("utf-8")).hexdigest()
 
-    consecutive_failures = 0
-    last_failure_signature: str | None = None
+    # Counts total occurrences of each distinct failure signature across the
+    # whole run, NOT reset on an unrelated success -- a run that alternates
+    # fail/fail/fail/succeed-on-something-irrelevant/fail/... never trips a
+    # strictly-consecutive counter but is just as stuck, and would otherwise
+    # burn the entire iteration budget without making real progress.
+    failure_counts: dict[str, int] = {}
 
     def _flush_trace():
         if trace_path is not None:
@@ -208,6 +245,37 @@ def _run_agent_loop(
         }
 
         if not tool_calls:
+            if choice.get("finish_reason") == "length":
+                # Cut off before producing a single tool call or any content --
+                # NOT a legitimate "I'm done" signal, just an empty response
+                # that happens to also have zero tool_calls. Treating this as
+                # completion (the old behavior) let generation "succeed" with
+                # no files ever written. Retry instead, same as the
+                # truncated-mid-tool-call handling below.
+                trace.append(trace_entry)
+                _flush_trace()
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Your last response was cut off before producing any "
+                            "tool call or final message (hit the output token "
+                            "limit with no progress). Start immediately with a "
+                            "write_file call for the first page -- do not spend "
+                            "the response on planning or reasoning text first."
+                        ),
+                    }
+                )
+                signature = "length:no_tool_calls"
+                failure_counts[signature] = failure_counts.get(signature, 0) + 1
+                if failure_counts[signature] >= settings.generation_max_consecutive_failures:
+                    raise GenerationError(
+                        f"Aborting after {failure_counts[signature]} responses cut off "
+                        "before any tool call or content -- the model appears unable to "
+                        "produce output within generation_max_tokens."
+                    )
+                continue
+
             trace.append(trace_entry)
             _flush_trace()
             return message.get("content") or "", total_usage, iteration
@@ -284,22 +352,15 @@ def _run_agent_loop(
         trace.append(trace_entry)
         _flush_trace()
 
-        if iteration_had_success:
-            consecutive_failures = 0
-            last_failure_signature = None
-        else:
+        if not iteration_had_success:
             signature = iteration_failure_signature or "unknown"
-            if signature == last_failure_signature:
-                consecutive_failures += 1
-            else:
-                consecutive_failures = 1
-                last_failure_signature = signature
+            failure_counts[signature] = failure_counts.get(signature, 0) + 1
 
-            if consecutive_failures >= settings.generation_max_consecutive_failures:
+            if failure_counts[signature] >= settings.generation_max_consecutive_failures:
                 raise GenerationError(
-                    f"Aborting after {consecutive_failures} consecutive identical "
-                    f"failures ({signature}) -- the agent appears stuck and unlikely "
-                    "to recover within the remaining iteration budget."
+                    f"Aborting after the same failure recurred {failure_counts[signature]} "
+                    f"times ({signature}) -- the agent appears stuck and unlikely to "
+                    "recover within the remaining iteration budget."
                 )
 
     raise GenerationError(

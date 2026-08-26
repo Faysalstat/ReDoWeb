@@ -119,3 +119,10 @@ export interface UserOut {
 export interface WalletResponse {
   balance: number;
 }
+
+// --- Preview (authed, owner-or-admin) ---
+
+export interface PreviewTokenResponse {
+  preview_token: string;
+  expires_in: number;
+}

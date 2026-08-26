@@ -18,12 +18,21 @@ def test_estimate_cost_unknown_model_defaults_to_zero():
 
 
 def test_record_usage_adds_row_with_computed_cost():
+    class FakeScalars:
+        def all(self):
+            return []
+
     class FakeSession:
         def __init__(self):
             self.added = []
 
         def add(self, obj):
             self.added.append(obj)
+
+        def scalars(self, _query):
+            # No admin-configured model_pricing rows -- record_usage() falls
+            # back to the hardcoded MODEL_PRICING_PER_1M seed dict.
+            return FakeScalars()
 
     db = FakeSession()
     project_id, user_id, job_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()

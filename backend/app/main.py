@@ -1,13 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from .config import get_settings
 from .rate_limit import limiter
-from .routers import auth, blueprint, crawl, credits, downloads, generation, projects
+from .routers import admin, auth, blueprint, crawl, credits, downloads, generation, preview, projects
 
 app = FastAPI(title="ReDoWebs API", version="0.1.0")
 
@@ -29,10 +27,8 @@ app.include_router(blueprint.router)
 app.include_router(generation.router)
 app.include_router(projects.router)
 app.include_router(downloads.router)
-
-_settings = get_settings()
-_projects_dir = f"{_settings.storage_root}/projects"
-app.mount("/preview", StaticFiles(directory=_projects_dir, check_dir=False), name="preview")
+app.include_router(preview.router)
+app.include_router(admin.router)
 
 
 @app.get("/", include_in_schema=False)
