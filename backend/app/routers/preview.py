@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from ..auth.dependencies import get_current_user
@@ -15,8 +15,11 @@ from ..services.preview_service import (
     guess_content_type,
     mint_preview_token,
     resolve_safe_path,
+    rewrite_relative_asset_urls,
     verify_preview_token,
 )
+
+_REWRITABLE_SUFFIXES = {".html", ".htm", ".css"}
 
 router = APIRouter(prefix="/api/v1", tags=["preview"])
 
@@ -57,4 +60,17 @@ def serve_preview_file(project_id: str, file_path: str, preview_token: str) -> F
     if not resolved_path.is_file():
         raise HTTPException(status_code=404, detail="Preview file not found")
 
-    return FileResponse(resolved_path, media_type=guess_content_type(resolved_path))
+    content_type = guess_content_type(resolved_path)
+
+    if resolved_path.suffix.lower() in _REWRITABLE_SUFFIXES:
+        # HTML's relative href/src and CSS's url(...) references don't carry
+        # this request's ?preview_token= forward when the browser resolves
+        # them -- rewrite those references here so sub-resource requests
+        # (style.css, images/...) don't 422 on a missing token.
+        text = resolved_path.read_text(encoding="utf-8")
+        text = rewrite_relative_asset_urls(
+            text, preview_token, is_css=resolved_path.suffix.lower() == ".css"
+        )
+        return Response(content=text, media_type=content_type)
+
+    return FileResponse(resolved_path, media_type=content_type)

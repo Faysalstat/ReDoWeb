@@ -1,119 +1,317 @@
-INFO:     127.0.0.1:11372 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11455 - "GET /api/v1/auth/google/authorize HTTP/1.1" 302 Found
-INFO:     127.0.0.1:11487 - "GET /api/v1/auth/google/authorize HTTP/1.1" 302 Found
-INFO:     127.0.0.1:11488 - "GET /api/v1/auth/google/callback?state=P8gWjtA-hg8xyu5CdL-EKYUYdCQJUTZkvtnMABsetlc&iss=https%3A%2F%2Faccounts.google.com&code=4%2F0ATsMZqDiXpn3H04viT3Ik4TXR5oMxFrE535GbGaPOa0BT-jZqUaRLJEBLCdB-lhFfyXReQ&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=none HTTP/1.1" 302 Found
-INFO:     127.0.0.1:11524 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11524 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11524 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11524 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11524 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11525 - "OPTIONS /api/v1/projects HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11525 - "POST /api/v1/projects HTTP/1.1" 402 Payment Required
-INFO:     127.0.0.1:11532 - "POST /api/v1/projects HTTP/1.1" 202 Accepted
-INFO:     127.0.0.1:11532 - "OPTIONS /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11532 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11621 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11654 - "OPTIONS /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00/preview-token HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11656 - "POST /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00/preview-token HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11683 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/index.html?preview_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9qZWN0X2lkIjoiODlhNTQyNTEtZGFiNS00OWU5LTkxYzQtNTM3MzhkOGZlYjAwIiwicHVycG9zZSI6InByZXZpZXciLCJpYXQiOjE3ODc2NDI5NDQsImV4cCI6MTc4NzY0MzI0NH0.8Z2e0fXUmL36w_GHJ5hlQfkhOVaLQ-tCHASrwC8z5kc HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:1284 - "GET /health HTTP/1.1" 200 OK
+
+[AI CALL #1] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=2 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Fix2Live Credit Solutions colors: primary: '#0274be' secondary: '#d9534f' accent: '#ff6900' logo: snapshot/image/9a0d14e9-z-zzxdczcd-1024x1016.png fonts: heading: Inter body: Int...
+
+[AI CALL #2] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=4 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) (compacted -- 1226 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #3] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=6 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) (compacted -- 1244 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #4] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=8 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 27142 characters to style.css
+
+[AI CALL #5] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=10 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 30716 characters to index.html
+
+[AI CALL #6] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=12 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 2728 characters to script.js
+
+[AI CALL #7] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=14 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Error: invalid arguments for read_file: make_tool_dispatch.<locals>.read_file() got an unexpected keyword argument 'range'
+
+[AI CALL #8] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=16 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 26824 characters to style.css
+
+[AI CALL #9] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=18 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 30024 characters to index.html
+
+[AI CALL #10] chat_completion -> model=deepseek/deepseek-v4-flash-0731 | messages_in_context=20 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 27037 characters to style.css
+INFO:     127.0.0.1:1290 - "POST /api/v1/debug/generate?project_id=d3b84412-e6c7-4bd6-8344-90a474fcba38&tier=pro&template=business_material_prompt.txt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3362 - "GET /api/v1/auth/google/authorize HTTP/1.1" 302 Found
+INFO:     127.0.0.1:3363 - "GET /api/v1/auth/google/callback?state=EHrt2iq2nw_z4cMTBgibhg8EJBUnW-hf_gLWvjhieFQ&iss=https%3A%2F%2Faccounts.google.com&code=4%2F0ATsMZqCeAR6S5_JwFyb3gdVrKXFi--V_YqlZWdcGldx4oijGkI4EB_EH5KqCf76H6hWa1A&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=none HTTP/1.1" 302 Found
+INFO:     127.0.0.1:3385 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3385 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3385 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3385 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3385 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3525 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3715 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3716 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3716 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3716 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3717 - "OPTIONS /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3717 - "GET /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3717 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3727 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3727 - "OPTIONS /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3727 - "GET /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3727 - "OPTIONS /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3727 - "POST /api/v1/projects/89a54251-dab5-49e9-91c4-53738d8feb00/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3735 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/index.html?preview_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9qZWN0X2lkIjoiODlhNTQyNTEtZGFiNS00OWU5LTkxYzQtNTM3MzhkOGZlYjAwIiwicHVycG9zZSI6InByZXZpZXciLCJpYXQiOjE3ODc4MTg3ODEsImV4cCI6MTc4NzgxOTA4MX0.ls8x75DbpQ84jk4Qp8NxPsORwSKeDd3fjqNTSLOGfao HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3735 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3736 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/894d5317-sdvsvsvvv-1024x310.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3735 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/fa22dae1-aiease_1756532104246-1-scaled.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3736 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3736 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/894d5317-sdvsvsvvv-1024x310.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/d609865e-PWE_SmallBanner_E3L_1-1.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/19d2bbeb-IMG-20250505-WA0002-1024x768.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/8d8ac10d-bb783bfc-3f2c-4550-a204-f40c016864d3.__CR0_0_970_600_PT0_SX970_V1___-1.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/6cd69669-91aYQVF1KcL._AC_SL1500_-1024x1024.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/7c5d60d4-4SPECSDISPENCER2Universal-1024x1024.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/68f9f84d-71C7rhlCsCL._AC_SL1500_-1024x969.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/c069c360-5SizesDispencer_8d87a1aa-1b42-4daf-ac5b-db0badf95fdd-1024x1024.webp HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/40c08ec4-puppy-kissing-boy-200493288-001-2000-a64bcd836e964e18a9948a0c41d6ac68-1024x683.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/59779613-Banner_1600x600-2-1024x384.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/894d5317-sdvsvsvvv-1024x310.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/fa22dae1-aiease_1756532104246-1-scaled.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/894d5317-sdvsvsvvv-1024x310.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3749 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3743 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/894d5317-sdvsvsvvv-1024x310.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3751 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/fa22dae1-aiease_1756532104246-1-scaled.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3751 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3751 - "GET /api/v1/preview/89a54251-dab5-49e9-91c4-53738d8feb00/generated/pro/images/d609865e-PWE_SmallBanner_E3L_1-1.jpg HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:3732 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3732 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3861 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3861 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3937 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3937 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3938 - "OPTIONS /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3938 - "POST /api/v1/projects HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:3964 - "OPTIONS /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3965 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3964 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3964 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3964 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3964 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3964 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3966 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3966 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3966 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3966 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4028 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4030 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4050 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4085 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4085 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4085 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4085 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4085 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4086 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4086 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4095 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4096 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4159 - "GET /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4159 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/projects/2b160906-8079-458b-8134-6a5d92a846ef HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4160 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4199 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4199 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4374 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4374 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4375 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4995 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4996 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4995 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4995 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5279 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5280 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5322 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5322 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5514 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5514 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5515 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5515 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5564 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5564 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5617 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5617 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5618 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5618 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5944 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6035 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6035 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6035 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6035 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6060 - "OPTIONS /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6060 - "POST /api/v1/projects HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:6062 - "OPTIONS /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6060 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6062 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6105 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6106 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6135 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6136 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "OPTIONS /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6142 - "POST /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/index.html?preview_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9qZWN0X2lkIjoiY2Y0NTg3ZDMtYjZlZS00YTMxLWE1ZWYtMWYwY2JjYmRlOGNlIiwicHVycG9zZSI6InByZXZpZXciLCJpYXQiOjE3ODc4MjQxNDAsImV4cCI6MTc4NzgyNDQ0MH0.IzF7OgoItGF7zRmyzDa4US2rYQlOq9EiSxzDgX15JPU HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/9a0d14e9-z-zzxdczcd-1024x1016.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/f822a00c-Credit-Tax-Solutions.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/3462082b-Credit-Repair-Plan.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/1651b169-Tax-Planning-and-Filing.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:6188 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14301 - "OPTIONS /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14301 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14301 - "OPTIONS /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14306 - "POST /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14581 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "OPTIONS /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "OPTIONS /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14581 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "GET /api/v1/projects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14581 - "GET /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "GET /api/v1/credits/wallet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14582 - "POST /api/v1/projects/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/preview-token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/index.html?preview_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9qZWN0X2lkIjoiY2Y0NTg3ZDMtYjZlZS00YTMxLWE1ZWYtMWYwY2JjYmRlOGNlIiwicHVycG9zZSI6InByZXZpZXciLCJpYXQiOjE3ODc4MzI5NzIsImV4cCI6MTc4NzgzMzI3Mn0.ixAKb_1QfT-1EzZxRH7hd3srBbfblk1-PQHY0BhJPAM HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/9a0d14e9-z-zzxdczcd-1024x1016.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/f822a00c-Credit-Tax-Solutions.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/3462082b-Credit-Repair-Plan.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14588 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/1651b169-Tax-Planning-and-Filing.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14611 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14612 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14613 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/9a0d14e9-z-zzxdczcd-1024x1016.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14614 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/f822a00c-Credit-Tax-Solutions.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14615 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/3462082b-Credit-Repair-Plan.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14611 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/1651b169-Tax-Planning-and-Filing.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14611 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/style.css HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14615 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/9a0d14e9-z-zzxdczcd-1024x1016.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14614 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/f822a00c-Credit-Tax-Solutions.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14613 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/3462082b-Credit-Repair-Plan.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14612 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/images/1651b169-Tax-Planning-and-Filing.png HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:14616 - "GET /api/v1/preview/cf4587d3-b6ee-4a31-a5ef-1f0cbcbde8ce/generated/pro/script.js HTTP/1.1" 422 Unprocessable Entity

@@ -1,0 +1,94 @@
+<div class="panel" style="border-width: 0 0 2px">
+  <div class="toolbar">
+    <a class="nav-brand" routerLink="/dashboard" style="margin-right: 0">REFIT</a>
+
+    <div class="seg" role="group" aria-label="Compare mode">
+      <label class="seg-opt">
+        <input type="radio" name="mode" [checked]="mode() === 'split'" (change)="mode.set('split')" />
+        Side by side
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="mode" [checked]="mode() === 'wipe'" (change)="mode.set('wipe')" />
+        Wipe
+      </label>
+    </div>
+
+    <div class="seg" role="group" aria-label="Device">
+      <label class="seg-opt">
+        <input type="radio" name="device" [checked]="device() === 'desktop'" (change)="device.set('desktop')" />
+        Desktop
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="device" [checked]="device() === 'phone'" (change)="device.set('phone')" />
+        Phone
+      </label>
+    </div>
+
+    <select class="input" aria-label="Page" [(ngModel)]="page">
+      @for (p of pages(); track p) { <option [value]="p">{{ p }}</option> }
+    </select>
+
+    <div class="toolbar__actions">
+      <span class="tag tag-outline">{{ scores()?.fixesApplied }} fixes applied</span>
+      <button class="btn btn-ghost" type="button">Request changes</button>
+      <a class="btn btn-primary" routerLink="/checkout">Publish — from $19/mo</a>
+    </div>
+  </div>
+
+  @if (mode() === 'split') {
+    <div class="split">
+      <div class="split__side">
+        <div class="split__head">
+          <span class="label">Before — your live site</span>
+          <span class="label">Speed {{ scores()?.performanceBefore }} · A11y {{ scores()?.accessibilityBefore }}</span>
+        </div>
+        <div class="split__stage">
+          <div [style.maxWidth.px]="frameWidth"><app-site-mock variant="old" /></div>
+        </div>
+      </div>
+      <div class="split__side">
+        <div class="split__head">
+          <span class="label" style="color: var(--color-accent-700)">After — REFIT rebuild</span>
+          <span class="label">Speed {{ scores()?.performanceAfter }} · A11y {{ scores()?.accessibilityAfter }}</span>
+        </div>
+        <div class="split__stage">
+          <div [style.maxWidth.px]="frameWidth"><app-site-mock variant="new" /></div>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="wipe">
+      <div class="wipe__frame">
+        <app-site-mock variant="old" [height]="440" />
+        <div class="wipe__after" [style.clipPath]="'inset(0 0 0 ' + wipe + '%)'">
+          <app-site-mock variant="new" [height]="440" />
+        </div>
+        <div class="wipe__handle" [style.left.%]="wipe"></div>
+      </div>
+      <div class="wipe__control">
+        <span class="label">Before</span>
+        <input type="range" min="0" max="100" [(ngModel)]="wipe" aria-label="Compare position" />
+        <span class="label" style="color: var(--color-accent-700)">After</span>
+      </div>
+    </div>
+  }
+
+  <div class="cells cells--4" style="border-top: 2px solid var(--color-divider)">
+    <div class="cell">
+      <p class="metric__num metric__num--accent">{{ scores()?.performanceAfter }}</p>
+      <p class="metric__label">Performance (was {{ scores()?.performanceBefore }})</p>
+    </div>
+    <div class="cell">
+      <p class="metric__num metric__num--accent">{{ scores()?.accessibilityAfter }}</p>
+      <p class="metric__label">Accessibility (was {{ scores()?.accessibilityBefore }})</p>
+    </div>
+    <div class="cell">
+      <p class="metric__num">{{ scores()?.pagesRebuilt }}</p>
+      <p class="metric__label">Pages rebuilt</p>
+    </div>
+    <div class="cell">
+      <p class="metric__num">0</p>
+      <p class="metric__label">Changes to your live site</p>
+    </div>
+  </div>
+</div>

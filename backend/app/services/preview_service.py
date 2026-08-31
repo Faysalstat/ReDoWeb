@@ -1,4 +1,5 @@
 import mimetypes
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -9,6 +10,41 @@ from ..config import get_settings
 
 PREVIEW_TOKEN_TTL = timedelta(minutes=5)
 _PREVIEW_PURPOSE = "preview"
+
+# Matches href="..."/src="..." in HTML whose value is a same-directory
+# relative reference (not absolute, not an anchor, not a data:/mailto:/tel:
+# link) -- exactly the shape generated pages use for style.css, script.js,
+# and images/... per site_generator.py's TECH_CONSTRAINTS.
+_HTML_ASSET_ATTR_RE = re.compile(
+    r'(?P<attr>href|src)="(?!https?://|//|/|#|data:|mailto:|tel:)(?P<url>[^"]+)"'
+)
+# Matches CSS url(...) references with the same relative-only scope.
+_CSS_URL_RE = re.compile(
+    r'url\(\s*(?P<quote>[\'"]?)(?!https?://|//|data:)(?P<url>[^\'")]+)(?P=quote)\s*\)'
+)
+
+
+def _append_token(url: str, token: str) -> str:
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}preview_token={token}"
+
+
+def rewrite_relative_asset_urls(text: str, token: str, is_css: bool) -> str:
+    """The iframe's top-level HTML request carries `?preview_token=...`, but
+    the browser resolves a page's own relative asset references (style.css,
+    images/...) WITHOUT copying that query string over -- those sub-requests
+    then hit /api/v1/preview/... with no token and 422 (a required query
+    param), so the page renders unstyled with broken images. Rewriting every
+    relative href/src (HTML) or url(...) (CSS) to carry the same token
+    forward fixes this without weakening the token check itself."""
+    if is_css:
+        return _CSS_URL_RE.sub(
+            lambda m: f"url({m.group('quote')}{_append_token(m.group('url'), token)}{m.group('quote')})",
+            text,
+        )
+    return _HTML_ASSET_ATTR_RE.sub(
+        lambda m: f'{m.group("attr")}="{_append_token(m.group("url"), token)}"', text
+    )
 
 
 class PreviewPathError(Exception):

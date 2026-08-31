@@ -1,77 +1,65 @@
-<div class="relative min-h-screen text-ink">
-  <app-header />
+<app-header />
 
-  <section class="mx-auto max-w-[860px] px-6 py-16">
-    <div class="flex flex-wrap items-center justify-between gap-4">
+<div class="wrap">
+  <section class="band--tight">
+    <div class="row row--between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-ink">My Generations</h1>
-        <p class="mt-1 text-sm text-ink-muted">Every site you've submitted, newest first.</p>
+        <h1 class="display display--sm">My Generations</h1>
+        <p class="sub">Every site you've submitted, newest first.</p>
       </div>
-      <a appButton shape="pill" variant="primary" routerLink="/app" class="!px-5 !py-2 text-sm">
-        + New Generation
-      </a>
+      <a appButton variant="primary" routerLink="/app">+ New Generation</a>
     </div>
 
-    <div class="mt-8 space-y-3">
-      @if (loading()) {
+    @if (loading()) {
+      <div class="rows" style="margin-top: calc(1.2 * var(--leading))">
         @for (i of [0, 1, 2]; track i) {
-          <div class="h-20 animate-pulse rounded-2xl border border-border-card bg-canvas-elevated/60"></div>
+          <div class="rows__item" style="height: 60px; background: var(--color-surface)"></div>
         }
-      } @else if (errorMessage()) {
-        <div class="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-300">
-          {{ errorMessage() }}
+      </div>
+    } @else if (errorMessage()) {
+      <p style="color: var(--color-accent-700); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+    } @else if (projects().length === 0) {
+      <div class="panel" style="margin-top: calc(1.2 * var(--leading)); text-align: center; padding: var(--space-8)">
+        <p style="font-weight: 600">No redesigns yet</p>
+        <p class="sub" style="margin: var(--space-1) auto 0">Submit a URL to generate your first one.</p>
+        <a appButton variant="primary" routerLink="/app" style="margin-top: var(--space-4); display: inline-flex">
+          Start a redesign
+        </a>
+      </div>
+    } @else {
+      <div class="sites">
+        <div class="sites__head">
+          <span class="label">Site</span>
+          <span class="label">Status</span>
+          <span class="label">Submitted</span>
+          <span></span>
         </div>
-      } @else if (projects().length === 0) {
-        <app-card variant="glass">
-          <div class="flex flex-col items-center py-4 text-center">
-            <div
-              class="flex h-14 w-14 items-center justify-center rounded-full border border-border-card bg-white/5 text-2xl"
-            >
-              🗂️
+        @for (project of projects(); track project.project_id) {
+          <div class="sites__row">
+            <div>
+              <p class="sites__domain" [title]="project.source_url">{{ project.source_url }}</p>
             </div>
-            <p class="mt-4 text-sm font-semibold text-ink">No redesigns yet</p>
-            <p class="mt-1 text-sm text-ink-muted">Submit a URL to generate your first one.</p>
-            <a appButton shape="pill" variant="primary" routerLink="/app" class="mt-5 !px-5 !py-2 text-sm">
-              Start a redesign
+            <div>
+              <div class="sites__badges">
+                @if (project.tier) {
+                  <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
+                }
+                <app-badge [variant]="statusBadgeVariant(project.status)">{{ statusLabel(project.status) }}</app-badge>
+              </div>
+              @if (!isTerminal(project.status)) {
+                <div class="sites__progress">
+                  <app-progress-bar [percent]="stagePercent(project.status)" />
+                  <span>{{ stagePercent(project.status) }}%</span>
+                </div>
+              }
+            </div>
+            <span class="sites__note">{{ project.created_at | date: 'medium' }}</span>
+            <a appButton variant="secondary" [routerLink]="['/projects', project.project_id]">
+              {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
             </a>
           </div>
-        </app-card>
-      } @else {
-        @for (project of projects(); track project.project_id) {
-          <app-card>
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div class="min-w-0 sm:flex-1">
-                <p class="truncate font-medium text-ink" [title]="project.source_url">{{ project.source_url }}</p>
-                <p class="mt-1 text-xs text-ink-muted">{{ project.created_at | date: 'medium' }}</p>
-              </div>
-
-              <div class="flex flex-col items-start gap-2 sm:min-w-0 sm:flex-1 sm:items-center">
-                <div class="flex items-center gap-2">
-                  @if (project.tier) {
-                    <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
-                  }
-                  <app-badge [variant]="statusBadgeVariant(project.status)">{{ statusLabel(project.status) }}</app-badge>
-                </div>
-                @if (!isTerminal(project.status)) {
-                  <div class="flex w-full items-center gap-2 sm:w-28">
-                    <app-progress-bar [percent]="stagePercent(project.status)" />
-                    <span class="shrink-0 text-xs text-ink-muted">{{ stagePercent(project.status) }}%</span>
-                  </div>
-                }
-              </div>
-
-              <a
-                appButton
-                variant="secondary"
-                [routerLink]="['/projects', project.project_id]"
-                class="w-full shrink-0 justify-center text-sm sm:w-auto"
-              >
-                {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
-              </a>
-            </div>
-          </app-card>
         }
-      }
-    </div>
+      </div>
+    }
   </section>
 </div>

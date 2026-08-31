@@ -1,24 +1,31 @@
-<div class="relative min-h-screen text-ink">
-  <app-header />
+<app-header />
 
-  <section class="mx-auto max-w-[1120px] px-6 py-16">
-    <a routerLink="/app" class="text-sm text-ink-muted transition-colors duration-200 hover:text-ink">
-      ← Back to Dashboard
-    </a>
+<div class="wrap">
+  <section class="band--tight">
+    <a routerLink="/app" class="gp-back">← Back to Dashboard</a>
 
     @if (status(); as s) {
-      <p class="mt-3 truncate text-sm text-ink-muted">{{ s.source_url }}</p>
+      <p class="gp-source">{{ s.source_url }}</p>
     }
 
     <!-- In-progress -->
     @if (isBusy) {
-      <app-card class="mx-auto mt-8 max-w-2xl">
-        <div class="flex flex-col items-center text-center">
-          <ol class="flex w-full items-start">
+      <section class="scan">
+        <div>
+          <span class="kicker">{{ statusLabelFor(stage()) }}</span>
+          <p class="pct">{{ progressPercent }}<span>%</span></p>
+
+          <div class="meter" style="margin-top: var(--space-6)">
+            <div class="meter__fill" [style.width.%]="progressPercent"></div>
+          </div>
+          <p class="sub">{{ subStatus() || 'Working on it…' }}</p>
+          <p class="text-muted" style="font-size: 13px">This takes about 30–60 seconds · {{ formattedElapsed }} elapsed</p>
+
+          <ol class="scan__steps">
             <li
               appStepItem
               [index]="1"
-              label="Crawling your site"
+              label="Crawling"
               description="Reading pages, content, and brand assets"
               orientation="horizontal"
               [subStatus]="subStatus()"
@@ -27,7 +34,7 @@
             <li
               appStepItem
               [index]="2"
-              label="Extracting your blueprint"
+              label="Extracting"
               description="Identifying your logo, colors, fonts, and tone"
               orientation="horizontal"
               [subStatus]="subStatus()"
@@ -36,7 +43,7 @@
             <li
               appStepItem
               [index]="3"
-              label="Generating your design"
+              label="Generating"
               description="Writing HTML, CSS, and JS for your site"
               orientation="horizontal"
               [last]="true"
@@ -44,151 +51,169 @@
               [status]="stepStatus('generating')"
             ></li>
           </ol>
-
-          <app-progress-bar class="mt-10 w-full" [percent]="progressPercent" />
-
-          <p class="mt-6 text-sm font-semibold text-ink">{{ subStatus() || 'Working on it…' }}</p>
-          <p class="mt-1 text-xs text-ink-muted">This takes about 30–60 seconds • {{ formattedElapsed }} elapsed</p>
         </div>
-      </app-card>
+
+        <aside class="panel">
+          <div class="panel__head">
+            <span class="label">What's happening</span>
+          </div>
+          <div class="panel__body stack">
+            <p class="sub" style="max-width: none">
+              We never touch your live site during this — we're only reading it to build the
+              replacement. You can close this tab; your project will still be here when you come
+              back.
+            </p>
+            <p class="row" style="font-size: 13px; color: var(--color-neutral-700); gap: var(--space-2)">
+              <span style="width: 8px; height: 8px; background: var(--color-accent)"></span>
+              Working on {{ status()?.source_url }}
+            </p>
+          </div>
+        </aside>
+      </section>
     }
 
     <!-- Failed / rejected -->
     @if (stage() === 'error') {
-      <app-card variant="danger" class="mx-auto mt-8 max-w-2xl">
-        <div class="flex flex-col items-center text-center">
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-error/30 bg-error/10 text-error"
-          >
-            <app-icon-x [size]="24" />
-          </div>
-          <h2 class="mt-4 text-xl font-bold text-ink">Something went wrong</h2>
-          <p class="mt-2 max-w-sm text-sm text-ink-muted">{{ errorMessage() }}</p>
-          <button appButton shape="pill" variant="primary" class="mt-6" (click)="tryAgain()">Try Again</button>
+      <div class="gp-error">
+        <div class="gp-error__icon">
+          <app-icon-x [size]="24" />
         </div>
-      </app-card>
+        <h2 style="margin-top: var(--space-4)">Something went wrong</h2>
+        <p class="sub" style="margin: var(--space-2) auto 0">{{ errorMessage() }}</p>
+        <button appButton variant="primary" style="margin-top: var(--space-6)" (click)="tryAgain()">
+          Try Again
+        </button>
+      </div>
     }
 
     <!-- Ready -->
     @if (stage() === 'ready') {
       @if (status(); as s) {
         @if (s.generation; as gen) {
-          <div class="mt-8">
-            <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
-                >
-                  <app-icon-check [size]="18" />
-                </div>
-                <div>
-                  <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                    {{ s.blueprint?.site_name || 'Your modernized site' }} is ready ✨
-                  </h2>
-                  <p class="mt-0.5 text-sm text-ink-muted">
-                    Modern, responsive, and built to impress — take a look, then make it yours.
-                  </p>
+          <div class="gp-ready__head">
+            <div>
+              <h2>{{ s.blueprint?.site_name || 'Your modernized site' }} is ready</h2>
+              <p class="sub" style="margin-top: var(--space-1)">
+                Modern, responsive, and built to impress — take a look, then make it yours.
+              </p>
+            </div>
+            <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
+          </div>
+
+          <div class="gp-ready__layout">
+            <div class="panel" style="border-width: 0 0 2px">
+              <div class="toolbar">
+                <span class="label">Before / after</span>
+                <div class="seg" role="group" aria-label="Device">
+                  <label class="seg-opt">
+                    <input type="radio" name="device" [checked]="device() === 'desktop'" (change)="device.set('desktop')" />
+                    Desktop
+                  </label>
+                  <label class="seg-opt">
+                    <input type="radio" name="device" [checked]="device() === 'phone'" (change)="device.set('phone')" />
+                    Phone
+                  </label>
                 </div>
               </div>
-              <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
+
+              <div class="split">
+                <div class="split__side">
+                  <div class="split__head">
+                    <span class="label">Before — your live site</span>
+                    <a class="label" [href]="s.source_url" target="_blank" rel="noopener">Open original ↗</a>
+                  </div>
+                  <div class="split__stage">
+                    <div [style.maxWidth.px]="frameWidth">
+                      <app-site-mock variant="old" [height]="420" />
+                    </div>
+                  </div>
+                </div>
+                <div class="split__side">
+                  <div class="split__head">
+                    <span class="label" style="color: var(--color-accent-700)">After — ReDoWebs rebuild</span>
+                  </div>
+                  <div class="split__stage">
+                    <div [style.maxWidth.px]="frameWidth" style="width: 100%">
+                      <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
+                        <button appButton toolbar-actions variant="secondary" title="Full page preview" (click)="toggleFullscreenPreview()">
+                          <app-icon-maximize2 [size]="14" />
+                        </button>
+                        <button appButton toolbar-actions variant="secondary" title="Open in new tab" (click)="openPreviewInNewTab()">
+                          <app-icon-external-link [size]="14" />
+                        </button>
+                      </app-browser-frame>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cells cells--4">
+                <div class="cell">
+                  <p class="metric__num metric__num--accent">{{ gen.tier }}</p>
+                  <p class="metric__label">Tier used</p>
+                </div>
+                <div class="cell">
+                  <p class="metric__num">{{ gen.template_used }}</p>
+                  <p class="metric__label">Template</p>
+                </div>
+                <div class="cell">
+                  <p class="metric__num metric__num--accent">{{ gen.contrast_warnings.length }}</p>
+                  <p class="metric__label">Accessibility notes</p>
+                </div>
+                <div class="cell">
+                  <p class="metric__num">1</p>
+                  <p class="metric__label">Page rebuilt</p>
+                </div>
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
-              <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
-                <button
-                  appButton
-                  toolbar-actions
-                  variant="secondary"
-                  title="Full page preview"
-                  class="!px-2.5 !py-1 text-xs"
-                  (click)="toggleFullscreenPreview()"
-                >
-                  <app-icon-maximize2 [size]="14" />
-                  Full preview
+            <aside class="gp-ready__aside">
+              <app-card variant="gradient">
+                <p class="gp-cta__kicker">Like what you see?</p>
+                <h3 style="margin-top: var(--space-2)">Unlock the full download</h3>
+                <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 14px">
+                  Get the complete HTML/CSS source, ready to host anywhere — one payment, yours to
+                  keep.
+                </p>
+                <button appButton variant="primary" disabled title="Coming soon" class="btn-block" style="margin-top: var(--space-4)">
+                  Download ZIP
                 </button>
-                <button
-                  appButton
-                  toolbar-actions
-                  variant="secondary"
-                  title="Open in new tab"
-                  class="!px-2.5 !py-1 text-xs"
-                  (click)="openPreviewInNewTab()"
-                >
-                  <app-icon-external-link [size]="14" />
-                </button>
-              </app-browser-frame>
+                <p class="text-muted" style="text-align: center; font-size: 12px; margin-top: var(--space-2)">
+                  Coming soon
+                </p>
+              </app-card>
 
-              <!-- Sidebar -->
-              <aside class="space-y-4 self-start">
-                <!-- Primary conversion CTA -->
-                <app-card variant="gradient" [spotlight]="true">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-accent-bright">Like what you see?</p>
-                  <h3 class="mt-1.5 text-lg font-bold leading-snug text-ink">Unlock the full download</h3>
-                  <p class="mt-2 text-sm leading-relaxed text-ink-muted">
-                    Get the complete HTML/CSS source, ready to host anywhere — one payment, yours to keep.
-                  </p>
-                  <button
-                    appButton
-                    shape="pill"
-                    variant="primary"
-                    disabled
-                    title="Coming soon"
-                    class="mt-5 w-full !py-3 text-base"
-                  >
-                    Download ZIP
-                  </button>
-                  <p class="mt-2.5 text-center text-xs font-medium text-accent-bright">Coming soon</p>
-                  <div class="my-4 border-t border-white/10"></div>
-                  <button appButton shape="pill" variant="ghost" disabled title="Coming soon" class="w-full">
-                    Try a different tier
-                  </button>
-                  <p class="mt-3 text-center text-xs text-ink-muted">
-                    Previews are always free — payment only unlocks the download.
-                  </p>
-                </app-card>
-
+              @if (gen.contrast_warnings.length > 0) {
                 <app-card>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Template</p>
-                  <p class="mt-1 text-sm font-medium text-ink">{{ gen.template_used }}</p>
+                  <p style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; margin: 0">
+                    <app-icon-alert-triangle [size]="16" />
+                    Accessibility note
+                  </p>
+                  <ul style="margin: var(--space-2) 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--color-neutral-700)">
+                    @for (warning of gen.contrast_warnings; track warning) {
+                      <li>{{ warning }}</li>
+                    }
+                  </ul>
                 </app-card>
-
-                @if (gen.contrast_warnings.length > 0) {
-                  <app-card>
-                    <p class="flex items-center gap-1.5 text-sm font-semibold text-amber-300">
-                      <app-icon-alert-triangle [size]="16" />
-                      Accessibility note
-                    </p>
-                    <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-200/80">
-                      @for (warning of gen.contrast_warnings; track warning) {
-                        <li>{{ warning }}</li>
-                      }
-                    </ul>
-                  </app-card>
-                }
-              </aside>
-            </div>
+              }
+            </aside>
           </div>
         }
       }
     }
   </section>
-
-  <!-- Fullscreen preview overlay -->
-  @if (isFullscreenPreview()) {
-    <app-browser-frame
-      [url]="previewUrl()"
-      [previewUrl]="safePreviewUrl()"
-      [fullscreen]="true"
-      iframeTitle="Full page website preview"
-    >
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="openPreviewInNewTab()">
-        <app-icon-external-link [size]="14" />
-        Open in new tab
-      </button>
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="toggleFullscreenPreview()">
-        <app-icon-x [size]="14" />
-        Close
-      </button>
-    </app-browser-frame>
-  }
 </div>
+
+<!-- Fullscreen preview overlay -->
+@if (isFullscreenPreview()) {
+  <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
+    <button appButton toolbar-actions variant="secondary" (click)="openPreviewInNewTab()">
+      <app-icon-external-link [size]="14" />
+      Open in new tab
+    </button>
+    <button appButton toolbar-actions variant="secondary" (click)="toggleFullscreenPreview()">
+      <app-icon-x [size]="14" />
+      Close
+    </button>
+  </app-browser-frame>
+}

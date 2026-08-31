@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 
+import { SiteMockComponent } from '../site-mock/site-mock.component';
 import { StepItemComponent, StepStatus } from '../step-item/step-item.component';
 
 type DemoPhase = 'crawling' | 'extracting' | 'generating';
@@ -20,20 +21,18 @@ const SUBSTATUS: Record<DemoPhase, string> = {
 @Component({
   selector: 'app-generation-demo',
   standalone: true,
-  imports: [StepItemComponent],
-  host: { class: 'block' },
+  imports: [StepItemComponent, SiteMockComponent],
+  host: { style: 'display: block' },
   template: `
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
+    <div class="demo">
       <div>
-        <p class="font-mono text-xs uppercase tracking-widest text-accent-bright">Live look</p>
-        <h3 class="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Watch the pipeline work
-        </h3>
-        <p class="mt-3 text-sm leading-relaxed text-ink-muted">
-          A simulated look at what happens after you hit "Generate My Redesign" — your real
-          project shows this same sequence with live status updates.
+        <span class="kicker">Live look</span>
+        <h3 style="margin-top: var(--space-2)">Watch the pipeline work</h3>
+        <p class="sub" style="margin-top: var(--space-3)">
+          A simulated look at what happens after you submit your URL — your real project shows this
+          same sequence with live status updates.
         </p>
-        <ol class="mt-8 space-y-5">
+        <ol class="stack" style="margin-top: var(--space-6); list-style: none; padding: 0">
           <li
             appStepItem
             [index]="1"
@@ -61,55 +60,57 @@ const SUBSTATUS: Record<DemoPhase, string> = {
         </ol>
       </div>
 
-      <div
-        class="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/6 bg-canvas-elevated shadow-card"
-      >
-        <div class="flex items-center gap-2 border-b border-white/10 bg-canvas-elevated/80 px-4 py-3">
-          <span class="h-3 w-3 rounded-full bg-red-400"></span>
-          <span class="h-3 w-3 rounded-full bg-amber-400"></span>
-          <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
+      <aside class="panel">
+        <div class="panel__head">
+          <span class="row" style="gap: var(--space-2)">
+            <span style="width: 10px; height: 10px; background: var(--color-accent)"></span>
+            <span class="label">Live · rebuilding yourbusiness.com</span>
+          </span>
         </div>
-
-        <div class="relative h-[calc(100%-2.75rem)] w-full">
-          <!-- Before: dated, boxy wireframe -->
-          <div
-            class="motion-reduce:transition-none absolute inset-0 p-6 transition-opacity duration-700"
-            [class.opacity-0]="showAfter()"
-            [class.opacity-100]="!showAfter()"
-          >
-            <div class="h-4 w-24 rounded bg-white/10"></div>
-            <div class="mt-4 h-16 w-full rounded bg-white/5"></div>
-            <div class="mt-4 grid grid-cols-3 gap-3">
-              <div class="h-14 rounded bg-white/5"></div>
-              <div class="h-14 rounded bg-white/5"></div>
-              <div class="h-14 rounded bg-white/5"></div>
+        <div class="panel__body stack">
+          <div class="demo__mocks">
+            <div>
+              <span class="label">Before</span>
+              <app-site-mock variant="old" [height]="150" />
+            </div>
+            <div>
+              <span class="label" style="color: var(--color-accent-700)">After</span>
+              <app-site-mock variant="new" [height]="150" />
             </div>
           </div>
-
-          <!-- After: modern, glowing, rounded -->
-          <div
-            class="motion-reduce:transition-none absolute inset-0 p-6 transition-opacity duration-700"
-            [class.opacity-100]="showAfter()"
-            [class.opacity-0]="!showAfter()"
-          >
-            <div class="h-4 w-28 rounded-full bg-gradient-to-r from-accent to-accent-bright"></div>
-            <div class="mt-4 h-16 w-full rounded-xl bg-gradient-to-br from-accent/30 to-transparent shadow-cta-glow"></div>
-            <div class="mt-4 grid grid-cols-3 gap-3">
-              <div class="h-14 rounded-xl border border-accent/30 bg-accent/10"></div>
-              <div class="h-14 rounded-xl border border-accent/30 bg-accent/10"></div>
-              <div class="h-14 rounded-xl border border-accent/30 bg-accent/10"></div>
-            </div>
+          <div class="meter" style="height: 2px">
+            <div class="meter__fill" [style.width.%]="progressPercent()"></div>
           </div>
         </div>
-      </div>
+      </aside>
     </div>
   `,
+  styles: [
+    `
+      .demo {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-8);
+      }
+      @media (min-width: 980px) {
+        .demo {
+          grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+          align-items: center;
+        }
+      }
+      .demo__mocks {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-3);
+      }
+    `,
+  ],
 })
 export class GenerationDemoComponent implements OnInit, OnDestroy {
   private readonly phaseIndex = signal(0);
   private timer?: ReturnType<typeof setInterval>;
 
-  protected readonly showAfter = computed(() => PHASES[this.phaseIndex()] === 'generating');
+  protected readonly progressPercent = computed(() => ((this.phaseIndex() + 1) / PHASES.length) * 100);
 
   ngOnInit(): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

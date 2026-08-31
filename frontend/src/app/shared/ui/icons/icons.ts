@@ -13,7 +13,7 @@ import { Component, input } from '@angular/core';
 @Component({
   selector: 'app-icon-check',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -36,7 +36,7 @@ export class IconCheck {
 @Component({
   selector: 'app-icon-alert-triangle',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -61,7 +61,7 @@ export class IconAlertTriangle {
 @Component({
   selector: 'app-icon-external-link',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -86,7 +86,7 @@ export class IconExternalLink {
 @Component({
   selector: 'app-icon-maximize2',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -112,7 +112,7 @@ export class IconMaximize2 {
 @Component({
   selector: 'app-icon-x',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -136,7 +136,7 @@ export class IconX {
 @Component({
   selector: 'app-icon-chevron-down',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"
@@ -159,7 +159,7 @@ export class IconChevronDown {
 @Component({
   selector: 'app-icon-link',
   standalone: true,
-  host: { class: 'inline-flex' },
+  host: { style: 'display: inline-flex' },
   template: `
     <svg
       [attr.width]="size()"

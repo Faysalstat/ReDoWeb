@@ -14,83 +14,99 @@ import { IconChevronDown } from '../icons/icons';
   standalone: true,
   imports: [RouterLink, RouterLinkActive, BadgeComponent, IconChevronDown],
   template: `
-    <header class="sticky top-0 z-30 border-b border-white/6 bg-canvas/85 backdrop-blur-md">
-      <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <a routerLink="/app" class="flex items-center gap-2.5">
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-teal text-sm font-bold text-white shadow-cta-glow"
-          >
-            R
+    <header class="nav">
+      <a routerLink="/app" class="nav-brand">ReDoWebs</a>
+
+      <a routerLink="/app" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive>Home</a>
+      <a routerLink="/history" ariaCurrentWhenActive="page" routerLinkActive>History</a>
+      <a routerLink="/settings/billing" ariaCurrentWhenActive="page" routerLinkActive>Billing</a>
+
+      @if (balance(); as b) {
+        <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
+      }
+
+      <div class="app-header__menu">
+        <button type="button" (click)="toggleMenu($event)" class="app-header__avatar-btn">
+          <span class="app-header__avatar">{{ initial() }}</span>
+          <app-icon-chevron-down [size]="16" />
+        </button>
+
+        @if (menuOpen()) {
+          <div class="app-header__dropdown">
+            <p class="app-header__email">{{ auth.currentUser()?.email }}</p>
+            <hr class="hr" />
+            <a routerLink="/history" (click)="closeMenu()">My Generations</a>
+            <hr class="hr" />
+            <button type="button" (click)="signOut()" class="app-header__signout">Sign Out</button>
           </div>
-          <span class="text-lg font-bold tracking-tight text-ink">ReDoWebs</span>
-        </a>
-
-        <nav class="hidden items-center gap-1 rounded-full border border-white/6 bg-white/5 p-1 text-sm font-medium sm:flex">
-          <a
-            routerLink="/app"
-            routerLinkActive="bg-accent/15 text-ink"
-            [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-full px-4 py-1.5 text-ink-muted transition-colors duration-200 hover:text-ink"
-          >
-            Home
-          </a>
-          <a
-            routerLink="/history"
-            routerLinkActive="bg-accent/15 text-ink"
-            class="rounded-full px-4 py-1.5 text-ink-muted transition-colors duration-200 hover:text-ink"
-          >
-            History
-          </a>
-        </nav>
-
-        <div class="flex items-center gap-3">
-          @if (balance(); as b) {
-            <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
-          }
-
-          <div class="relative">
-            <button
-              type="button"
-              (click)="toggleMenu($event)"
-              class="flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2 transition-colors duration-200 hover:bg-white/5"
-            >
-              <span
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-magenta text-sm font-semibold text-white"
-              >
-                {{ initial() }}
-              </span>
-              <app-icon-chevron-down [size]="16" class="text-ink-muted" />
-            </button>
-
-            @if (menuOpen()) {
-              <div
-                class="animate-fade-up absolute right-0 top-full mt-2 w-56 rounded-[10px] border border-border-card bg-canvas-elevated py-2 shadow-card"
-                style="--fade-delay: 0s"
-              >
-                <p class="truncate px-4 py-2 text-sm text-ink-muted">{{ auth.currentUser()?.email }}</p>
-                <div class="my-1 border-t border-white/6"></div>
-                <a
-                  routerLink="/history"
-                  (click)="closeMenu()"
-                  class="block px-4 py-2 text-sm text-ink transition-colors duration-200 hover:bg-white/5"
-                >
-                  My Generations
-                </a>
-                <div class="my-1 border-t border-white/6"></div>
-                <button
-                  type="button"
-                  (click)="signOut()"
-                  class="block w-full px-4 py-2 text-left text-sm font-medium text-red-400 transition-colors duration-200 hover:bg-red-500/10"
-                >
-                  Sign Out
-                </button>
-              </div>
-            }
-          </div>
-        </div>
+        }
       </div>
     </header>
   `,
+  styles: [
+    `
+      .app-header__menu {
+        position: relative;
+        margin-left: var(--space-2);
+      }
+      .app-header__avatar-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--color-text);
+        padding: 4px;
+      }
+      .app-header__avatar {
+        display: flex;
+        height: 32px;
+        width: 32px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--color-accent);
+        color: var(--color-bg);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .app-header__dropdown {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        width: 220px;
+        background: var(--color-surface);
+        border: 2px solid var(--color-divider);
+        box-shadow: var(--shadow-md);
+        padding: var(--space-3);
+        display: flex;
+        flex-direction: column;
+        z-index: 30;
+      }
+      .app-header__email {
+        margin: 0 0 var(--space-2);
+        font-size: 12px;
+        color: var(--color-neutral-700);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .app-header__dropdown a {
+        padding: var(--space-2) 0;
+      }
+      .app-header__signout {
+        text-align: left;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: var(--space-2) 0 0;
+        font-size: 14px;
+        color: var(--color-accent-700);
+        font-family: var(--font-body);
+      }
+    `,
+  ],
 })
 export class AppHeaderComponent {
   readonly balance = signal<number | null>(null);

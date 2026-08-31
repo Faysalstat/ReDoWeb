@@ -130,9 +130,23 @@ def vision_json_chat(
 
     data = response.json()
     try:
-        message_content = data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        message_content = choice["message"]["content"]
     except (KeyError, IndexError) as exc:
         raise OpenRouterError(f"Unexpected OpenRouter response shape: {data}") from exc
+
+    if not isinstance(message_content, str) or not message_content:
+        # Some models return content=None (or an empty string) instead of
+        # JSON text -- e.g. a refusal, a content filter, or a
+        # reasoning-heavy model that put its actual output in a different
+        # field and left `content` empty. json.loads(None) raises
+        # TypeError, not JSONDecodeError, so this needs its own check
+        # rather than falling through to the except below. Surfacing
+        # finish_reason is diagnostic here the same way it already is for
+        # the generation loop (see site_generator.py's truncation handling).
+        raise OpenRouterError(
+            f"Model returned no content (finish_reason={choice.get('finish_reason')!r}): {data}"
+        )
 
     try:
         parsed = json.loads(message_content)

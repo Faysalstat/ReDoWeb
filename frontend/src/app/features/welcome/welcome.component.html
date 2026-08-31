@@ -1,29 +1,16 @@
-<div class="relative flex min-h-screen items-center text-ink">
-  <div appParallaxHero class="mx-auto w-full max-w-md px-6 py-20">
-    <app-card variant="glass" class="animate-fade-up mx-auto text-center" style="--fade-delay: 0.08s">
-      <div class="mb-5 flex items-center justify-center gap-2.5">
-        <div
-          class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-teal text-base font-bold text-white shadow-cta-glow"
-        >
-          R
-        </div>
-        <span class="text-xl font-bold tracking-tight text-ink">ReDoWebs</span>
-      </div>
+<div class="auth">
+  <section class="auth__form">
+    <span class="nav-brand">ReDoWebs</span>
+    <h1 class="display display--sm" style="margin-top: var(--space-8)">Welcome back.</h1>
+    <p class="sub" style="max-width: 44ch">
+      Sign in to crawl your site, get an AI-generated brand blueprint, and preview a modern
+      redesign — free to try, no credit card required.
+    </p>
 
-      <p class="text-sm text-ink-muted">Redesign your website with AI</p>
+    <span class="tag tag-accent" style="margin-top: var(--space-6)">AI-powered website modernization</span>
 
-      <app-badge variant="accent" class="mt-5 inline-flex">AI-powered website modernization</app-badge>
-
-      <p class="mx-auto mt-5 max-w-sm text-sm leading-relaxed text-ink-muted">
-        Sign in to crawl your site, get an AI-generated brand blueprint, and preview a modern
-        redesign — free to try, no credit card required.
-      </p>
-
-      <button
-        type="button"
-        (click)="onGoogleLoginClick()"
-        class="mt-8 flex w-full items-center justify-center gap-3 rounded-lg border border-white/15 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.98]"
-      >
+    <div class="auth__fields">
+      <button class="btn btn-secondary btn-block" type="button" (click)="onGoogleLoginClick()">
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
           <path
             fill="#FFC107"
@@ -44,8 +31,20 @@
         </svg>
         Continue with Google
       </button>
+      <p style="font-size: 13.5px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
+        3 free credits on signup · free preview always.
+      </p>
+    </div>
+  </section>
 
-      <p class="mt-5 text-center text-xs text-ink-muted">3 free credits on signup • Free preview always</p>
-    </app-card>
-  </div>
+  <aside class="auth__poster">
+    <h2>Nothing published<br />without your word.</h2>
+    <div class="auth__foot">
+      <p>
+        We crawl what's publicly on your site, draft a modern replacement, and let you preview it
+        page by page. Nothing goes live until you decide to publish it.
+      </p>
+      <p class="label" style="color: var(--color-bg)">AI-generated redesigns · your facts, kept intact</p>
+    </div>
+  </aside>
 </div>

@@ -1,0 +1,86 @@
+<app-public-nav />
+
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <h1 class="display">
+        <span class="line">Your site, rebuilt</span>
+        <span class="line">before you finish coffee.</span>
+      </h1>
+      <p class="sub">
+        Give us the address you already own. REFIT reads every page, finds what is costing you
+        customers, and returns a working replacement you can walk through. Preview is free — you pay
+        when you decide to publish.
+      </p>
+
+      <form class="hero__form" (ngSubmit)="scan()">
+        <input class="input" type="url" name="url" [(ngModel)]="url"
+               placeholder="yourbusiness.com" aria-label="Your website address" />
+        <button class="btn btn-primary" type="submit">Scan my site — free</button>
+      </form>
+      <p class="hero__note">No card. No install. We never touch your live site until you press publish.</p>
+
+      <div class="hero__stats">
+        @for (s of stats; track s.label) {
+          <div>
+            <p class="stat__num">{{ s.value }}</p>
+            <p class="metric__label">{{ s.label }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <aside class="panel">
+      <div class="panel__head">
+        <span class="row" style="gap: var(--space-2)">
+          <span style="width: 10px; height: 10px; background: var(--color-accent)"></span>
+          <span class="label">Live · rebuilding brightwood-dental.com</span>
+        </span>
+      </div>
+      <div class="panel__body stack">
+        <div class="ticker__mocks">
+          <div>
+            <span class="label">Before</span>
+            <app-site-mock variant="old" [height]="150" />
+          </div>
+          <div>
+            <span class="label" style="color: var(--color-accent-700)">After</span>
+            <app-site-mock variant="new" [height]="150" />
+          </div>
+        </div>
+        <div class="meter" style="height: 2px">
+          <div class="meter__fill" style="width: 44%"></div>
+        </div>
+        <p style="font-size: 13px; margin: 0; color: var(--color-neutral-800)">
+          Rewriting 9 pages · fixing 14 accessibility defects · compressing 62 images.
+        </p>
+      </div>
+    </aside>
+  </section>
+</div>
+
+<hr class="rule2" />
+
+<div class="wrap">
+  <section class="band" id="how">
+    <span class="kicker">How it works</span>
+    <div style="margin-top: var(--space-6)">
+      @for (step of steps; track step.n) {
+        <div class="feature">
+          <p class="feature__num">{{ step.n }}</p>
+          <h2 class="feature__title">{{ step.title }}</h2>
+          <p class="feature__copy">{{ step.copy }}</p>
+        </div>
+      }
+    </div>
+  </section>
+</div>
+
+<section class="poster">
+  <div class="wrap">
+    <h2 class="display display--sm">See it before you buy it.</h2>
+    <div class="row" style="margin-top: var(--space-6)">
+      <a class="btn btn-ghost" routerLink="/pricing">See what publishing costs</a>
+    </div>
+  </div>
+</section>

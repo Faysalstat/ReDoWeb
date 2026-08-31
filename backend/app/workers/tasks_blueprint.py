@@ -1,11 +1,12 @@
 import uuid
 from pathlib import Path
 
-from ..ai.blueprint_extractor import extract_blueprint
+from ..ai.blueprint_pipeline import run_blueprint_pipeline
 from ..config import get_settings
 from ..db.session import SessionLocal
 from ..models import Blueprint, Project
 from ..services import token_usage_service
+from ..services.blueprint_service import build_blueprint_row
 from .celery_app import celery_app
 
 
@@ -20,14 +21,12 @@ def extract_blueprint_task(self, project_id: str) -> str:
         db.commit()
 
         try:
-            result = extract_blueprint(project_root)
+            result = run_blueprint_pipeline(project_root)
         except Exception as exc:
             project.status = "failed"
             project.rejection_reason = str(exc)
             db.commit()
             raise
-
-        frontmatter = result["frontmatter"]
 
         token_usage_service.record_usage(
             db,
@@ -45,20 +44,7 @@ def extract_blueprint_task(self, project_id: str) -> str:
         ).update({"is_current": False})
         next_version = db.query(Blueprint).filter(Blueprint.project_id == project.id).count() + 1
 
-        db.add(
-            Blueprint(
-                project_id=project.id,
-                version=next_version,
-                source="ai_extracted",
-                design_md_storage_path=result["design_md_path"],
-                site_name=frontmatter.get("site_name"),
-                colors=frontmatter.get("colors"),
-                logo_path=frontmatter.get("logo"),
-                fonts=frontmatter.get("fonts"),
-                tone=frontmatter.get("tone"),
-                is_current=True,
-            )
-        )
+        db.add(build_blueprint_row(project.id, next_version, result))
         project.status = "blueprint_ready"
         db.commit()
         return project_id

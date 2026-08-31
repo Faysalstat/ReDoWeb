@@ -1,0 +1,66 @@
+<nav class="nav">
+  <a class="nav-brand" routerLink="/">REFIT</a>
+  <span class="label">Step 2 of 2 — Payment</span>
+</nav>
+
+<div class="checkout">
+  <form class="checkout__form" (ngSubmit)="pay()">
+    <h1 class="display display--sm">Publish {{ domain }}</h1>
+
+    <div class="checkout__fields">
+      <div class="field">
+        <label for="ck-email">Email</label>
+        <input class="input" id="ck-email" name="email" type="email" [(ngModel)]="form.email" placeholder="you@yourbusiness.com" />
+      </div>
+      <div class="field">
+        <label for="ck-card">Card number</label>
+        <input class="input" id="ck-card" name="card" inputmode="numeric" [(ngModel)]="form.card" placeholder="0000 0000 0000 0000" />
+      </div>
+      <div class="checkout__pair">
+        <div class="field">
+          <label for="ck-exp">Expiry</label>
+          <input class="input" id="ck-exp" name="expiry" [(ngModel)]="form.expiry" placeholder="MM / YY" />
+        </div>
+        <div class="field">
+          <label for="ck-cvc">CVC</label>
+          <input class="input" id="ck-cvc" name="cvc" [(ngModel)]="form.cvc" placeholder="123" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="ck-name">Name on card</label>
+        <input class="input" id="ck-name" name="name" [(ngModel)]="form.name" placeholder="A. Brightwood" />
+      </div>
+      <div class="field">
+        <label for="ck-country">Billing country</label>
+        <select class="input" id="ck-country" name="country" [(ngModel)]="form.country">
+          @for (c of countries; track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      </div>
+
+      <hr class="hr" />
+
+      <button class="btn btn-primary btn-block checkout__cta" type="submit">Pay ${{ total }} and publish</button>
+      <p style="font-size: 13px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
+        Your new site goes live on your domain within two minutes. The old version is archived, not
+        deleted — restore it any time from the dashboard.
+      </p>
+    </div>
+  </form>
+
+  <aside class="checkout__summary">
+    <span class="label">Order</span>
+    <div style="margin-top: var(--space-6); border-top: 2px solid var(--color-divider)">
+      <div class="summary__row"><span style="font-weight: 600">Plan — monthly</span><span class="tnum">${{ total }}.00</span></div>
+      <div class="summary__row"><span>Domain connection</span><span class="tnum">$0.00</span></div>
+      <div class="summary__row"><span>First month discount</span><span class="tnum" style="color: var(--color-accent-700)">−$0.00</span></div>
+      <div class="summary__total"><b>Due today</b><span>${{ total }}.00</span></div>
+    </div>
+    <div class="panel" style="padding: var(--space-4)">
+      <span class="label">Included in this preview</span>
+      <p style="font-size: 14.5px; line-height: 24px; margin: var(--space-3) 0">
+        9 pages · 14 accessibility fixes · 62 images compressed · mobile layout rebuilt
+      </p>
+      <a routerLink="/preview/demo" style="font-size: 14.5px; font-weight: 600">Back to preview</a>
+    </div>
+  </aside>
+</div>

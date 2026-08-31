@@ -1,0 +1,51 @@
+<app-public-nav />
+
+<div class="wrap">
+  <section class="band">
+    <h1 class="display display--sm">Preview costs nothing. Downloading has a price.</h1>
+    <p class="sub">
+      Every tier includes a free live preview before you pay for the download — one payment per
+      redesign, no subscriptions.
+    </p>
+
+    <div class="cells cells--3" style="margin-top: calc(1.5 * var(--leading))">
+      @for (tier of tiers; track tier.name) {
+        <app-pricing-tier
+          [name]="tier.name"
+          [price]="tier.price"
+          [period]="tier.period"
+          [tagline]="tier.tagline"
+          [features]="tier.features"
+          [highlighted]="tier.highlighted"
+          [ctaLabel]="tier.ctaLabel"
+        />
+      }
+    </div>
+
+    <table class="table" style="margin-top: calc(2 * var(--leading))">
+      <thead>
+        <tr>
+          <th>What you get</th>
+          <th>Basic</th>
+          <th>Premium</th>
+          <th>Pro</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of matrix; track row.label) {
+          <tr>
+            <td>{{ row.label }}</td>
+            <td>{{ row.basic }}</td>
+            <td>{{ row.premium }}</td>
+            <td>{{ row.pro }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <p class="text-muted" style="margin-top: var(--space-4); font-size: 12px">
+      Placeholder pricing shown for preview — final pricing and checkout will be confirmed before
+      launch.
+    </p>
+  </section>
+</div>

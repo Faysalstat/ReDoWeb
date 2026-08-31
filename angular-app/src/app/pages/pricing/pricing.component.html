@@ -1,0 +1,42 @@
+<app-public-nav />
+
+<div class="wrap">
+  <section class="band">
+    <h1 class="display display--sm">Preview costs nothing. Publishing has a price.</h1>
+    <p class="sub">
+      Monthly hosting is included in every plan. Cancel and your old site is untouched — we archive
+      the rebuild rather than deleting it.
+    </p>
+
+    <div class="cells cells--3" style="margin-top: calc(1.5 * var(--leading))">
+      @for (p of plans(); track p.id) {
+        <div class="plan" [style.borderTopColor]="edge(p.id)">
+          <div class="row" style="gap: var(--space-3)">
+            <span class="label" style="font-weight: 600; color: var(--color-text)">{{ p.name }}</span>
+            @if (p.recommended) { <span class="tag tag-accent">Most chosen</span> }
+          </div>
+          <p class="plan__price">${{ p.price }}<small> /mo</small></p>
+          <p class="plan__blurb">{{ p.blurb }}</p>
+          <a class="btn btn-block" [class.btn-primary]="p.recommended" [class.btn-secondary]="!p.recommended"
+             routerLink="/checkout" [queryParams]="{ plan: p.id }">Publish on {{ p.name }}</a>
+          <div class="plan__features">
+            @for (f of p.features; track f) {
+              <div class="plan__feature"><span></span><span>{{ f }}</span></div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <table class="table" style="margin-top: calc(2 * var(--leading))">
+      <thead>
+        <tr><th>What you get</th><th>Basic</th><th>Pro</th><th>Premium</th></tr>
+      </thead>
+      <tbody>
+        @for (row of matrix(); track row.label) {
+          <tr><td>{{ row.label }}</td><td>{{ row.basic }}</td><td>{{ row.pro }}</td><td>{{ row.premium }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+</div>

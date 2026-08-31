@@ -1,43 +1,98 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
-import { BadgeComponent } from '../badge/badge.component';
 import { ButtonComponent } from '../button/button.component';
-import { CardComponent } from '../card/card.component';
-import { IconCheck } from '../icons/icons';
 
 @Component({
   selector: 'app-pricing-tier',
   standalone: true,
-  imports: [CardComponent, BadgeComponent, ButtonComponent, IconCheck],
-  host: { class: 'block h-full' },
+  imports: [ButtonComponent],
+  host: { style: 'display: block; height: 100%' },
   template: `
-    <app-card [variant]="highlighted() ? 'gradient' : 'default'">
-      @if (highlighted()) {
-        <app-badge variant="accent" class="mb-4 inline-flex w-fit">Most popular</app-badge>
-      }
-      <h3 class="text-lg font-semibold text-ink">{{ name() }}</h3>
-      <p class="mt-3 flex items-baseline gap-1">
-        <span class="text-4xl font-bold tracking-tight text-ink">{{ price() }}</span>
+    <div class="plan" [style.borderTopColor]="edgeColor()">
+      <div class="row" style="gap: var(--space-3)">
+        <span class="label" style="font-weight: 600; color: var(--color-text)">{{ name() }}</span>
+        @if (highlighted()) {
+          <span class="tag tag-accent">Most popular</span>
+        }
+      </div>
+      <p class="plan__price">
+        {{ price() }}
         @if (period()) {
-          <span class="text-sm text-ink-muted">{{ period() }}</span>
+          <small> {{ period() }}</small>
         }
       </p>
-      <p class="mt-2 text-sm text-ink-muted">{{ tagline() }}</p>
-
-      <ul class="mt-6 flex-1 space-y-3 text-sm text-ink-muted">
-        @for (feature of features(); track feature) {
-          <li class="flex items-start gap-2">
-            <app-icon-check [size]="16" class="mt-0.5 shrink-0 text-accent-bright" />
-            <span>{{ feature }}</span>
-          </li>
-        }
-      </ul>
-
-      <a appButton [variant]="highlighted() ? 'primary' : 'secondary'" href="#submit" class="mt-8 w-full justify-center">
+      <p class="plan__blurb">{{ tagline() }}</p>
+      <a appButton [variant]="highlighted() ? 'primary' : 'secondary'" href="#submit" class="btn-block">
         {{ ctaLabel() }}
       </a>
-    </app-card>
+      <div class="plan__features">
+        @for (feature of features(); track feature) {
+          <div class="plan__feature"><span></span><span>{{ feature }}</span></div>
+        }
+      </div>
+    </div>
   `,
+  styles: [
+    `
+      .plan {
+        height: 100%;
+        background: var(--color-bg);
+        padding: var(--space-8) var(--space-6);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        border-top: 6px solid var(--color-neutral-400);
+      }
+      .plan__price {
+        font-family: var(--font-heading);
+        font-weight: var(--font-heading-weight);
+        font-size: 54px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        margin: 0 0 0 -0.045em;
+        font-feature-settings: 'tnum' 1;
+      }
+      .plan__price small {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0;
+        color: var(--color-neutral-700);
+      }
+      .plan__blurb {
+        font-size: 15px;
+        line-height: 26px;
+        color: var(--color-neutral-800);
+        margin: 0;
+        min-height: 78px;
+      }
+      .plan__features {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        border-top: 2px solid var(--color-divider);
+        padding-top: var(--space-4);
+      }
+      .plan__feature {
+        display: grid;
+        grid-template-columns: 14px 1fr;
+        gap: var(--space-3);
+        align-items: start;
+        font-size: 14.5px;
+        line-height: 24px;
+      }
+      .plan__feature span:first-child {
+        width: 8px;
+        height: 8px;
+        background: var(--color-accent);
+        margin-top: 8px;
+      }
+      @media (max-width: 880px) {
+        .plan__blurb {
+          min-height: 0;
+        }
+      }
+    `,
+  ],
 })
 export class PricingTierComponent {
   readonly name = input.required<string>();
@@ -47,4 +102,8 @@ export class PricingTierComponent {
   readonly features = input<string[]>([]);
   readonly highlighted = input(false);
   readonly ctaLabel = input('Get Started');
+
+  protected readonly edgeColor = computed(() =>
+    this.highlighted() ? 'var(--color-accent)' : 'var(--color-neutral-400)'
+  );
 }

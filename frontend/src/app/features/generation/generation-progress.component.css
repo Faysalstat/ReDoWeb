@@ -1,0 +1,96 @@
+.gp-back {
+  font-size: 14px;
+  color: var(--color-neutral-700);
+  text-decoration: none;
+}
+.gp-back:hover {
+  color: var(--color-accent);
+}
+.gp-source {
+  margin: var(--space-2) 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+/* — busy state — */
+.scan {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+  gap: calc(2 * var(--leading)) calc(2 * var(--space-8));
+  align-items: start;
+  padding: calc(1.5 * var(--leading)) 0;
+}
+.pct {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: clamp(72px, 10vw, 140px);
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+  color: var(--color-accent);
+  margin: var(--space-4) 0 0 -0.05em;
+  font-feature-settings: 'tnum' 1;
+}
+.pct span {
+  font-size: 0.36em;
+  letter-spacing: -0.02em;
+}
+.scan__steps {
+  list-style: none;
+  margin: calc(1.5 * var(--leading)) 0 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* — error state — */
+.gp-error {
+  max-width: 480px;
+  margin: calc(1.5 * var(--leading)) auto 0;
+  text-align: center;
+}
+.gp-error__icon {
+  display: flex;
+  height: 56px;
+  width: 56px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-700);
+  color: var(--color-accent-700);
+}
+
+/* — ready state — */
+.gp-ready__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: calc(1.5 * var(--leading));
+}
+.gp-ready__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+@media (min-width: 1040px) {
+  .gp-ready__layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+}
+.gp-ready__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.gp-cta__kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin: 0;
+}

@@ -3,10 +3,8 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 
 import { AuthService } from '../../../core/auth.service';
 
-/** Layout shell for the whole /admin section: sidebar nav + topbar +
- * <router-outlet>. Deliberately not a reuse of AppHeaderComponent -- that's
- * a horizontal marketing-site header for the regular user flow, this is a
- * structurally different sidebar admin layout.
+/** Layout shell for the whole /admin section: top nav + <router-outlet>,
+ * matching the design system's flat `.nav` bar rather than a sidebar.
  *
  * Nav only lists pages that actually exist yet (Overview) -- more entries
  * get added here as Usage/Revenue/Users/Projects/Tiers are built in later
@@ -16,45 +14,18 @@ import { AuthService } from '../../../core/auth.service';
   standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="flex min-h-screen bg-canvas text-ink">
-      <aside class="flex w-60 shrink-0 flex-col border-r border-white/6 bg-canvas-elevated-2 px-4 py-6">
-        <a routerLink="/admin" class="mb-8 flex items-center gap-2.5 px-2">
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-teal text-sm font-bold text-white"
-          >
-            R
-          </div>
-          <span class="text-base font-bold tracking-tight text-ink">Admin</span>
-        </a>
+    <nav class="nav">
+      <a class="nav-brand" routerLink="/admin"
+        >ReDoWebs <span class="label" style="display: inline; color: var(--color-accent-700)">ADMIN</span></a
+      >
+      <a routerLink="/admin/overview" ariaCurrentWhenActive="page" routerLinkActive>Overview</a>
+      <a routerLink="/app">← Back to app</a>
+      <span class="label">{{ auth.currentUser()?.email }}</span>
+      <button type="button" class="btn btn-ghost" (click)="signOut()">Sign out</button>
+    </nav>
 
-        <nav class="flex flex-col gap-1 text-sm font-medium">
-          <a
-            routerLink="/admin/overview"
-            routerLinkActive="bg-accent/15 text-ink"
-            class="rounded-lg px-3 py-2 text-ink-muted transition-colors duration-200 hover:bg-white/5 hover:text-ink"
-          >
-            Overview
-          </a>
-        </nav>
-
-        <div class="mt-auto flex flex-col gap-2 px-2 pt-6">
-          <a routerLink="/app" class="text-xs text-ink-muted transition-colors duration-200 hover:text-ink">
-            &larr; Back to app
-          </a>
-          <p class="truncate text-xs text-ink-faint">{{ auth.currentUser()?.email }}</p>
-          <button
-            type="button"
-            (click)="signOut()"
-            class="w-fit text-xs font-medium text-red-400 transition-colors duration-200 hover:text-red-300"
-          >
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      <main class="min-w-0 flex-1 overflow-y-auto px-8 py-8">
-        <router-outlet />
-      </main>
+    <div class="wrap band">
+      <router-outlet />
     </div>
   `,
 })

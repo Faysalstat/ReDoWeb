@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
 
 import { PreviewService } from '../../core/preview.service';
-import { STAGE_ORDER, Stage, TERMINAL_STATUSES, stageOf } from '../../core/project-status';
+import { STAGE_ORDER, Stage, TERMINAL_STATUSES, stageOf, statusLabel } from '../../core/project-status';
 import { ProjectStatusResponse } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
@@ -13,9 +13,11 @@ import { BadgeComponent } from '../../shared/ui/badge/badge.component';
 import { BrowserFrameComponent } from '../../shared/ui/browser-frame/browser-frame.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
 import { CardComponent } from '../../shared/ui/card/card.component';
-import { IconAlertTriangle, IconCheck, IconExternalLink, IconMaximize2, IconX } from '../../shared/ui/icons/icons';
-import { ProgressBarComponent } from '../../shared/ui/progress-bar/progress-bar.component';
+import { IconAlertTriangle, IconExternalLink, IconMaximize2, IconX } from '../../shared/ui/icons/icons';
+import { SiteMockComponent } from '../../shared/ui/site-mock/site-mock.component';
 import { StepItemComponent, StepStatus } from '../../shared/ui/step-item/step-item.component';
+
+type Device = 'desktop' | 'phone';
 
 const POLL_INTERVAL_MS = 3000;
 const SUBSTEP_INTERVAL_MS = 2400;
@@ -56,16 +58,16 @@ const SUBSTEPS: Partial<Record<Stage, string[]>> = {
     BadgeComponent,
     ButtonComponent,
     CardComponent,
-    ProgressBarComponent,
     StepItemComponent,
     BrowserFrameComponent,
+    SiteMockComponent,
     IconAlertTriangle,
-    IconCheck,
     IconMaximize2,
     IconExternalLink,
     IconX,
   ],
   templateUrl: './generation-progress.component.html',
+  styleUrl: './generation-progress.component.css',
 })
 export class GenerationProgressComponent implements OnInit, OnDestroy {
   readonly stage = signal<Stage>('crawling');
@@ -75,6 +77,11 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   readonly elapsedSeconds = signal(0);
   readonly subStatus = signal('');
   readonly isFullscreenPreview = signal(false);
+  readonly device = signal<Device>('desktop');
+
+  get frameWidth(): number {
+    return this.device() === 'phone' ? 360 : 900;
+  }
 
   private pollSubscription?: Subscription;
   private tickSubscription?: Subscription;
@@ -105,6 +112,14 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     const minutes = Math.floor(total / 60);
     const seconds = total % 60;
     return minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`;
+  }
+
+  statusLabelFor(stage: Stage): string {
+    const idx = STAGE_ORDER.indexOf(stage);
+    if (idx < 0) {
+      return statusLabel(this.status()?.status ?? '');
+    }
+    return `Step ${idx + 1} of ${STAGE_ORDER.length} — ${statusLabel(this.status()?.status ?? '')}`;
   }
 
   stepStatus(step: Stage): StepStatus {

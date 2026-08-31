@@ -1,0 +1,148 @@
+/* ── Application layer ─────────────────────────────────────────────────────
+   Page shell, grid utilities and display type for the REFIT app. Every value
+   comes from the Modernist tokens; nothing is hard-coded that a token carries.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --edge: clamp(20px, 5vw, 56px);
+  --leading: 28px;
+  --measure: 58ch;
+}
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { text-wrap: pretty; }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 var(--edge); }
+.wrap--wide { max-width: 1440px; }
+
+/* — sections — */
+.band { padding: calc(2.5 * var(--leading)) 0; }
+.band--tight { padding: calc(1.5 * var(--leading)) 0; }
+.rule2 { height: 2px; border: 0; margin: 0; background: var(--color-divider); }
+
+/* — display type: flush left, cap-tight, one sentence per line — */
+.display {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: clamp(36px, 5.4vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  margin: 0 0 0 -0.058em;
+}
+.display--sm { font-size: clamp(28px, 3.4vw, 40px); }
+.display .line { display: block; }
+.sub {
+  font-size: 17px;
+  line-height: var(--leading);
+  max-width: var(--measure);
+  margin: calc(0.75 * var(--leading)) 0 0;
+  color: var(--color-neutral-800);
+}
+.kicker {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+.tnum { font-feature-settings: 'tnum' 1; }
+
+/* — clusters — */
+.row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.row--between { justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* — drawn boxes and cell grids (the divider does the work) — */
+.panel { border: 2px solid var(--color-divider); background: var(--color-bg); }
+.panel__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); padding: var(--space-3) var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+.panel__body { padding: var(--space-4); }
+
+.cells { display: grid; gap: 2px; background: var(--color-divider); }
+.cells--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cells--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cells--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cells--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.cell { background: var(--color-bg); padding: var(--space-6) var(--space-4); }
+
+/* — metrics — */
+.metric__num {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 30px; line-height: 1.1; margin: 0; font-feature-settings: 'tnum' 1;
+}
+.metric__num--accent { color: var(--color-accent); }
+.metric__label { margin: var(--space-2) 0 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-700); }
+
+/* — ruled list rows — */
+.rows { border-top: 2px solid var(--color-divider); }
+.rows__item { padding: var(--space-4) 0; border-bottom: 2px solid var(--color-divider); }
+
+/* — progress bar — */
+.meter { height: 6px; background: var(--color-neutral-300); overflow: hidden; }
+.meter__fill { height: 100%; background: var(--color-accent); transition: width 240ms linear; }
+
+/* — the poster: the accent's one field moment — */
+.poster {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  padding: calc(2 * var(--leading)) 0;
+}
+.poster .btn-ghost { color: var(--color-bg); border-color: var(--color-bg); }
+
+/* — wireframe frames used by the before/after mocks — */
+.mock { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.mock--old { background: var(--color-neutral-200); }
+.mock--new { background: var(--color-bg); border: 2px solid var(--color-text); padding: 18px; gap: 14px; }
+.mock__bar { background: var(--color-neutral-400); }
+.mock__bar--strong { background: var(--color-neutral-500); }
+.mock__bar--ink { background: var(--color-text); }
+.mock__bar--accent { background: var(--color-accent); }
+
+/* — the ruled numbered feature row — */
+.feature {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-6) 0;
+}
+.feature + .feature { border-top: 2px solid var(--color-divider); }
+.feature__num { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 15px; margin: 0; font-feature-settings: 'tnum' 1; }
+.feature__title { font-size: 22px; margin: 0; }
+.feature__copy { font-size: 15.5px; line-height: var(--leading); margin: 0; max-width: 52ch; color: var(--color-neutral-800); }
+
+/* — sidebar shell used by dashboard, settings and admin — */
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 2px; background: var(--color-divider); min-height: 70vh; }
+.shell__aside { background: var(--color-bg); padding: var(--space-8) var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+.shell__aside a { color: var(--color-text); text-decoration: none; font-size: 15px; }
+.shell__aside a:hover, .shell__aside a.active { color: var(--color-accent); font-weight: 600; }
+.shell__main { background: var(--color-bg); padding: var(--space-8) var(--space-6); }
+
+/* — responsive: the grid folds, nothing floats — */
+@media (max-width: 1040px) {
+  .cells--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cells--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 880px) {
+  .feature { grid-template-columns: 1fr; gap: var(--space-2); }
+  .cells--3 { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: 1fr; }
+  .shell__aside { flex-direction: row; flex-wrap: wrap; align-items: center; padding: var(--space-4) var(--space-4); }
+}
+@media (max-width: 640px) {
+  .cells--2 { grid-template-columns: 1fr; }
+  .band { padding: calc(1.5 * var(--leading)) 0; }
+  .nav { flex-wrap: wrap; row-gap: var(--space-2); }
+  .table { display: block; overflow-x: auto; white-space: nowrap; }
+}

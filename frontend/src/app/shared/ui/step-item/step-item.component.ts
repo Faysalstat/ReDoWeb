@@ -16,31 +16,127 @@ export type StepOrientation = 'vertical' | 'horizontal';
     @if (orientation() === 'horizontal' && !last()) {
       <div [class]="lineClasses()"></div>
     }
-    <div class="relative flex h-9 w-9 shrink-0 items-center justify-center">
+    <div class="step-item__marker">
       @if (status() === 'active') {
-        <span
-          class="absolute -inset-1 animate-spin rounded-full border-2 border-accent/40 border-t-accent"
-        ></span>
+        <span class="step-item__ring"></span>
       }
       <div [class]="circleClasses()">
         @if (status() === 'done') {
           <app-icon-check [size]="16" />
         } @else if (status() === 'active') {
-          <span class="h-2.5 w-2.5 animate-pulse rounded-full bg-white"></span>
+          <span class="step-item__dot"></span>
         } @else {
           {{ index() }}
         }
       </div>
     </div>
     <div [class]="labelWrapClasses()">
-      <p class="text-sm font-semibold text-ink">{{ label() }}</p>
+      <p class="step-item__label">{{ label() }}</p>
       @if (status() === 'active') {
-        <p class="text-sm text-accent-bright">{{ subStatus() }}</p>
+        <p class="step-item__substatus">{{ subStatus() }}</p>
       } @else {
-        <p [class]="descriptionClasses()">{{ description() }}</p>
+        <p class="step-item__description">{{ description() }}</p>
       }
     </div>
   `,
+  styles: [
+    `
+      li[appStepItem] {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+      }
+      li[appStepItem].step-item--horizontal {
+        position: relative;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .step-item__marker {
+        position: relative;
+        display: flex;
+        height: 36px;
+        width: 36px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .step-item__line {
+        position: absolute;
+        left: 50%;
+        top: 18px;
+        z-index: -1;
+        height: 2px;
+        width: 100%;
+        background: var(--color-divider);
+      }
+      .step-item__line--done {
+        background: var(--color-accent);
+      }
+      .step-item__ring {
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 2px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+        border-top-color: var(--color-accent);
+        animation: step-item-spin 0.8s linear infinite;
+      }
+      @keyframes step-item-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .step-item__circle {
+        display: flex;
+        height: 36px;
+        width: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--color-text);
+      }
+      .step-item__circle--done {
+        background: var(--color-accent);
+        color: var(--color-bg);
+      }
+      .step-item__circle--active {
+        background: var(--color-bg);
+        border: 2px solid var(--color-accent);
+      }
+      .step-item__circle--pending {
+        border: 1.5px solid var(--color-divider);
+        color: var(--color-neutral-600);
+      }
+      .step-item__dot {
+        height: 8px;
+        width: 8px;
+        border-radius: 50%;
+        background: var(--color-accent);
+      }
+      .step-item__label-wrap--horizontal {
+        margin-top: 10px;
+        max-width: 9rem;
+      }
+      .step-item__label {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .step-item__substatus {
+        margin: 2px 0 0;
+        font-size: 13px;
+        color: var(--color-accent-700);
+      }
+      .step-item__description {
+        margin: 2px 0 0;
+        font-size: 13px;
+        color: var(--color-neutral-700);
+      }
+    `,
+  ],
 })
 export class StepItemComponent {
   readonly index = input.required<number>();
@@ -52,31 +148,23 @@ export class StepItemComponent {
   readonly last = input(false);
 
   protected readonly hostClasses = computed(() =>
-    this.orientation() === 'horizontal'
-      ? 'relative flex flex-1 flex-col items-center text-center'
-      : 'flex items-center gap-4'
+    this.orientation() === 'horizontal' ? 'step-item--horizontal' : ''
   );
 
   protected readonly labelWrapClasses = computed(() =>
-    this.orientation() === 'horizontal' ? 'mt-2.5 max-w-[9rem]' : ''
+    this.orientation() === 'horizontal' ? 'step-item__label-wrap--horizontal' : ''
   );
 
-  protected readonly descriptionClasses = computed(() =>
-    this.orientation() === 'horizontal' ? 'hidden text-xs text-ink-muted sm:block' : 'text-sm text-ink-muted'
+  protected readonly lineClasses = computed(() =>
+    this.status() === 'done' ? 'step-item__line step-item__line--done' : 'step-item__line'
   );
-
-  protected readonly lineClasses = computed(() => {
-    const base = 'absolute left-1/2 top-[18px] -z-10 h-0.5 w-full';
-    return this.status() === 'done' ? `${base} bg-accent` : `${base} bg-border-card`;
-  });
 
   protected readonly circleClasses = computed(() => {
-    const base = 'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold';
     const byStatus: Record<StepStatus, string> = {
-      done: 'bg-success text-white',
-      active: 'bg-gradient-to-br from-accent to-accent-bright text-white shadow-cta-glow',
-      pending: 'border border-border-card bg-white/5 text-ink-muted',
+      done: 'step-item__circle step-item__circle--done',
+      active: 'step-item__circle step-item__circle--active',
+      pending: 'step-item__circle step-item__circle--pending',
     };
-    return `${base} ${byStatus[this.status()]}`;
+    return byStatus[this.status()];
   });
 }

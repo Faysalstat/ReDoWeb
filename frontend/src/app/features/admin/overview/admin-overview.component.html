@@ -1,37 +1,30 @@
-<div class="flex flex-col gap-6">
-  <div class="flex flex-wrap items-center justify-between gap-4">
+<div>
+  <div class="row row--between">
     <div>
-      <h1 class="text-2xl font-bold tracking-tight text-ink">Overview</h1>
-      <p class="text-sm text-ink-muted">AI usage, cost, revenue, and platform activity at a glance.</p>
+      <h1 class="display display--sm">Overview</h1>
+      <p class="sub">AI usage, cost, revenue, and platform activity at a glance.</p>
     </div>
 
-    <div class="flex items-center gap-1 rounded-full border border-white/6 bg-white/5 p-1 text-sm font-medium">
+    <div class="seg" role="group" aria-label="Date range">
       @for (days of rangePresets; track days) {
-        <button
-          type="button"
-          (click)="selectRange(days)"
-          [class]="
-            selectedDays() === days
-              ? 'rounded-full bg-accent/15 px-4 py-1.5 text-ink'
-              : 'rounded-full px-4 py-1.5 text-ink-muted transition-colors duration-200 hover:text-ink'
-          "
-        >
+        <label class="seg-opt">
+          <input type="radio" name="range" [checked]="selectedDays() === days" (change)="selectRange(days)" />
           {{ days }}d
-        </button>
+        </label>
       }
     </div>
   </div>
 
   @if (loading()) {
-    <div class="flex items-center justify-center py-24">
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
       <app-spinner size="lg" />
     </div>
   } @else if (errorMessage()) {
-    <app-card variant="danger">
-      <p class="text-sm text-red-300">{{ errorMessage() }}</p>
+    <app-card variant="danger" style="margin-top: var(--space-6)">
+      <p style="font-size: 14px; margin: 0">{{ errorMessage() }}</p>
     </app-card>
   } @else if (stats(); as s) {
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="cells cells--3" style="border: 2px solid var(--color-divider); margin-top: calc(1.2 * var(--leading))">
       <app-stat-tile label="Total users" [value]="s.users_total" [note]="'+' + s.users_new_in_range + ' in range'" />
       <app-stat-tile
         label="Total projects"

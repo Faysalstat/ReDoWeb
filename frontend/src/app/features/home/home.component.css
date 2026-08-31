@@ -1,0 +1,108 @@
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: calc(2 * var(--leading)) var(--space-8);
+  align-items: start;
+  padding: calc(2.4 * var(--leading)) 0 calc(2.2 * var(--leading));
+}
+.home-hero__form {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  max-width: 560px;
+}
+.home-hero__form .input {
+  flex: 1 1 auto;
+  min-height: 54px;
+  font-size: 16px;
+}
+.home-hero__form .btn {
+  min-height: 54px;
+  padding-inline: var(--space-6);
+  white-space: nowrap;
+}
+.home-hero__error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--color-accent-700);
+  font-size: 14px;
+}
+.home-hero__tos {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  max-width: 460px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+.home-hero .hero__note {
+  margin-top: var(--space-3);
+}
+.home-hero .hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: var(--space-8);
+  margin-top: calc(1.6 * var(--leading));
+}
+.home-hero .stat__num {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 38px;
+  line-height: 1.1;
+  color: var(--color-accent);
+  margin: 0 0 0 -0.045em;
+  font-feature-settings: 'tnum' 1;
+}
+.home-hero .hero__live {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.home-hero .hero__caption {
+  font-size: 13px;
+  margin: 0;
+  color: var(--color-neutral-800);
+}
+
+@media (max-width: 980px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.how-it-works__cell {
+  padding: var(--space-6) var(--space-6) 40px;
+}
+.how-it-works__num {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 56px;
+  line-height: 1;
+  color: var(--color-accent);
+  margin: 0 0 var(--space-4) -0.03em;
+  font-feature-settings: 'tnum' 1;
+}
+.how-it-works__title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-3);
+}
+.how-it-works__copy {
+  font-size: 15px;
+  line-height: 25px;
+  color: var(--color-neutral-800);
+  margin: 0;
+  max-width: 34ch;
+}
+
+@media (max-width: 880px) {
+  .how-it-works__cells {
+    grid-template-columns: 1fr;
+  }
+}

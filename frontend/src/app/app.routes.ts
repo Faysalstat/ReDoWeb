@@ -18,5 +18,22 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },
+  // Unwired preview-only routes -- no backend behind these yet (no tiers
+  // table pricing, no Stripe, no billing). Ported from the angular-app
+  // design so the UI exists ready for later wiring; see docs/PROGRESS.md.
+  {
+    path: 'pricing',
+    loadComponent: () => import('./features/pricing/pricing.component').then((m) => m.PricingComponent),
+  },
+  {
+    path: 'checkout',
+    loadComponent: () => import('./features/checkout/checkout.component').then((m) => m.CheckoutComponent),
+  },
+  {
+    path: 'settings/billing',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/billing-settings/billing-settings.component').then((m) => m.BillingSettingsComponent),
+  },
   { path: '**', redirectTo: '' },
 ];

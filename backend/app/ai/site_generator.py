@@ -25,6 +25,7 @@ IMPORTANT project-specific constraints (these override anything above that confl
 - An images/ folder already exists in the output directory with the site's real logo and photos, downloaded from the original site. Do not invent placeholder images -- reference only the exact filenames listed in the user message, e.g. <img src="images/...">.
 - There is no user to ask questions of -- the content below is your complete brief; just build the site.
 - When completely finished, respond with a final plain-text summary of the pages and files you created, and do not request any more tool calls.
+- Build ONLY the home page for this run -- a single index.html plus style.css (and an optional script.js). If the content below describes more than one page, use only the home page's content; ignore the rest (additional pages are a separate, later generation pass, not part of this run).
 """
 
 
@@ -60,7 +61,20 @@ def _rmtree_with_retry(path: Path, attempts: int = 5, delay_seconds: float = 1.0
             raise last_error
 
 
-def generate_site(project_root: Path, tier_key: str) -> dict:
+def generate_site(project_root: Path, tier_key: str, template_override: str | None = None) -> dict:
+    """Builds the tier's home page from project_root/blueprint/design.md --
+    which the blueprint pipeline (blueprint_pipeline.run_blueprint_pipeline)
+    renders from the reviewed blueprint.json via blueprint_legacy_compat, so
+    this already reflects the structured-JSON pipeline's output without
+    needing to read blueprint.json directly here. Scoped to one page (the
+    home page) per docs/blueprint-json-pipeline-plan.md -- additional pages
+    are a separate, later generation pass, not built by this function.
+
+    `template_override` selects a specific prompts/*.txt file by name
+    instead of the normal random choice -- real callers never pass this
+    (kept at its default None); it exists for manually testing a specific
+    design-strategy template, e.g. via the /api/v1/debug/generate route.
+    """
     if not tier_service.is_tier_enabled(tier_key):
         raise GenerationError(f"Tier '{tier_key}' is not currently enabled")
 
@@ -81,8 +95,13 @@ def generate_site(project_root: Path, tier_key: str) -> dict:
 
     image_names = _copy_images(project_root, output_dir, assets)
     (output_dir / "design.md").write_text(design_md, encoding="utf-8")
+    blueprint_json_path = project_root / "blueprint" / "blueprint.json"
+    if blueprint_json_path.exists():
+        (output_dir / "blueprint.json").write_text(
+            blueprint_json_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
 
-    template_path = _select_template()
+    template_path = _select_template(template_override)
     system_prompt = template_path.read_text(encoding="utf-8") + TECH_CONSTRAINTS
     user_message = _build_user_message(design_md, image_names)
 
@@ -368,7 +387,14 @@ def _run_agent_loop(
     )
 
 
-def _select_template() -> Path:
+def _select_template(override: str | None = None) -> Path:
+    if override:
+        prompts_root = PROMPTS_DIR.resolve()
+        template_path = (PROMPTS_DIR / override).resolve()
+        if not template_path.is_relative_to(prompts_root) or not template_path.exists():
+            raise GenerationError(f"Template not found: {override}")
+        return template_path
+
     templates = sorted(PROMPTS_DIR.glob("*.txt"))
     if not templates:
         raise GenerationError(f"No design-strategy templates found in {PROMPTS_DIR}")
