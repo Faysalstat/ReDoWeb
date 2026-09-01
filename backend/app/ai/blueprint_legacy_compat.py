@@ -143,4 +143,35 @@ def _render_sections(sections: PageSections) -> list[str]:
             lines.append(f"- Hours: {sections.contact.hours}")
         lines.append("")
 
+    if sections.gallery_portfolio:
+        lines.append("### Gallery")
+        for item in sections.gallery_portfolio:
+            lines.append(f"- {item.caption}" if item.caption else "- (image, no caption)")
+        lines.append("")
+
+    # additional_sections holds real, site-derived content that doesn't fit
+    # any of the named types above (blueprint_schema.py's AdditionalSection
+    # docstring) -- rendering it under its own heading is the whole point of
+    # that field existing; dropping it here silently threw away most of a
+    # real site's reviewed content (verified against doggyduty.pet: 11 real
+    # entries -- product details, warranty terms, contact info found by the
+    # gap-check pass -- were being lost before ever reaching design.md).
+    for extra in sections.additional_sections:
+        lines.append(f"### {extra.title}")
+        if extra.body:
+            lines.append(extra.body)
+        for item in extra.items:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    if sections.footer.links or sections.footer.social_links or sections.footer.copyright_text:
+        lines.append("### Footer")
+        for link in sections.footer.links:
+            lines.append(f"- {link.label} ({link.href})")
+        for social in sections.footer.social_links:
+            lines.append(f"- {social.platform}: {social.url}")
+        if sections.footer.copyright_text:
+            lines.append(sections.footer.copyright_text)
+        lines.append("")
+
     return lines

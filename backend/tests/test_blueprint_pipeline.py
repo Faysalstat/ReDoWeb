@@ -68,6 +68,15 @@ def test_pipeline_writes_all_three_artifacts(project_root: Path):
     assert result["design_md_path"] == "blueprint/design.md"
 
 
+def test_pipeline_also_writes_design_system_json(project_root: Path):
+    result = run_blueprint_pipeline(project_root)
+
+    assert (project_root / "blueprint" / "design_system.json").exists()
+    assert result["design_system_json_path"] == "blueprint/design_system.json"
+    assert result["design_system"]["recipe_anchor"]
+    assert result["design_system"]["colors"]["primary"]
+
+
 def test_pipeline_output_validates_against_schema(project_root: Path):
     run_blueprint_pipeline(project_root)
 

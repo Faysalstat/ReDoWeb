@@ -60,6 +60,7 @@ from .blueprint_schema import (
     ServiceItem,
 )
 from .errors import OpenRouterError
+from .font_library import DEFAULT_BODY_FONT, DEFAULT_HEADING_FONT, font_list_text, normalize_font
 from .openrouter_client import vision_json_chat
 
 META_REVIEW_SYSTEM_PROMPT = (
@@ -69,10 +70,12 @@ META_REVIEW_SYSTEM_PROMPT = (
     "site name only if the logo clearly shows a different or "
     "better-formatted name; otherwise leave it unchanged. Write a short "
     "tagline (max ~8 words) using only facts already present in the "
-    "digest -- do not invent claims. Infer heading/body font families that "
-    "visually match the logo's style (real web-safe or Google Font names, "
-    "not the literal wordmark font). Infer an overall tone in one short "
-    "phrase (e.g. 'warm and friendly', 'corporate and minimal').\n\n"
+    "digest -- do not invent claims. Pick heading/body font families that "
+    "visually match the logo's style, ONLY from this exact list (never the "
+    "literal wordmark font, never a name outside this list):\n"
+    f"{font_list_text()}\n\n"
+    "Infer an overall tone in one short phrase (e.g. 'warm and friendly', "
+    "'corporate and minimal').\n\n"
     "Respond with ONLY a JSON object (no prose, no markdown fences) in this "
     "exact shape:\n"
     '{"site_name": string, "tagline": string, '
@@ -408,8 +411,15 @@ def review_blueprint(project_root: Path, scraped: BlueprintDocument) -> tuple[Bl
     blueprint.meta.site_name = meta_result.get("site_name") or scraped.meta.site_name
     blueprint.meta.tagline = meta_result.get("tagline") or scraped.meta.tagline
     fonts = meta_result.get("fonts") or {}
-    blueprint.meta.fonts.heading = fonts.get("heading") or scraped.meta.fonts.heading
-    blueprint.meta.fonts.body = fonts.get("body") or scraped.meta.fonts.body
+    # Code-enforced, not just prompted -- the meta-review call is a
+    # free-text vision guess, and it has genuinely hallucinated a
+    # plausible-but-fake font name in practice ("Pawtastic" for a
+    # dog-themed logo), which would otherwise silently fail to load and
+    # fall back to generic sans-serif in generated CSS. See font_library.py.
+    heading_fallback = normalize_font(scraped.meta.fonts.heading, DEFAULT_HEADING_FONT)
+    body_fallback = normalize_font(scraped.meta.fonts.body, DEFAULT_BODY_FONT)
+    blueprint.meta.fonts.heading = normalize_font(fonts.get("heading"), heading_fallback)
+    blueprint.meta.fonts.body = normalize_font(fonts.get("body"), body_fallback)
     blueprint.meta.tone = meta_result.get("tone") or scraped.meta.tone
 
     # Call B's result becomes the base for each page first (its own,

@@ -125,6 +125,10 @@ def vision_json_chat(
             timeout=60.0,
         )
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise OpenRouterError(
+            f"OpenRouter request failed: {exc} | body: {exc.response.text}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
@@ -194,6 +198,10 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
             timeout=timeout,
         )
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise OpenRouterError(
+            f"OpenRouter request failed: {exc} | body: {exc.response.text}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
