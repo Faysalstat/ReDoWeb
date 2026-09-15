@@ -4,16 +4,15 @@ from ..crawler.errors import CrawlRejected
 from ..db.session import SessionLocal
 from ..models import Asset, CrawlPage, CrawlSnapshot, Project
 from ..services.crawl_service import run_crawl
-from .celery_app import celery_app
+from .queue import enqueue
 
 
-@celery_app.task(bind=True)
-def run_crawl_task(self, project_id: str, url: str) -> str:
-    """First link in the submission chain. On any failure the project is
+def run_crawl_task(project_id: str, url: str, tier_keys: list[str]) -> str:
+    """First stage in the submission pipeline. On any failure the project is
     left in a terminal ('rejected' or 'failed') DB state and the exception
-    is re-raised so the chain halts here -- Celery chains don't proceed to
-    the next task once one fails, which is exactly the "don't charge/don't
-    continue on a definitive failure" behavior we want.
+    is re-raised so queue_worker.py halts the pipeline here -- nothing
+    further gets enqueued once a stage fails, which is exactly the "don't
+    charge/don't continue on a definitive failure" behavior we want.
 
     No auto-retry in this pass (see docs/PROGRESS.md) -- a bare exception
     always resolves to a visible terminal state rather than a half-built
@@ -64,6 +63,7 @@ def run_crawl_task(self, project_id: str, url: str) -> str:
             )
 
         project.status = "crawled"
+        enqueue(db, "extract_blueprint", {"project_id": project_id, "tier_keys": tier_keys})
         db.commit()
         return project_id
     finally:

@@ -1,5 +1,6 @@
 from .blueprint import Blueprint
 from .job import GenerationJob, GenerationOutput
+from .job_queue import QueuedJob
 from .model_pricing import ModelPricing
 from .project import Asset, CrawlPage, CrawlSnapshot, Project, SubmissionLog
 from .purchase import Purchase
@@ -17,6 +18,7 @@ __all__ = [
     "Blueprint",
     "GenerationJob",
     "GenerationOutput",
+    "QueuedJob",
     "User",
     "AuthIdentity",
     "TokenUsageLog",

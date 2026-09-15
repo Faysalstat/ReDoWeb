@@ -9,9 +9,10 @@ LOGIN_WALL_URL_HINTS = ("login", "signin", "sign-in", "log-in")
 def fetch_page(client: httpx.Client, url: str) -> httpx.Response:
     """Fetches a single page. Raises SiteInaccessible for non-200 statuses
     or a detected login/auth wall. Transient network errors (timeouts,
-    connection failures) are left to bubble up as httpx exceptions so the
-    Celery layer (added in a later milestone) can distinguish and retry
-    them -- this synchronous slice has no retry logic of its own yet."""
+    connection failures) are left to bubble up as httpx exceptions so a
+    future retry layer can distinguish and retry them -- this synchronous
+    slice has no retry logic of its own (a deliberate decision, see
+    CLAUDE.md's "no auto-retry" note)."""
     response = client.get(url, follow_redirects=True, timeout=15.0)
 
     if response.status_code >= 400:

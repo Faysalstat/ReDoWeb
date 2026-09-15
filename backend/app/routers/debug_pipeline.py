@@ -4,7 +4,7 @@ generate), per docs/blueprint-pipeline-experiment-plan.md. Same spirit as
 the existing deprecated debug routes on crawl/blueprint/generation -- not
 part of the real product flow (no DB rows, no credit spend), just a fast
 way to manually test one stage at a time via /docs without needing
-Postgres, Redis, or the Celery worker running. /generate calls the real,
+Postgres or the queue worker running. /generate calls the real,
 shared site_generator.generate_site() -- same function the product routes
 use.
 """
@@ -178,7 +178,7 @@ def debug_generate(
     tier: str = "pro",
 ) -> dict:
     """Stage 3: calls the REAL site_generator.generate_site() -- the exact
-    function the product's real routes/Celery task use. Makes real, billed
+    function the product's real routes/queue task handler use. Makes real, billed
     OpenRouter calls against REDOWEBS_GENERATION_MODEL. Regenerates
     blueprint/design.md from blueprint.json first (so it reflects the
     latest review, not whatever design.md happened to be on disk). Reads

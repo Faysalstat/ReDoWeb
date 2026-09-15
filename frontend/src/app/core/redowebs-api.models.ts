@@ -97,7 +97,12 @@ export interface ProjectStatusResponse {
   rejection_reason?: string | null;
   source_url: string;
   blueprint?: ProjectBlueprintSummary | null;
-  generation?: ProjectGenerationSummary | null;
+  /** One entry per tier that has finished generating so far -- populated
+   * progressively, not only once the whole project is "ready". */
+  generations: ProjectGenerationSummary[];
+  tiers_total: number;
+  tiers_completed: number;
+  current_tier?: string | null;
 }
 
 export interface ProjectListItem {

@@ -1,35 +1,14 @@
-# Host ports are remapped (15432, 6380) because this machine already runs
-# unrelated Postgres/Redis containers from a different project on the
-# standard 5432/6379 ports. Inside the Docker network these still listen on
-# the standard ports -- only the host-side mapping differs.
+# DEPRECATED (2026-09-10): this project no longer runs its own Postgres
+# container. It now uses the shared Postgres instance that serves every
+# project on this machine, at G:\Standalone Services\postgres (container
+# `shared-postgres`, host port 5432). That compose file's init script
+# already provisions the `redowebs` role/database this app connects to --
+# see `backend/app/config.py`'s `database_url` default.
+#
+# This file is kept only so `docker compose up -d` here is a harmless no-op
+# for anyone following old muscle memory; there is nothing left to start.
+# Bring up the shared instance instead:
+#   cd "G:\Standalone Services\postgres" && docker compose up -d
 name: redowebs
 
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: redowebs
-      POSTGRES_PASSWORD: redowebs
-      POSTGRES_DB: redowebs
-    ports:
-      - "15432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U redowebs"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7
-    ports:
-      - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-volumes:
-  postgres_data:
+services: {}

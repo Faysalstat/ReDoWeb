@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_app_url: str = "https://redowebs.local"
     openrouter_app_name: str = "ReDoWebs"
-    vision_model: str = "openai/gpt-4o-mini"
+    vision_model: str = "openai/gpt-5"
 
-    generation_model: str = "anthropic/claude-opus-5"
+    generation_model: str = "openai/gpt-5"
     generation_max_tokens: int = 16000
     generation_max_iterations: int = 24
     generation_max_consecutive_failures: int = 5
@@ -24,10 +24,11 @@ class Settings(BaseSettings):
     vision_max_image_dimension: int = 1024
     vision_max_tokens: int = 2048
 
-    database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:15432/redowebs"
-
-    celery_broker_url: str = "redis://localhost:6380/0"
-    celery_result_backend: str = "redis://localhost:6380/0"
+    # Shared Postgres instance (G:\Standalone Services\postgres, port 5432)
+    # used by every project on this machine -- see init/01-init-databases.sh
+    # there for the `redowebs` role/database provisioning. This project's
+    # own standalone/docker-compose.yml Postgres container is deprecated.
+    database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:5432/redowebs"
 
     google_client_id: str = ""
     google_client_secret: str = ""

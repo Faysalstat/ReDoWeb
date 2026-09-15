@@ -1,6 +1,5 @@
 import uuid
 
-from celery import chain
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -18,9 +17,7 @@ from ..schemas.project import (
     ProjectSubmitResponse,
 )
 from ..services import tier_service, wallet_service
-from ..workers.tasks_blueprint import extract_blueprint_task
-from ..workers.tasks_crawl import run_crawl_task
-from ..workers.tasks_generate import generate_tier_task
+from ..workers.queue import enqueue
 
 router = APIRouter(prefix="/api/v1", tags=["projects"])
 
@@ -67,14 +64,14 @@ def submit_project(
 
     project_id = str(project.id)
 
-    # Only one tier is enabled today, so this is a simple linear chain. Once
-    # basic/premium have real templates, the generate steps for each enabled
-    # tier should become a Celery `group` (parallel) inserted at this point
-    # instead of more chain links (sequential) -- see docs/PROGRESS.md.
-    workflow = chain(run_crawl_task.s(project_id, str(payload.url)), extract_blueprint_task.s())
-    for tier in tier_service.get_enabled_tiers():
-        workflow |= generate_tier_task.s(tier.key)
-    workflow.apply_async()
+    # Only one tier is enabled today, so this is a simple linear pipeline.
+    # Once basic/premium have real templates, the generate stage for each
+    # enabled tier should become a parallel fan-out instead of the
+    # sequential remaining_tiers chaining in tasks_generate.py -- see
+    # docs/PROGRESS.md.
+    tier_keys = [tier.key for tier in tier_service.get_enabled_tiers()]
+    enqueue(db, "run_crawl", {"project_id": project_id, "url": str(payload.url), "tier_keys": tier_keys})
+    db.commit()
 
     return ProjectSubmitResponse(project_id=project_id, status=project.status)
 
@@ -138,22 +135,34 @@ def get_project_status(
             tone=blueprint_row.tone,
         )
 
-    generation_summary = None
-    if project.status == "ready":
-        job = (
-            db.query(GenerationJob)
-            .filter(GenerationJob.project_id == project.id, GenerationJob.overall_status == "succeeded")
-            .order_by(GenerationJob.created_at.desc())
-            .first()
+    # Tiers run as a sequential chain of queued_jobs rows (see submit_project
+    # below), so several GenerationJob rows can exist for one project at
+    # once: earlier tiers already "succeeded" while the current one is still
+    # "running". Surface every succeeded tier's output as soon as it lands,
+    # ordered to match the enabled-tiers display order, rather than waiting
+    # for the whole project to reach "ready".
+    enabled_tiers = tier_service.get_enabled_tiers()
+    tier_order = {tier.key: index for index, tier in enumerate(enabled_tiers)}
+
+    jobs = (
+        db.query(GenerationJob)
+        .filter(GenerationJob.project_id == project.id)
+        .order_by(GenerationJob.created_at)
+        .all()
+    )
+    generations = [
+        ProjectGenerationSummary(
+            tier=job.tier,
+            template_used=job.output.template_used,
+            preview_url_path=job.output.preview_url_path,
+            summary=job.output.summary,
+            contrast_warnings=job.output.contrast_warnings or [],
         )
-        if job is not None and job.output is not None:
-            generation_summary = ProjectGenerationSummary(
-                tier=job.tier,
-                template_used=job.output.template_used,
-                preview_url_path=job.output.preview_url_path,
-                summary=job.output.summary,
-                contrast_warnings=job.output.contrast_warnings or [],
-            )
+        for job in jobs
+        if job.overall_status == "succeeded" and job.output is not None
+    ]
+    generations.sort(key=lambda gen: tier_order.get(gen.tier, len(tier_order)))
+    current_tier = next((job.tier for job in jobs if job.overall_status == "running"), None)
 
     return ProjectStatusResponse(
         project_id=project_id,
@@ -161,5 +170,8 @@ def get_project_status(
         rejection_reason=project.rejection_reason,
         source_url=project.source_url,
         blueprint=blueprint_summary,
-        generation=generation_summary,
+        generations=generations,
+        tiers_total=len(enabled_tiers),
+        tiers_completed=len(generations),
+        current_tier=current_tier,
     )

@@ -5,8 +5,15 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
 
 import { PreviewService } from '../../core/preview.service';
-import { STAGE_ORDER, Stage, TERMINAL_STATUSES, stageOf, statusLabel } from '../../core/project-status';
-import { ProjectStatusResponse } from '../../core/redowebs-api.models';
+import {
+  STAGE_ORDER,
+  Stage,
+  TERMINAL_STATUSES,
+  stageOf,
+  statusLabel,
+  tierLabel,
+} from '../../core/project-status';
+import { ProjectGenerationSummary, ProjectStatusResponse } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 import { BadgeComponent } from '../../shared/ui/badge/badge.component';
@@ -73,11 +80,16 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   readonly stage = signal<Stage>('crawling');
   readonly errorMessage = signal('');
   readonly status = signal<ProjectStatusResponse | null>(null);
-  readonly previewUrl = signal('');
+  /** Authed preview URL per tier key, fetched once per tier as each one
+   * finishes generating and cached here so switching tabs doesn't re-mint a
+   * token every click. */
+  readonly previewUrls = signal<Record<string, string>>({});
+  readonly selectedTier = signal<string | null>(null);
   readonly elapsedSeconds = signal(0);
   readonly subStatus = signal('');
   readonly isFullscreenPreview = signal(false);
   readonly device = signal<Device>('desktop');
+  readonly tierLabel = tierLabel;
 
   get frameWidth(): number {
     return this.device() === 'phone' ? 360 : 900;
@@ -100,11 +112,23 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   }
 
   get progressPercent(): number {
-    const idx = STAGE_ORDER.indexOf(this.stage());
+    const stage = this.stage();
+    const idx = STAGE_ORDER.indexOf(stage);
     if (idx < 0) {
       return 0;
     }
-    return Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
+    const stageWidth = 100 / STAGE_ORDER.length;
+    const completedWidth = idx * stageWidth;
+    // "Generating" now covers every enabled tier run sequentially (could be
+    // 3x as long as a single tier), so fill that last band proportionally
+    // to tiers finished so far instead of jumping straight to 100% the
+    // moment tier 1 of 3 starts.
+    if (stage === 'generating') {
+      const s = this.status();
+      const fraction = s && s.tiers_total > 0 ? s.tiers_completed / s.tiers_total : 0;
+      return Math.round(completedWidth + stageWidth * fraction);
+    }
+    return Math.round(completedWidth + stageWidth);
   }
 
   get formattedElapsed(): string {
@@ -119,7 +143,28 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     if (idx < 0) {
       return statusLabel(this.status()?.status ?? '');
     }
-    return `Step ${idx + 1} of ${STAGE_ORDER.length} — ${statusLabel(this.status()?.status ?? '')}`;
+    let label = `Step ${idx + 1} of ${STAGE_ORDER.length} — ${statusLabel(this.status()?.status ?? '')}`;
+    const s = this.status();
+    if (stage === 'generating' && s && s.tiers_total > 1) {
+      const tierNum = Math.min(s.tiers_completed + 1, s.tiers_total);
+      const suffix = s.current_tier ? `: ${tierLabel(s.current_tier)}` : '';
+      label += ` (tier ${tierNum} of ${s.tiers_total}${suffix})`;
+    }
+    return label;
+  }
+
+  activeGeneration(): ProjectGenerationSummary | null {
+    const tier = this.selectedTier();
+    return this.status()?.generations.find((gen) => gen.tier === tier) ?? null;
+  }
+
+  activePreviewUrl(): string {
+    const tier = this.selectedTier();
+    return tier ? this.previewUrls()[tier] ?? '' : '';
+  }
+
+  selectTier(tier: string): void {
+    this.selectedTier.set(tier);
   }
 
   stepStatus(step: Stage): StepStatus {
@@ -133,7 +178,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   }
 
   safePreviewUrl(): SafeResourceUrl {
-    return this.sanitizer.bypassSecurityTrustResourceUrl(this.previewUrl());
+    return this.sanitizer.bypassSecurityTrustResourceUrl(this.activePreviewUrl());
   }
 
   toggleFullscreenPreview(): void {
@@ -141,7 +186,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   }
 
   openPreviewInNewTab(): void {
-    window.open(this.previewUrl(), '_blank', 'noopener');
+    window.open(this.activePreviewUrl(), '_blank', 'noopener');
   }
 
   tryAgain(): void {
@@ -221,14 +266,29 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
 
     this.stage.set(stage);
 
-    if (stage === 'ready' && res.generation) {
-      const previewUrlPath = res.generation.preview_url_path;
-      this.preview.getAuthedPreviewUrl(projectId, previewUrlPath).subscribe({
-        next: (url) => this.previewUrl.set(url),
-        error: () => this.previewUrl.set(''),
-      });
+    for (const gen of res.generations) {
+      this.ensurePreviewUrl(projectId, gen);
+    }
+    if (this.selectedTier() === null && res.generations.length > 0) {
+      this.selectedTier.set(res.generations[0].tier);
+    }
+
+    if (stage === 'ready') {
       this.stopLiveIndicators();
     }
+  }
+
+  /** Mints (once) and caches the authed iframe-loadable preview URL for one
+   * tier's already-finished output, so re-polling or switching tabs never
+   * re-requests a token for a tier already fetched. */
+  private ensurePreviewUrl(projectId: string, gen: ProjectGenerationSummary): void {
+    if (this.previewUrls()[gen.tier]) {
+      return;
+    }
+    this.preview.getAuthedPreviewUrl(projectId, gen.preview_url_path).subscribe({
+      next: (url) => this.previewUrls.set({ ...this.previewUrls(), [gen.tier]: url }),
+      error: () => this.previewUrls.set({ ...this.previewUrls(), [gen.tier]: '' }),
+    });
   }
 
   private fail(err: HttpErrorResponse): void {

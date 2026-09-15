@@ -279,7 +279,7 @@ def generate_site(project_root: Path, tier_key: str, template_override: str | No
         # Kept as "template_used" (not renamed to e.g. "design_system_used")
         # because it's a real, still-in-use field -- a non-nullable DB
         # column (generation_outputs.template_used) plus three response
-        # schemas and the real product routes/Celery task all read this
+        # schemas and the real product routes/queue task handler all read this
         # exact key. There's no more literal template file to name, so the
         # value holds either a literal template filename (template-based
         # strategy) or the resolved recipe anchor (skill-based strategy) --

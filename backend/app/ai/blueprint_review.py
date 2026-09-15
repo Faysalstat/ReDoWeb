@@ -3,7 +3,8 @@
 same schema shape. See docs/blueprint-json-pipeline-plan.md.
 
 Three call types, fired concurrently via a ThreadPoolExecutor (thread-level
-HTTP concurrency, safe under Celery --pool=solo on Windows):
+HTTP concurrency, safe under the queue worker's single-task-at-a-time
+processing on Windows):
 - Call A (meta, x1): reviews site_name/tagline/fonts/tone only.
 - Call B (content, x1 per page): reviews the 5 Mandatory text-bearing
   sections (hero/about/services_features/faq/cta_section) of that one page,

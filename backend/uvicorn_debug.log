@@ -2,3 +2,51 @@ INFO:     Started server process [16296]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
+[AI CALL #1] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=2 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Doggy Duty colors: primary: '#0274be' secondary: '#fa6709' accent: '#38b6ff' logo: snapshot/image/894d5317-sdvsvsvvv-1024x310.png fonts: heading: Baloo 2 body: Nunito tone: playf...
+
+[AI CALL #2] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=4 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) (compacted -- 1534 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #3] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=6 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 21938 characters to style.css
+
+[AI CALL #4] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=8 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 2367 characters to script.js
+
+[AI CALL #5] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=10 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 25982 characters to index.html
+
+[AI CALL #6] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=12 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) (compacted -- 21938 chars previously returned here; call the tool again if you need the current content)
+INFO:     127.0.0.1:13204 - "POST /api/v1/debug/generate?project_id=6f1eaee0-5ec0-4800-b679-599726154b05&tier=pro HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13798 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13798 - "GET /openapi.json HTTP/1.1" 200 OK
+
+[AI CALL #7] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=2 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Doggy Duty colors: primary: '#0274be' secondary: '#fa6709' accent: '#38b6ff' logo: snapshot/image/894d5317-sdvsvsvvv-1024x310.png fonts: heading: Baloo 2 body: Nunito tone: playf...
+
+[AI CALL #8] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=4 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) (compacted -- 1534 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #9] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=6 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 26982 characters to index.html
+
+[AI CALL #10] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=8 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 24393 characters to style.css
+
+[AI CALL #11] chat_completion -> model=anthropic/claude-sonnet-5 | messages_in_context=10 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 1185 characters to script.js
+INFO:     127.0.0.1:13891 - "POST /api/v1/debug/generate?project_id=6f1eaee0-5ec0-4800-b679-599726154b05&tier=premium HTTP/1.1" 200 OK

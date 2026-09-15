@@ -37,4 +37,11 @@ class ProjectStatusResponse(BaseModel):
     rejection_reason: str | None = None
     source_url: str
     blueprint: ProjectBlueprintSummary | None = None
-    generation: ProjectGenerationSummary | None = None
+    # One entry per tier that has finished generating so far -- populated
+    # progressively as each tier in the chain succeeds, not only once the
+    # whole project reaches "ready", so the UI can let the user switch
+    # between already-finished tiers while later ones are still running.
+    generations: list[ProjectGenerationSummary] = []
+    tiers_total: int = 0
+    tiers_completed: int = 0
+    current_tier: str | None = None

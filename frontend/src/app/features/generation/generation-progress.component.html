@@ -89,7 +89,7 @@
     <!-- Ready -->
     @if (stage() === 'ready') {
       @if (status(); as s) {
-        @if (s.generation; as gen) {
+        @if (activeGeneration(); as gen) {
           <div class="gp-ready__head">
             <div>
               <h2>{{ s.blueprint?.site_name || 'Your modernized site' }} is ready</h2>
@@ -97,8 +97,24 @@
                 Modern, responsive, and built to impress — take a look, then make it yours.
               </p>
             </div>
-            <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
+            <app-badge variant="accent">{{ tierLabel(gen.tier) }} tier</app-badge>
           </div>
+
+          @if (s.generations.length > 1) {
+            <div class="seg tier-switch" role="group" aria-label="Tier">
+              @for (item of s.generations; track item.tier) {
+                <label class="seg-opt">
+                  <input
+                    type="radio"
+                    name="tier"
+                    [checked]="selectedTier() === item.tier"
+                    (change)="selectTier(item.tier)"
+                  />
+                  {{ tierLabel(item.tier) }}
+                </label>
+              }
+            </div>
+          }
 
           <div class="gp-ready__layout">
             <div class="panel" style="border-width: 0 0 2px">
@@ -134,7 +150,7 @@
                   </div>
                   <div class="split__stage">
                     <div [style.maxWidth.px]="frameWidth" style="width: 100%">
-                      <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
+                      <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()">
                         <button appButton toolbar-actions variant="secondary" title="Full page preview" (click)="toggleFullscreenPreview()">
                           <app-icon-maximize2 [size]="14" />
                         </button>
@@ -149,7 +165,7 @@
 
               <div class="cells cells--4">
                 <div class="cell">
-                  <p class="metric__num metric__num--accent">{{ gen.tier }}</p>
+                  <p class="metric__num metric__num--accent">{{ tierLabel(gen.tier) }}</p>
                   <p class="metric__label">Tier used</p>
                 </div>
                 <div class="cell">
@@ -206,7 +222,7 @@
 
 <!-- Fullscreen preview overlay -->
 @if (isFullscreenPreview()) {
-  <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
+  <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
     <button appButton toolbar-actions variant="secondary" (click)="openPreviewInNewTab()">
       <app-icon-external-link [size]="14" />
       Open in new tab

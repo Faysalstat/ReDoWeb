@@ -57,6 +57,13 @@ export function stagePercent(status: string): number {
   return Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
 }
 
+/** Display label for a tier key ("premium" -> "Premium"). Tier keys are
+ * admin-managed free text in the `tiers` table, so this is a display-only
+ * fallback, not a lookup against a fixed enum. */
+export function tierLabel(key: string): string {
+  return key.length > 0 ? key.charAt(0).toUpperCase() + key.slice(1) : key;
+}
+
 export function statusBadgeVariant(status: string): BadgeVariant {
   if (status === 'ready') {
     return 'success';
