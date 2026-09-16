@@ -1,12 +1,21 @@
-"""Debug-only, database-free HTTP endpoints for exercising the pipeline
-stages independently (scrape / review / design-system / design-md /
-generate), per docs/blueprint-pipeline-experiment-plan.md. Same spirit as
+"""Debug-only HTTP endpoints for exercising the pipeline stages
+independently (scrape / review / design-md / generate), per
+docs/blueprint-pipeline-experiment-plan.md. Same spirit as
 the existing deprecated debug routes on crawl/blueprint/generation -- not
-part of the real product flow (no DB rows, no credit spend), just a fast
-way to manually test one stage at a time via /docs without needing
-Postgres or the queue worker running. /generate calls the real,
-shared site_generator.generate_site() -- same function the product routes
-use.
+part of the real product flow (no DB rows written, no credit spend), just a
+fast way to manually test one stage at a time via /docs. /generate calls
+the real, shared site_generator.generate_site() -- same function the
+product routes use.
+
+/review and /generate DO require Postgres reachable (not fully "DB-free"
+despite the rest of this router being no-DB-writes) -- both resolve their
+model id via model_config_service, same as the real queue-worker task
+layer, so a manual debug run always reflects whatever model is actually
+configured for real generation rather than silently falling back to
+config.py's static default (a real gap found 2026-09-16: this router used
+to build its OpenRouter payload without ever consulting the DB override,
+so a debug test could look fine on a model the real pipeline wasn't even
+using). /scrape and /design-md remain fully DB-free.
 """
 
 import json
@@ -19,12 +28,12 @@ from ..ai.blueprint_extraction import extract_scraped_json
 from ..ai.blueprint_legacy_compat import render_design_md_compat
 from ..ai.blueprint_review import review_blueprint
 from ..ai.blueprint_schema import BlueprintDocument
-from ..ai.design_system_generation import RECIPES_DIR, generate_design_system
 from ..ai.errors import BlueprintExtractionError, GenerationError
 from ..ai.site_generator import generate_site
 from ..config import get_settings
 from ..crawler.errors import CrawlError
 from ..schemas.crawl import CrawlRequest
+from ..services import model_config_service
 from ..services.crawl_service import run_crawl
 
 router = APIRouter(prefix="/api/v1/debug", tags=["debug-pipeline"])
@@ -81,7 +90,9 @@ def debug_review(project_id: str) -> dict:
     """Stage 2 only: reads that project's blueprint/scraped.json (from
     stage 1) and runs the AI review, writing blueprint/blueprint.json.
     Makes real, billed OpenRouter calls -- requires
-    REDOWEBS_OPENROUTER_API_KEY to be set."""
+    REDOWEBS_OPENROUTER_API_KEY to be set. Model id comes from the DB
+    (model_config_service.get_vision_model(), same as the real pipeline),
+    so this requires Postgres reachable."""
     _validate_project_id(project_id)
     settings = get_settings()
     project_root = Path(settings.storage_root) / "projects" / project_id
@@ -93,56 +104,15 @@ def debug_review(project_id: str) -> dict:
         )
 
     scraped = BlueprintDocument.model_validate(json.loads(scraped_path.read_text(encoding="utf-8")))
-    blueprint, usage = review_blueprint(project_root, scraped)
+    vision_model = model_config_service.get_vision_model()
+    blueprint, usage = review_blueprint(project_root, scraped, model=vision_model)
 
     blueprint_dict = blueprint.model_dump(mode="json")
     (project_root / "blueprint" / "blueprint.json").write_text(
         json.dumps(blueprint_dict, indent=2), encoding="utf-8"
     )
 
-    return {"project_id": project_id, "blueprint": blueprint_dict, "usage": usage}
-
-
-@router.post("/design-system/{project_id}")
-def debug_design_system(project_id: str, recipe_override: str | None = None) -> dict:
-    """Stage 2.5: reads that project's blueprint/blueprint.json (falling
-    back to scraped.json if review hasn't been run yet) and runs the
-    design-system-generation AI step, writing blueprint/design_system.json
-    -- the same step run_blueprint_pipeline() runs automatically, exposed
-    here for repeatable manual testing of one specific recipe anchor.
-    `recipe_override` (a name from backend/prompts/recipes/, e.g. "linear")
-    forces that recipe as the sole candidate instead of the deterministic
-    tone-keyword pre-filter -- the call still goes through the AI step, it
-    just skips the pre-filter. Makes real, billed OpenRouter calls --
-    requires REDOWEBS_OPENROUTER_API_KEY to be set."""
-    _validate_project_id(project_id)
-    settings = get_settings()
-    project_root = Path(settings.storage_root) / "projects" / project_id
-    blueprint_dir = project_root / "blueprint"
-
-    source_path = blueprint_dir / "blueprint.json"
-    if not source_path.exists():
-        source_path = blueprint_dir / "scraped.json"
-    if not source_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"No scraped.json or blueprint.json found for project {project_id}",
-        )
-
-    candidates = None
-    if recipe_override:
-        if not (RECIPES_DIR / f"{recipe_override}.md").exists():
-            raise HTTPException(status_code=400, detail=f"Unknown recipe: {recipe_override}")
-        candidates = [recipe_override]
-
-    blueprint = BlueprintDocument.model_validate(json.loads(source_path.read_text(encoding="utf-8")))
-    design_system, usage = generate_design_system(blueprint, candidates=candidates)
-
-    (blueprint_dir / "design_system.json").write_text(
-        json.dumps(design_system, indent=2), encoding="utf-8"
-    )
-
-    return {"project_id": project_id, "design_system": design_system, "usage": usage}
+    return {"project_id": project_id, "blueprint": blueprint_dict, "usage": usage, "model": vision_model}
 
 
 @router.post("/design-md/{project_id}")
@@ -176,20 +146,24 @@ def debug_render_design_md(project_id: str) -> dict:
 def debug_generate(
     project_id: str = LAST_TESTED_PROJECT_ID,
     tier: str = "pro",
+    template_override: str | None = None,
 ) -> dict:
     """Stage 3: calls the REAL site_generator.generate_site() -- the exact
-    function the product's real routes/queue task handler use. Makes real, billed
-    OpenRouter calls against REDOWEBS_GENERATION_MODEL. Regenerates
-    blueprint/design.md from blueprint.json first (so it reflects the
-    latest review, not whatever design.md happened to be on disk). Reads
-    blueprint/design_system.json if present (run POST /debug/design-system
-    first to control which recipe anchor it uses); generate_site() falls
-    back to a deterministic default if it's missing, same as a real run
-    would. Output goes to blueprint/../generated/{tier}/ (index.html,
-    style.css, copies of design.md/blueprint.json/design_system.json, and
-    _debug_trace.json) inside that project's folder -- same output shape a
-    real generation run produces. project_id defaults to the last
-    manually-tested project so it doesn't need to be re-typed every run."""
+    function the product's real routes/queue task handler use. Makes real,
+    billed OpenRouter calls. Model id comes from the DB
+    (model_config_service.get_generation_model(tier), same as the real
+    pipeline), so this requires Postgres reachable and `tier` must be a
+    real row in the tiers table. Regenerates blueprint/design.md from
+    blueprint.json first (so it reflects the latest review, not whatever
+    design.md happened to be on disk). Output goes to
+    blueprint/../generated/{tier}/ (index.html, style.css, copies of
+    design.md/blueprint.json, and _debug_trace.json) inside that project's
+    folder -- same output shape a real generation run produces. project_id
+    defaults to the last manually-tested project so it doesn't need to be
+    re-typed every run. `template_override` (a filename from
+    backend/prompts/, e.g. "business_material_prompt.txt") forces that
+    exact template instead of the normal random pick -- path-traversal
+    checked in _select_template(), real callers never pass this."""
     _validate_project_id(project_id)
     settings = get_settings()
     project_root = Path(settings.storage_root) / "projects" / project_id
@@ -208,8 +182,11 @@ def debug_generate(
     document = BlueprintDocument.model_validate(json.loads(source_path.read_text(encoding="utf-8")))
     (blueprint_dir / "design.md").write_text(render_design_md_compat(document), encoding="utf-8")
 
+    generation_model = model_config_service.get_generation_model(tier)
     try:
-        result = generate_site(project_root, tier)
+        result = generate_site(
+            project_root, tier, template_override=template_override, generation_model=generation_model
+        )
     except GenerationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

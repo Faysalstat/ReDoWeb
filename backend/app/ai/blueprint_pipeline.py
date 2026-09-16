@@ -13,10 +13,15 @@ from pathlib import Path
 from .blueprint_extraction import extract_scraped_json
 from .blueprint_legacy_compat import render_design_md_compat
 from .blueprint_review import review_blueprint
-from .design_system_generation import generate_design_system
 
 
-def run_blueprint_pipeline(project_root: Path) -> dict:
+def run_blueprint_pipeline(project_root: Path, vision_model: str | None = None) -> dict:
+    """`vision_model` overrides the OpenRouter model id used for every AI
+    call in this pipeline (blueprint review's meta/content/gap-check calls)
+    -- real callers (tasks_blueprint.py) resolve it once from the DB-backed
+    model_config_service.get_vision_model() and pass it in; omitted, it
+    falls back to config.py's static vision_model default (used by the
+    DB-free /api/v1/debug/* routes)."""
     scraped = extract_scraped_json(project_root)
 
     blueprint_dir = project_root / "blueprint"
@@ -27,24 +32,11 @@ def run_blueprint_pipeline(project_root: Path) -> dict:
         json.dumps(scraped.model_dump(mode="json"), indent=2), encoding="utf-8"
     )
 
-    blueprint, usage = review_blueprint(project_root, scraped)
+    blueprint, usage = review_blueprint(project_root, scraped, model=vision_model)
 
     blueprint_json_path = blueprint_dir / "blueprint.json"
     blueprint_json_path.write_text(
         json.dumps(blueprint.model_dump(mode="json"), indent=2), encoding="utf-8"
-    )
-
-    # Runs once per project (not once per tier) -- every enabled tier's
-    # generation call reads the same design_system.json. See
-    # design_system_generation.py for why this is a separate AI step
-    # instead of folded into site_generator.py's per-tier agent loop.
-    design_system, design_system_usage = generate_design_system(blueprint)
-    usage["prompt_tokens"] += design_system_usage.get("prompt_tokens", 0)
-    usage["completion_tokens"] += design_system_usage.get("completion_tokens", 0)
-
-    design_system_path = blueprint_dir / "design_system.json"
-    design_system_path.write_text(
-        json.dumps(design_system, indent=2), encoding="utf-8"
     )
 
     design_md_path = blueprint_dir / "design.md"
@@ -53,9 +45,7 @@ def run_blueprint_pipeline(project_root: Path) -> dict:
     return {
         "scraped_json_path": scraped_json_path.relative_to(project_root).as_posix(),
         "blueprint_json_path": blueprint_json_path.relative_to(project_root).as_posix(),
-        "design_system_json_path": design_system_path.relative_to(project_root).as_posix(),
         "design_md_path": design_md_path.relative_to(project_root).as_posix(),
         "blueprint": blueprint.model_dump(mode="json"),
-        "design_system": design_system,
         "usage": usage,
     }

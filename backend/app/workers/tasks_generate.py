@@ -7,7 +7,7 @@ from ..ai.site_generator import generate_site
 from ..config import get_settings
 from ..db.session import SessionLocal
 from ..models import Blueprint, GenerationJob, GenerationOutput, Project
-from ..services import tier_service, token_usage_service, wallet_service
+from ..services import model_config_service, tier_service, token_usage_service, wallet_service
 from ..services.preview_service import build_preview_url_path
 from ..services.wallet_service import InsufficientCreditsError
 from .queue import enqueue
@@ -66,7 +66,8 @@ def generate_tier_task(project_id: str, tier: str, remaining_tiers: list[str]) -
             raise
 
         try:
-            result = generate_site(project_root, tier)
+            generation_model = model_config_service.get_generation_model(tier, db)
+            result = generate_site(project_root, tier, generation_model=generation_model)
         except Exception as exc:
             job.overall_status = "failed"
             job.failure_reason = str(exc)
@@ -98,7 +99,7 @@ def generate_tier_task(project_id: str, tier: str, remaining_tiers: list[str]) -
             project_id=project.id,
             user_id=project.user_id,
             job_id=job.id,
-            model_name=settings.generation_model,
+            model_name=result["model"],
             purpose="generation",
             prompt_tokens=result["usage"]["prompt_tokens"],
             completion_tokens=result["usage"]["completion_tokens"],

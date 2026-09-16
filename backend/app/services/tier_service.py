@@ -25,6 +25,7 @@ class Tier:
     is_active: bool
     sort_order: int
     download_credit_cost: int
+    generation_model: str | None
 
 
 def _to_dataclass(row: TierORM) -> Tier:
@@ -34,6 +35,7 @@ def _to_dataclass(row: TierORM) -> Tier:
         is_active=row.is_active,
         sort_order=row.sort_order,
         download_credit_cost=row.download_credit_cost,
+        generation_model=row.generation_model,
     )
 
 

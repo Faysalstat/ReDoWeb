@@ -1,3 +1,4 @@
+from .ai_model_setting import AIModelSetting
 from .blueprint import Blueprint
 from .job import GenerationJob, GenerationOutput
 from .job_queue import QueuedJob
@@ -27,4 +28,5 @@ __all__ = [
     "Purchase",
     "Tier",
     "ModelPricing",
+    "AIModelSetting",
 ]

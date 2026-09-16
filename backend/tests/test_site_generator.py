@@ -6,75 +6,7 @@ import pytest
 from app.ai import site_generator
 from app.ai.errors import GenerationError
 from app.ai.generation_tools import make_tool_dispatch
-from app.ai.site_generator import (
-    _google_fonts_link_href,
-    _missing_required_output_files,
-    _render_system_prompt,
-)
-
-
-def _make_spec(**overrides) -> dict:
-    spec = {
-        "recipe_anchor": "linear",
-        "visual_language": "Warm dark, hairline detail",
-        "colors": {
-            "primary": "#123456",
-            "secondary": "#abcdef",
-            "accent": "#ff0000",
-            "derivation_rule": "hover = +8% lightness",
-        },
-        "typography": {"heading": "Space Grotesk", "body": "Inter Tight", "notes": "tight tracking"},
-        "spacing_scale": "4 / 8 / 16 / 24",
-        "radius_strategy": "moderate, 8-16px",
-        "shadow_style": "soft, single-layer",
-        "motion_style": "200ms ease-out",
-        "layout_guidance": "one idea per section",
-    }
-    spec.update(overrides)
-    return spec
-
-
-def test_render_system_prompt_includes_real_colors_and_anchor():
-    prompt = _render_system_prompt(_make_spec())
-
-    assert "linear" in prompt
-    assert "#123456" in prompt
-    assert "#abcdef" in prompt
-    assert "#ff0000" in prompt
-    assert "hover = +8% lightness" in prompt
-    assert "Space Grotesk" in prompt
-    assert "Inter Tight" in prompt
-
-
-def test_render_system_prompt_includes_a_working_google_fonts_link():
-    prompt = _render_system_prompt(_make_spec())
-
-    assert "fonts.googleapis.com/css2" in prompt
-    assert "family=Space+Grotesk" in prompt
-    assert "family=Inter+Tight" in prompt
-    assert '<link rel="stylesheet"' in prompt
-
-
-def test_google_fonts_link_href_dedupes_when_heading_and_body_match():
-    href = _google_fonts_link_href("Inter", "Inter")
-
-    assert href.count("family=Inter") == 1
-
-
-def test_google_fonts_link_href_encodes_spaces_as_plus():
-    href = _google_fonts_link_href("Plus Jakarta Sans", "Work Sans")
-
-    assert "family=Plus+Jakarta+Sans" in href
-    assert "family=Work+Sans" in href
-    assert " " not in href
-
-
-def test_render_system_prompt_never_raises_on_missing_fields():
-    prompt = _render_system_prompt({})
-
-    assert "Design Decisions" in prompt
-    assert "(none)" in prompt
-
+from app.ai.site_generator import _missing_required_output_files
 
 # --- _missing_required_output_files --------------------------------------
 
@@ -168,10 +100,11 @@ def test_run_agent_loop_retries_when_model_claims_done_but_style_css_missing(tmp
         generation_max_iterations=10,
         generation_max_consecutive_failures=5,
         generation_prompt_caching_enabled=False,
+        generation_call_timeout_seconds=180.0,
     )
 
     summary, _usage, iterations = site_generator._run_agent_loop(
-        settings, "system prompt", "user message", dispatch, trace_path=trace_path
+        settings, "test-model", "system prompt", "user message", dispatch, trace_path=trace_path
     )
 
     assert (output_dir / "index.html").exists()
@@ -199,12 +132,13 @@ def test_run_agent_loop_aborts_if_required_file_never_gets_written(tmp_path, mon
         generation_max_iterations=10,
         generation_max_consecutive_failures=3,
         generation_prompt_caching_enabled=False,
+        generation_call_timeout_seconds=180.0,
     )
     (output_dir / "index.html").write_text("<html></html>", encoding="utf-8")
 
     with pytest.raises(GenerationError):
         site_generator._run_agent_loop(
-            settings, "system prompt", "user message", dispatch, trace_path=trace_path
+            settings, "test-model", "system prompt", "user message", dispatch, trace_path=trace_path
         )
 
 
@@ -235,7 +169,7 @@ def test_select_template_without_override_picks_a_real_template():
     assert path.suffix == ".txt"
 
 
-# --- generate_site: template-based vs skill-based strategy per tier -------
+# --- generate_site: every tier uses the template-based strategy -----------
 
 
 def _make_project(tmp_path, colors=None, fonts=None, tone="warm and friendly") -> "Path":
@@ -283,27 +217,15 @@ def _stub_two_file_success(monkeypatch):
     return responses
 
 
-def test_generate_site_uses_template_strategy_for_template_based_tier(tmp_path, monkeypatch):
+@pytest.mark.parametrize("tier_key", ["premium", "pro"])
+def test_generate_site_uses_template_strategy_for_every_tier(tmp_path, monkeypatch, tier_key):
     monkeypatch.setattr(site_generator.tier_service, "is_tier_enabled", lambda key: True)
     responses = _stub_two_file_success(monkeypatch)
     project_root = _make_project(tmp_path)
 
-    result = site_generator.generate_site(project_root, site_generator.TEMPLATE_BASED_TIER)
+    result = site_generator.generate_site(project_root, tier_key)
 
     assert result["template_used"].endswith(".txt")
-    output_dir = project_root / "generated" / site_generator.TEMPLATE_BASED_TIER
+    output_dir = project_root / "generated" / tier_key
     assert not (output_dir / "design_system.json").exists()
-    assert responses == []
-
-
-def test_generate_site_uses_skill_strategy_for_other_tiers(tmp_path, monkeypatch):
-    monkeypatch.setattr(site_generator.tier_service, "is_tier_enabled", lambda key: True)
-    responses = _stub_two_file_success(monkeypatch)
-    project_root = _make_project(tmp_path, tone="corporate and professional")
-
-    result = site_generator.generate_site(project_root, "pro")
-
-    assert not result["template_used"].endswith(".txt")
-    output_dir = project_root / "generated" / "pro"
-    assert (output_dir / "design_system.json").exists()
     assert responses == []

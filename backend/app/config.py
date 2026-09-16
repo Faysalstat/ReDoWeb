@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     generation_max_iterations: int = 24
     generation_max_consecutive_failures: int = 5
     generation_prompt_caching_enabled: bool = True
+    # Per-call (one loop iteration, not total generation time) OpenRouter
+    # request budget. 6 minutes covers a legitimately slow full-page
+    # completion at max_tokens with room to spare, while still bounding how
+    # long one stalled call can block the single-threaded queue worker (see
+    # openrouter_client._post_with_hard_deadline's extra +30s backstop on
+    # top of this). Raised 2026-09-16 from 180s after two real
+    # moonshotai/kimi-k2.6 stalls -- both were genuinely dead connections
+    # (zero further response, ever), not slow-but-progressing calls, so
+    # this bump is about not cutting off a legitimately slow model
+    # mid-response, not about "rescuing" a stalled one.
+    generation_call_timeout_seconds: float = 360.0
 
     vision_max_image_dimension: int = 1024
     vision_max_tokens: int = 2048

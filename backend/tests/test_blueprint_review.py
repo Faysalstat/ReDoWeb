@@ -201,7 +201,7 @@ def project_root(tmp_path):
 
 
 def test_review_page_gaps_adds_verified_quote(project_root, monkeypatch):
-    def fake_vision_json_chat(system_prompt, user_text, image_paths):
+    def fake_vision_json_chat(system_prompt, user_text, image_paths, model=None):
         return (
             {"gaps": [{"quote": "Open 9am-5pm Monday to Friday", "title": "Business Hours", "category": "hours"}]},
             {"prompt_tokens": 10, "completion_tokens": 5},
@@ -218,7 +218,7 @@ def test_review_page_gaps_adds_verified_quote(project_root, monkeypatch):
 
 
 def test_review_page_gaps_drops_response_with_unverifiable_quote(project_root, monkeypatch):
-    def fake_vision_json_chat(system_prompt, user_text, image_paths):
+    def fake_vision_json_chat(system_prompt, user_text, image_paths, model=None):
         return (
             {"gaps": [{"quote": "This exact sentence does not appear anywhere on the page", "title": "Fake", "category": "x"}]},
             {},
@@ -237,7 +237,7 @@ def test_review_page_gaps_ignores_category_that_names_an_optional_section(projec
     always AdditionalSection -- it can never write into
     sections.testimonials or any other named section."""
 
-    def fake_vision_json_chat(system_prompt, user_text, image_paths):
+    def fake_vision_json_chat(system_prompt, user_text, image_paths, model=None):
         return (
             {"gaps": [{"quote": "Open 9am-5pm Monday to Friday", "title": "Hours", "category": "testimonial"}]},
             {},
@@ -252,7 +252,7 @@ def test_review_page_gaps_ignores_category_that_names_an_optional_section(projec
 
 
 def test_review_page_gaps_degrades_to_empty_on_openrouter_error(project_root, monkeypatch):
-    def fake_vision_json_chat(system_prompt, user_text, image_paths):
+    def fake_vision_json_chat(system_prompt, user_text, image_paths, model=None):
         raise OpenRouterError("boom")
 
     monkeypatch.setattr(blueprint_review, "vision_json_chat", fake_vision_json_chat)
@@ -271,7 +271,7 @@ def test_review_page_gaps_degrades_on_missing_storage_path(project_root):
 
 
 def test_review_page_gaps_degrades_on_malformed_gaps_shape(project_root, monkeypatch):
-    def fake_vision_json_chat(system_prompt, user_text, image_paths):
+    def fake_vision_json_chat(system_prompt, user_text, image_paths, model=None):
         return {"gaps": "not-a-list"}, {}
 
     monkeypatch.setattr(blueprint_review, "vision_json_chat", fake_vision_json_chat)

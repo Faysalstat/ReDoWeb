@@ -7,22 +7,12 @@ from pathlib import Path
 
 from ..config import get_settings
 from ..services import tier_service
-from .design_system_generation import build_fallback_design_system
 from .errors import GenerationError, OpenRouterError
 from .generation_tools import TOOL_SCHEMAS, make_tool_dispatch
 from .openrouter_client import chat_completion
 from .postprocess import parse_frontmatter, postprocess_output
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-
-# Two generation strategies, one per tier -- restored 2026-09-01 at the
-# user's explicit request after the AI-generated ("skill-based") design
-# system replaced the original hand-authored ("template-based") style
-# templates entirely; both are genuinely good and the user wanted both kept
-# rather than one replacing the other. "premium" runs the original random
-# hand-authored business_*.txt template; every other enabled tier (pro
-# today) runs the newer skill-based, AI-resolved design_system.json path.
-TEMPLATE_BASED_TIER = "premium"
 
 TECH_CONSTRAINTS = """
 
@@ -38,108 +28,10 @@ IMPORTANT project-specific constraints (these override anything above that confl
 - Build ONLY the home page for this run -- a single index.html plus style.css (and an optional script.js). If the content below describes more than one page, use only the home page's content; ignore the rest (additional pages are a separate, later generation pass, not part of this run).
 """
 
-# Distilled from agent/SKILL.md (the "web-design-engineer" Claude Skill) --
-# only the pieces that hold regardless of which design system was declared
-# below, never a fixed aesthetic opinion (that would fight whatever the
-# Design Decisions block below actually calls for). The interactive parts
-# of that skill (clarifying questions, stop-and-confirm checkpoints, v0
-# review, critique-on-request) don't apply here -- this pipeline runs
-# headless with no user turn available, so this block keeps only the
-# static craft guidance a single-pass agent can act on directly.
-CRAFT_PRINCIPLES = """
-You are a senior web design engineer. The Design Decisions block below is
-this project's brand spec -- follow it, not a generic default.
-
-Avoid these defaults UNLESS the Design Decisions block below specifically
-calls for them (if it does, that's a deliberate brand choice, not a lazy
-default, and the block wins):
-- Purple-to-pink-to-blue gradients used as decoration with no stated reason.
-- Emoji used as icon substitutes -- use inline SVG icons (or a real icon
-  set loaded via CDN) instead; a genuinely missing icon is better shown as
-  a small labeled placeholder than faked with an emoji.
-- Fabricated content -- never invent testimonials, stats, pricing, team
-  members, credentials, or client logos that aren't already present in the
-  blueprint below; omit that section entirely rather than making one up.
-- Purely decorative rounded-card-with-colored-left-border components that
-  carry no grouping or selection meaning.
-
-Color implementation: the FIRST rule in style.css must be a `:root { }` block
-declaring `--color-primary`, `--color-secondary`, and `--color-accent` set to
-the exact hex values given in the Design Decisions block below -- every
-other color in the file must reference one of these variables (`var(--color-primary)`
-etc.) or derive from one, never a hardcoded or newly-invented hex/oklch value.
-Apply the Design Decisions block's stated color derivation rule (hover/muted/
-tint states) using real CSS relative color syntax, e.g.
-`oklch(from var(--color-primary) calc(l + 0.08) c h)` -- so the browser
-computes exact, perceptually-consistent shades from the real base colors
-instead of you guessing hex/oklch values by hand or introducing unrelated
-new hues.
-
-Craft baseline: CSS Grid/Flexbox for layout, CSS custom properties for
-design tokens, clamp() for fluid type, text-wrap: pretty on headings and
-paragraphs, and respect prefers-reduced-motion. Cover hover/focus/active/
-disabled states on every interactive element. No filler content -- every
-section should earn its place given what the blueprint actually contains.
-"""
-
-
-def _google_fonts_link_href(heading: str, body: str) -> str:
-    """Builds the exact working Google Fonts CSS2 API URL for the chosen
-    heading/body pair, so the model is given a ready-to-paste <link> href
-    instead of being trusted to construct (or remember) one itself -- seen
-    for real: a run that used hand-written CSS added a Google Fonts <link>
-    on its own initiative, but a run using the Tailwind CDN path didn't add
-    one at all, so real, validated font names (Nunito/Baloo 2) still never
-    actually loaded and silently fell back to whatever's locally installed."""
-    families = dict.fromkeys(name for name in (heading, body) if name)  # de-dupes, keeps order
-    family_params = "&".join(f"family={name.replace(' ', '+')}:wght@400;600;700" for name in families)
-    return f"https://fonts.googleapis.com/css2?{family_params}&display=swap"
-
-
-def _render_system_prompt(design_system: dict) -> str:
-    """Pure formatting, no AI call -- turns the per-project design-system
-    spec (from design_system_generation.py, already resolved once for the
-    whole project) into the skill's Step 3 "Design Decisions" declaration
-    shape as plain text."""
-    colors = design_system.get("colors") or {}
-    typography = design_system.get("typography") or {}
-    heading_font = typography.get("heading") or ""
-    body_font = typography.get("body") or ""
-    font_link_line = ""
-    if heading_font or body_font:
-        href = _google_fonts_link_href(heading_font, body_font)
-        font_link_line = (
-            "- Font loading (REQUIRED): add this exact tag to <head> so the "
-            f'fonts above actually load: <link rel="stylesheet" href="{href}">\n'
-        )
-    return (
-        "\n\n---\n\n"
-        "Design Decisions for this project (resolve every visual choice "
-        "through these, not generic defaults):\n"
-        f"- Anchor recipe: {design_system.get('recipe_anchor', '(none)')}\n"
-        f"- Visual language: {design_system.get('visual_language', '')}\n"
-        f"- Colors: primary={colors.get('primary')}, secondary={colors.get('secondary')}, "
-        f"accent={colors.get('accent')}\n"
-        f"- Color derivation rule: {colors.get('derivation_rule', '')}\n"
-        f"- Typography (AUTHORITATIVE -- use exactly these font names; the "
-        f"blueprint content below may separately mention the site's original "
-        f"fonts, ignore those in favor of these): heading={heading_font}, "
-        f"body={body_font} -- {typography.get('notes', '')}\n"
-        f"{font_link_line}"
-        f"- Spacing scale: {design_system.get('spacing_scale', '')}\n"
-        f"- Radius strategy: {design_system.get('radius_strategy', '')}\n"
-        f"- Shadow style: {design_system.get('shadow_style', '')}\n"
-        f"- Motion style: {design_system.get('motion_style', '')}\n"
-        f"- Layout guidance: {design_system.get('layout_guidance', '')}\n"
-    )
-
 
 def _select_template(override: str | None = None) -> Path:
-    """The original, hand-authored template-based strategy: picks one of
-    PROMPTS_DIR's static business_*.txt design-strategy files. Restored
-    (2026-09-01) for TEMPLATE_BASED_TIER alongside the newer skill-based
-    path -- both are kept as distinct, deliberate strategies, not one
-    superseding the other."""
+    """Picks one of PROMPTS_DIR's static business_*.txt design-strategy
+    files at random -- the sole generation strategy for every tier."""
     if override:
         prompts_root = PROMPTS_DIR.resolve()
         template_path = (PROMPTS_DIR / override).resolve()
@@ -185,7 +77,12 @@ def _rmtree_with_retry(path: Path, attempts: int = 5, delay_seconds: float = 1.0
             raise last_error
 
 
-def generate_site(project_root: Path, tier_key: str, template_override: str | None = None) -> dict:
+def generate_site(
+    project_root: Path,
+    tier_key: str,
+    template_override: str | None = None,
+    generation_model: str | None = None,
+) -> dict:
     """Builds the tier's home page from project_root/blueprint/design.md --
     which the blueprint pipeline (blueprint_pipeline.run_blueprint_pipeline)
     renders from the reviewed blueprint.json via blueprint_legacy_compat, so
@@ -194,23 +91,23 @@ def generate_site(project_root: Path, tier_key: str, template_override: str | No
     home page) per docs/blueprint-json-pipeline-plan.md -- additional pages
     are a separate, later generation pass, not built by this function.
 
-    Two system-prompt strategies, chosen by tier (see TEMPLATE_BASED_TIER):
-    - template-based (TEMPLATE_BASED_TIER, "premium" today): one of
-      PROMPTS_DIR's static hand-authored business_*.txt files, picked at
-      random (or via `template_override`, path-traversal-checked -- real
-      callers never pass this; it exists for repeatable manual testing of
-      one specific template) + TECH_CONSTRAINTS. No design_system.json
-      involved at all for this strategy.
-    - skill-based (every other enabled tier, "pro" today): CRAFT_PRINCIPLES
-      (static) + project_root/blueprint/design_system.json (the per-project
-      design system resolved once, up front, by design_system_generation.py)
-      + TECH_CONSTRAINTS. If design_system.json is missing for any reason, a
-      deterministic fallback spec is built here from the real colors/fonts
-      already in design.md's frontmatter, so generation never hard-fails
-      for lack of one.
+    Every tier uses the same template-based strategy (removed 2026-09-16,
+    at the user's explicit request, after the AI-generated recipe-anchor/
+    design-system path -- previously used by every tier but "premium" --
+    caused real confusion: a project generating only one tier still paid
+    for the design-system AI call, and its resolved recipe_anchor surfaced
+    in places that made it look like it had been used for generation when
+    it hadn't been). One of PROMPTS_DIR's static hand-authored
+    business_*.txt files is picked at random (or via `template_override`,
+    path-traversal-checked -- real callers never pass this; it exists for
+    repeatable manual testing of one specific template) + TECH_CONSTRAINTS.
 
-    Both strategies are deliberately kept side by side, not one replacing
-    the other -- restored 2026-09-01 at the user's explicit request.
+    `generation_model` is the resolved OpenRouter model id for this run's
+    agent loop -- real callers (tasks_generate.py) resolve it per-tier via
+    model_config_service.get_generation_model() (DB-backed, swappable
+    without a rebuild) and pass it in; this function stays DB-free and
+    falls back to config.py's static default when it's omitted (debug
+    routes rely on that default).
     """
     if not tier_service.is_tier_enabled(tier_key):
         raise GenerationError(f"Tier '{tier_key}' is not currently enabled")
@@ -225,6 +122,7 @@ def generate_site(project_root: Path, tier_key: str, template_override: str | No
     assets = metadata.get("assets") or []
 
     settings = get_settings()
+    generation_model = generation_model or settings.generation_model
 
     output_dir = project_root / "generated" / tier_key
     if output_dir.exists():
@@ -239,32 +137,16 @@ def generate_site(project_root: Path, tier_key: str, template_override: str | No
             blueprint_json_path.read_text(encoding="utf-8"), encoding="utf-8"
         )
 
-    if tier_key == TEMPLATE_BASED_TIER:
-        template_path = _select_template(template_override)
-        system_prompt = template_path.read_text(encoding="utf-8") + TECH_CONSTRAINTS
-        strategy_used = template_path.name
-    else:
-        design_system_path = project_root / "blueprint" / "design_system.json"
-        if design_system_path.exists():
-            design_system = json.loads(design_system_path.read_text(encoding="utf-8"))
-        else:
-            design_system = build_fallback_design_system(
-                colors=frontmatter.get("colors") or {},
-                fonts=frontmatter.get("fonts") or {},
-                tone=frontmatter.get("tone") or "",
-            )
-        (output_dir / "design_system.json").write_text(
-            json.dumps(design_system, indent=2), encoding="utf-8"
-        )
-        system_prompt = CRAFT_PRINCIPLES + _render_system_prompt(design_system) + TECH_CONSTRAINTS
-        strategy_used = design_system.get("recipe_anchor")
+    template_path = _select_template(template_override)
+    system_prompt = template_path.read_text(encoding="utf-8") + TECH_CONSTRAINTS
+    strategy_used = template_path.name
 
     user_message = _build_user_message(design_md, image_names)
 
     dispatch = make_tool_dispatch(output_dir)
     trace_path = output_dir / "_debug_trace.json"
     summary_text, total_usage, iterations_used = _run_agent_loop(
-        settings, system_prompt, user_message, dispatch, trace_path=trace_path
+        settings, generation_model, system_prompt, user_message, dispatch, trace_path=trace_path
     )
 
     postprocess_report = postprocess_output(output_dir, frontmatter)
@@ -276,20 +158,13 @@ def generate_site(project_root: Path, tier_key: str, template_override: str | No
     return {
         "tier": tier_key,
         "postprocess": postprocess_report,
-        # Kept as "template_used" (not renamed to e.g. "design_system_used")
-        # because it's a real, still-in-use field -- a non-nullable DB
-        # column (generation_outputs.template_used) plus three response
-        # schemas and the real product routes/queue task handler all read this
-        # exact key. There's no more literal template file to name, so the
-        # value holds either a literal template filename (template-based
-        # strategy) or the resolved recipe anchor (skill-based strategy) --
-        # see the strategy_used assignment above.
         "template_used": strategy_used,
         "output_dir": output_dir.relative_to(project_root).as_posix(),
         "files": written_files,
         "summary": summary_text,
         "usage": total_usage,
         "iterations": iterations_used,
+        "model": generation_model,
     }
 
 
@@ -345,7 +220,12 @@ def _missing_required_output_files(trace_path: Path | None) -> list[str]:
 
 
 def _run_agent_loop(
-    settings, system_prompt: str, user_message: str, dispatch: dict, trace_path: Path | None = None
+    settings,
+    model_name: str,
+    system_prompt: str,
+    user_message: str,
+    dispatch: dict,
+    trace_path: Path | None = None,
 ):
     caching_enabled = settings.generation_prompt_caching_enabled
     system_content: str | list[dict] = system_prompt
@@ -411,7 +291,7 @@ def _run_agent_loop(
         _compact_resolved_tool_turns(messages, current_iter_start)
 
         payload = {
-            "model": settings.generation_model,
+            "model": model_name,
             "messages": messages,
             "tools": TOOL_SCHEMAS,
             "tool_choice": "auto",
@@ -420,7 +300,7 @@ def _run_agent_loop(
         if session_id:
             payload["session_id"] = session_id
 
-        data = chat_completion(payload, timeout=180.0)
+        data = chat_completion(payload, timeout=settings.generation_call_timeout_seconds)
 
         usage = data.get("usage") or {}
         total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)

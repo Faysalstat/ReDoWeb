@@ -5,7 +5,7 @@ from ..ai.blueprint_pipeline import run_blueprint_pipeline
 from ..config import get_settings
 from ..db.session import SessionLocal
 from ..models import Blueprint, Project
-from ..services import token_usage_service
+from ..services import model_config_service, token_usage_service
 from ..services.blueprint_service import build_blueprint_row
 from .queue import enqueue
 
@@ -19,8 +19,9 @@ def extract_blueprint_task(project_id: str, tier_keys: list[str]) -> str:
         project.status = "extracting_blueprint"
         db.commit()
 
+        vision_model = model_config_service.get_vision_model(db)
         try:
-            result = run_blueprint_pipeline(project_root)
+            result = run_blueprint_pipeline(project_root, vision_model=vision_model)
         except Exception as exc:
             project.status = "failed"
             project.rejection_reason = str(exc)
@@ -32,7 +33,7 @@ def extract_blueprint_task(project_id: str, tier_keys: list[str]) -> str:
             project_id=project.id,
             user_id=project.user_id,
             job_id=None,
-            model_name=settings.vision_model,
+            model_name=vision_model,
             purpose="blueprint_extraction",
             prompt_tokens=result["usage"]["prompt_tokens"],
             completion_tokens=result["usage"]["completion_tokens"],

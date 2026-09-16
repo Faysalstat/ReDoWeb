@@ -292,6 +292,7 @@ def _review_page_gaps(
     storage_path: str | None,
     original: PageSections,
     navigation: list[NavLink],
+    model: str | None = None,
 ) -> tuple[list[AdditionalSection], dict]:
     """Call C: finds real content the deterministic extraction missed
     anywhere on the page (not just <main>), verifies each claim against
@@ -319,7 +320,7 @@ def _review_page_gaps(
     )
 
     try:
-        result, usage = vision_json_chat(GAP_CHECK_SYSTEM_PROMPT, user_text, [])
+        result, usage = vision_json_chat(GAP_CHECK_SYSTEM_PROMPT, user_text, [], model=model)
     except OpenRouterError:
         return [], {}
 
@@ -360,7 +361,14 @@ def _merge_gap_sections(existing: list[AdditionalSection], verified_gaps: list[A
     return existing + verified_gaps
 
 
-def review_blueprint(project_root: Path, scraped: BlueprintDocument) -> tuple[BlueprintDocument, dict]:
+def review_blueprint(
+    project_root: Path, scraped: BlueprintDocument, model: str | None = None
+) -> tuple[BlueprintDocument, dict]:
+    """`model` overrides the OpenRouter model id used for all three call
+    types below (real callers resolve it once from the DB-backed
+    model_config_service.get_vision_model() in blueprint_pipeline.py and
+    pass it down here; omitted, each call falls back to config.py's static
+    vision_model default)."""
     blueprint = scraped.model_copy(deep=True)
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
 
@@ -378,9 +386,10 @@ def review_blueprint(project_root: Path, scraped: BlueprintDocument) -> tuple[Bl
             META_REVIEW_SYSTEM_PROMPT,
             f"Heuristic site name guess: {scraped.meta.site_name}\n\n{meta_digest}",
             image_paths,
+            model=model,
         )
         content_futures = [
-            executor.submit(_review_page, page, scraped, index)
+            executor.submit(_review_page, page, scraped, index, model)
             for index, page in enumerate(scraped.pages)
         ]
         gap_futures = [
@@ -390,6 +399,7 @@ def review_blueprint(project_root: Path, scraped: BlueprintDocument) -> tuple[Bl
                 storage_paths_by_url.get(page.page_url),
                 page.sections,
                 scraped.navigation,
+                model,
             )
             for page in scraped.pages
         ]
@@ -471,7 +481,9 @@ def _build_site_digest(scraped: BlueprintDocument, exclude_index: int) -> str:
     return "\n\n".join(blocks) or "(single-page site, no other pages)"
 
 
-def _review_page(page: PageBlueprint, scraped: BlueprintDocument, index: int) -> tuple[PageSections, dict]:
+def _review_page(
+    page: PageBlueprint, scraped: BlueprintDocument, index: int, model: str | None = None
+) -> tuple[PageSections, dict]:
     original = page.sections
     request_payload = {
         "hero": original.hero.model_dump(exclude={"background_image"}),
@@ -490,7 +502,7 @@ def _review_page(page: PageBlueprint, scraped: BlueprintDocument, index: int) ->
     )
 
     try:
-        result, usage = vision_json_chat(CONTENT_REVIEW_SYSTEM_PROMPT, user_text, [])
+        result, usage = vision_json_chat(CONTENT_REVIEW_SYSTEM_PROMPT, user_text, [], model=model)
     except OpenRouterError:
         # Additive enhancement -- degrade to the unreviewed sections rather
         # than failing the whole pipeline over one page's review call.
