@@ -36,7 +36,7 @@ export class StatTileComponent {
     const variants: Record<StatTileVariant, string> = {
       default: 'metric__num',
       accent: 'metric__num metric__num--accent',
-      danger: 'metric__num metric__num--accent',
+      danger: 'metric__num metric__num--danger',
     };
     return variants[this.variant()];
   });

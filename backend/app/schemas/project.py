@@ -38,10 +38,12 @@ class ProjectStatusResponse(BaseModel):
     source_url: str
     blueprint: ProjectBlueprintSummary | None = None
     # One entry per tier that has finished generating so far -- populated
-    # progressively as each tier in the chain succeeds, not only once the
-    # whole project reaches "ready", so the UI can let the user switch
-    # between already-finished tiers while later ones are still running.
+    # progressively as each tier succeeds, not only once the whole project
+    # reaches "ready", so the UI can let the user switch between
+    # already-finished tiers while others are still running.
     generations: list[ProjectGenerationSummary] = []
     tiers_total: int = 0
     tiers_completed: int = 0
-    current_tier: str | None = None
+    # Plural: tiers now fan out (see docs/concurrency-scaling-plan.md), so
+    # more than one can be "running" at once, not just the tail of a chain.
+    current_tiers: list[str] = []

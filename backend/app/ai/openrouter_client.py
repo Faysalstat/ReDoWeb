@@ -4,6 +4,7 @@ import io
 import itertools
 import json
 import mimetypes
+import time
 from pathlib import Path
 
 import httpx
@@ -50,6 +51,57 @@ def _post_with_hard_deadline(url: str, headers: dict, json_payload: dict, soft_t
         ) from exc
     finally:
         executor.shutdown(wait=False)
+
+
+# Transient-error retry, layered on top of _post_with_hard_deadline -- this
+# is HTTP-call-attempt-level resilience, not the task-level auto-retry
+# CLAUDE.md deliberately excludes (an exhausted retry here still raises
+# OpenRouterError exactly as before, so a failed task still fails
+# immediately with no re-queue). Retrying makes a single call attempt more
+# resilient to the transient 429/5xx errors that become more likely once
+# multiple projects generate concurrently (see docs/concurrency-scaling-plan.md).
+_RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
+_MAX_ATTEMPTS = 3
+_BACKOFF_SECONDS = (2.0, 4.0, 8.0)
+
+
+def _post_with_retry(url: str, headers: dict, json_payload: dict, soft_timeout: float) -> httpx.Response:
+    """Wraps _post_with_hard_deadline with retry/backoff for transient
+    errors only. Deliberately does NOT retry the hard-deadline
+    OpenRouterError (a stuck connection shouldn't be retried -- risks
+    stacking hangs) or non-429 4xx (non-transient, e.g. bad request/auth) --
+    those propagate on the first attempt exactly as before this existed."""
+    for attempt in range(_MAX_ATTEMPTS):
+        is_last_attempt = attempt == _MAX_ATTEMPTS - 1
+        try:
+            response = _post_with_hard_deadline(url, headers, json_payload, soft_timeout)
+            response.raise_for_status()
+            return response
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in _RETRYABLE_STATUS_CODES or is_last_attempt:
+                raise
+            delay = _BACKOFF_SECONDS[attempt]
+            retry_after = exc.response.headers.get("Retry-After")
+            if retry_after is not None:
+                try:
+                    delay = max(delay, float(retry_after))
+                except ValueError:
+                    pass
+            print(
+                f"    [retry] OpenRouter {exc.response.status_code} on attempt "
+                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
+            )
+            time.sleep(delay)
+        except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+            if is_last_attempt:
+                raise
+            delay = _BACKOFF_SECONDS[attempt]
+            print(
+                f"    [retry] OpenRouter {type(exc).__name__} on attempt "
+                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
+            )
+            time.sleep(delay)
+    raise AssertionError("unreachable -- loop always returns or raises")  # pragma: no cover
 
 
 def _content_preview(content, limit: int = 300) -> str:
@@ -159,7 +211,7 @@ def vision_json_chat(
     print(f"    user:   {_content_preview(user_text, 300)}")
 
     try:
-        response = _post_with_hard_deadline(
+        response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
@@ -169,7 +221,6 @@ def vision_json_chat(
             json_payload=payload,
             soft_timeout=60.0,
         )
-        response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         raise OpenRouterError(
             f"OpenRouter request failed: {exc} | body: {exc.response.text}"
@@ -232,7 +283,7 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
         print(f"    latest: {_message_preview(latest_message, 300)}")
 
     try:
-        response = _post_with_hard_deadline(
+        response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
@@ -242,7 +293,6 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
             json_payload=payload,
             soft_timeout=timeout,
         )
-        response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         raise OpenRouterError(
             f"OpenRouter request failed: {exc} | body: {exc.response.text}"

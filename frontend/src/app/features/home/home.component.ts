@@ -3,19 +3,22 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
+import { AuthService } from '../../core/auth.service';
 import { PRICING_TIERS } from '../../core/pricing-tiers';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
 import { GenerationDemoComponent } from '../../shared/ui/generation-demo/generation-demo.component';
-import { IconAlertTriangle } from '../../shared/ui/icons/icons';
+import { IconAlertTriangle, IconArrowRight } from '../../shared/ui/icons/icons';
 import { PricingTierComponent } from '../../shared/ui/pricing-tier/pricing-tier.component';
-import { SiteMockComponent } from '../../shared/ui/site-mock/site-mock.component';
 import { SpinnerComponent } from '../../shared/ui/spinner/spinner.component';
 
-/** The blueprint's Hero page: URL submission + marketing sections only. The
- * live crawl/extract/generate progress lives on its own route
- * (GenerationProgressComponent) -- a successful submit navigates there. */
+/** The public homepage: URL submission + marketing sections, reachable
+ * without a session. submit() checks auth itself and routes a signed-out
+ * visitor to /login instead of calling the API (see below) -- the route
+ * itself carries no guard. The live crawl/extract/generate progress lives on
+ * its own route (GenerationProgressComponent) -- a successful submit
+ * navigates there. */
 @Component({
   selector: 'app-home',
   standalone: true,
@@ -26,9 +29,9 @@ import { SpinnerComponent } from '../../shared/ui/spinner/spinner.component';
     ButtonComponent,
     GenerationDemoComponent,
     PricingTierComponent,
-    SiteMockComponent,
     SpinnerComponent,
     IconAlertTriangle,
+    IconArrowRight,
   ],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
@@ -44,7 +47,7 @@ export class HomeComponent implements OnInit {
 
   // Marketing copy -- illustrative, not backed by real analytics yet.
   readonly stats = [
-    { value: '<1 min', label: 'Median rebuild time' },
+    { value: '<30 min', label: 'Median rebuild time' },
     { value: '100%', label: 'Your content, kept intact' },
     { value: '$0', label: 'To preview your redesign' },
   ];
@@ -67,21 +70,35 @@ export class HomeComponent implements OnInit {
     },
   ];
 
+  private readonly accentColors = ['var(--color-accent)', 'var(--color-accent-2)', 'var(--color-success)'];
+
   constructor(
     private readonly api: RedoWebsApiService,
+    private readonly auth: AuthService,
     private readonly router: Router
   ) {}
+
+  accentColor(index: number): string {
+    return this.accentColors[index % this.accentColors.length];
+  }
 
   get canSubmit(): boolean {
     return this.url.trim().length > 0 && this.tosAccepted && !this.isSubmitting();
   }
 
   ngOnInit(): void {
-    this.api.getWallet().subscribe((wallet) => this.balance.set(wallet.balance));
+    if (this.auth.isAuthenticated()) {
+      this.api.getWallet().subscribe((wallet) => this.balance.set(wallet.balance));
+    }
   }
 
   submit(): void {
     if (!this.canSubmit) {
+      return;
+    }
+
+    if (!this.auth.isAuthenticated()) {
+      this.router.navigate(['/login']);
       return;
     }
 

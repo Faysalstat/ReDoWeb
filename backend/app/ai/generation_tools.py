@@ -89,12 +89,37 @@ def _resolve_safe_path(sandbox_root: Path, relative_path: str) -> Path:
     return candidate
 
 
-def make_tool_dispatch(sandbox_root: Path) -> dict:
+def make_tool_dispatch(
+    sandbox_root: Path,
+    locked_files: set[str] | None = None,
+    append_only_files: set[str] | None = None,
+) -> dict:
+    """`locked_files`/`append_only_files` are relative paths (matching the
+    `path` argument write_file is called with, e.g. "index.html") given
+    code-enforced protection during a full-site generation run
+    (site_generator.generate_full_site()) so the already-generated,
+    already-shown home page can't be silently clobbered by the model --
+    this backs up FULL_SITE_TECH_CONSTRAINTS' prompt wording with an actual
+    guarantee, the same "code-enforced, not prompt-trusted" pattern used
+    throughout blueprint_review.py's merge functions. Both default to None
+    (no restriction), so generate_site()'s existing call site is
+    unaffected."""
     sandbox_root = sandbox_root.resolve()
+    locked_files = locked_files or set()
+    append_only_files = append_only_files or set()
 
     def write_file(path: str, content: str) -> str:
+        if path in locked_files:
+            return (
+                f"Error: {path} is the finished, already-shown design and cannot be "
+                "rewritten -- build the other pages instead."
+            )
         target = _resolve_safe_path(sandbox_root, path)
         target.parent.mkdir(parents=True, exist_ok=True)
+        if path in append_only_files and target.exists():
+            existing = target.read_text(encoding="utf-8")
+            target.write_text(existing.rstrip("\n") + "\n\n" + content, encoding="utf-8")
+            return f"Appended {len(content)} characters to the end of {path} (existing content preserved)"
         target.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} characters to {path}"
 

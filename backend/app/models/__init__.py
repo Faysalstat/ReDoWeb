@@ -4,6 +4,7 @@ from .job import GenerationJob, GenerationOutput
 from .job_queue import QueuedJob
 from .model_pricing import ModelPricing
 from .project import Asset, CrawlPage, CrawlSnapshot, Project, SubmissionLog
+from .prompt_template import PromptTemplate
 from .purchase import Purchase
 from .tier import Tier
 from .token_usage import TokenUsageLog
@@ -29,4 +30,5 @@ __all__ = [
     "Tier",
     "ModelPricing",
     "AIModelSetting",
+    "PromptTemplate",
 ]

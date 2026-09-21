@@ -1,8 +1,8 @@
 <app-header />
 
-<div class="wrap">
+<div class="wrap--narrow">
   <section class="band--tight">
-    <a routerLink="/app" class="gp-back">← Back to Dashboard</a>
+    <a routerLink="/" class="gp-back">← Back to Dashboard</a>
 
     @if (status(); as s) {
       <p class="gp-source">{{ s.source_url }}</p>
@@ -19,7 +19,7 @@
             <div class="meter__fill" [style.width.%]="progressPercent"></div>
           </div>
           <p class="sub">{{ subStatus() || 'Working on it…' }}</p>
-          <p class="text-muted" style="font-size: 13px">This takes about 30–60 seconds · {{ formattedElapsed }} elapsed</p>
+          <p class="text-muted" style="font-size: 13px">This usually takes 15–30 minutes · {{ formattedElapsed }} elapsed</p>
 
           <ol class="scan__steps">
             <li
@@ -60,8 +60,8 @@
           <div class="panel__body stack">
             <p class="sub" style="max-width: none">
               We never touch your live site during this — we're only reading it to build the
-              replacement. You can close this tab; your project will still be here when you come
-              back.
+              replacement. You can close this tab; find this project anytime from your
+              <a routerLink="/history">History</a> page.
             </p>
             <p class="row" style="font-size: 13px; color: var(--color-neutral-700); gap: var(--space-2)">
               <span style="width: 8px; height: 8px; background: var(--color-accent)"></span>
@@ -90,113 +90,150 @@
     @if (stage() === 'ready') {
       @if (status(); as s) {
         @if (activeGeneration(); as gen) {
-          <div class="gp-ready__head">
-            <div>
-              <h2>{{ s.blueprint?.site_name || 'Your modernized site' }} is ready</h2>
-              <p class="sub" style="margin-top: var(--space-1)">
-                Modern, responsive, and built to impress — take a look, then make it yours.
-              </p>
-            </div>
-            <app-badge variant="accent">{{ tierLabel(gen.tier) }} tier</app-badge>
-          </div>
+          <div class="gp-topbar">
+            <a routerLink="/" class="gp-topbar__back" aria-label="Back to dashboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
 
-          @if (s.generations.length > 1) {
-            <div class="seg tier-switch" role="group" aria-label="Tier">
-              @for (item of s.generations; track item.tier) {
-                <label class="seg-opt">
-                  <input
-                    type="radio"
-                    name="tier"
-                    [checked]="selectedTier() === item.tier"
-                    (change)="selectTier(item.tier)"
-                  />
-                  {{ tierLabel(item.tier) }}
-                </label>
-              }
+            <div class="gp-topbar__id">
+              <div class="gp-topbar__title-row">
+                <h1>{{ s.blueprint?.site_name || 'Your modernized site' }}</h1>
+                <span class="gp-status-pill">
+                  <span class="gp-status-dot"></span>
+                  Redesign complete
+                </span>
+              </div>
+              <p class="gp-topbar__sub">{{ tierLabel(gen.tier) }} tier · generated in {{ formattedElapsed }}</p>
             </div>
+
+            <div class="gp-topbar__actions">
+              <button appButton variant="secondary" (click)="tryAgain()">Start over</button>
+              <button
+                appButton
+                variant="primary"
+                [disabled]="downloadStatus()[gen.tier] === 'starting' || downloadStatus()[gen.tier] === 'building'"
+                (click)="download(gen.tier)"
+              >
+                @switch (downloadStatus()[gen.tier]) {
+                  @case ('starting') { Starting… }
+                  @case ('building') { Preparing full site… }
+                  @default { Download ZIP }
+                }
+              </button>
+            </div>
+          </div>
+          @if (downloadStatus()[gen.tier] === 'failed') {
+            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2); color: var(--color-danger)">
+              Something went wrong preparing your download — try again.
+            </p>
           }
 
           <div class="gp-ready__layout">
             <div class="panel" style="border-width: 0 0 2px">
               <div class="toolbar">
-                <span class="label">Before / after</span>
-                <div class="seg" role="group" aria-label="Device">
-                  <label class="seg-opt">
+                <div class="row" style="gap: var(--space-4)">
+                  @if (s.generations.length > 1) {
+                    <div class="gp-pill-tabs" role="group" aria-label="Tier">
+                      @for (item of s.generations; track item.tier) {
+                        <label class="gp-pill-tab" [class.is-active]="selectedTier() === item.tier">
+                          <input type="radio" name="tier" [checked]="selectedTier() === item.tier" (change)="selectTier(item.tier)" />
+                          {{ tierLabel(item.tier) }}
+                        </label>
+                      }
+                    </div>
+                  }
+                  <a class="label" [href]="s.source_url" target="_blank" rel="noopener">View original site ↗</a>
+                </div>
+                <div class="gp-pill-tabs" role="group" aria-label="Device">
+                  <label class="gp-pill-tab" [class.is-active]="device() === 'desktop'">
                     <input type="radio" name="device" [checked]="device() === 'desktop'" (change)="device.set('desktop')" />
                     Desktop
                   </label>
-                  <label class="seg-opt">
+                  <label class="gp-pill-tab" [class.is-active]="device() === 'phone'">
                     <input type="radio" name="device" [checked]="device() === 'phone'" (change)="device.set('phone')" />
                     Phone
                   </label>
                 </div>
               </div>
 
-              <div class="split">
-                <div class="split__side">
-                  <div class="split__head">
-                    <span class="label">Before — your live site</span>
-                    <a class="label" [href]="s.source_url" target="_blank" rel="noopener">Open original ↗</a>
-                  </div>
-                  <div class="split__stage">
-                    <div [style.maxWidth.px]="frameWidth">
-                      <app-site-mock variant="old" [height]="420" />
-                    </div>
-                  </div>
-                </div>
-                <div class="split__side">
-                  <div class="split__head">
-                    <span class="label" style="color: var(--color-accent-700)">After — ReDoWebs rebuild</span>
-                  </div>
-                  <div class="split__stage">
-                    <div [style.maxWidth.px]="frameWidth" style="width: 100%">
-                      <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()">
-                        <button appButton toolbar-actions variant="secondary" title="Full page preview" (click)="toggleFullscreenPreview()">
-                          <app-icon-maximize2 [size]="14" />
-                        </button>
-                        <button appButton toolbar-actions variant="secondary" title="Open in new tab" (click)="openPreviewInNewTab()">
-                          <app-icon-external-link [size]="14" />
-                        </button>
-                      </app-browser-frame>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="cells cells--4">
-                <div class="cell">
-                  <p class="metric__num metric__num--accent">{{ tierLabel(gen.tier) }}</p>
-                  <p class="metric__label">Tier used</p>
-                </div>
-                <div class="cell">
-                  <p class="metric__num">{{ gen.template_used }}</p>
-                  <p class="metric__label">Template</p>
-                </div>
-                <div class="cell">
-                  <p class="metric__num metric__num--accent">{{ gen.contrast_warnings.length }}</p>
-                  <p class="metric__label">Accessibility notes</p>
-                </div>
-                <div class="cell">
-                  <p class="metric__num">1</p>
-                  <p class="metric__label">Page rebuilt</p>
+              <div class="gp-preview-stage">
+                <div [style.maxWidth.px]="frameWidth" style="width: 100%; margin: 0 auto">
+                  <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()">
+                    <button appButton toolbar-actions variant="secondary" title="Full page preview" (click)="toggleFullscreenPreview()">
+                      <app-icon-maximize2 [size]="14" />
+                    </button>
+                    <button appButton toolbar-actions variant="secondary" title="Open in new tab" (click)="openPreviewInNewTab()">
+                      <app-icon-external-link [size]="14" />
+                    </button>
+                  </app-browser-frame>
                 </div>
               </div>
             </div>
 
             <aside class="gp-ready__aside">
-              <app-card variant="gradient">
-                <p class="gp-cta__kicker">Like what you see?</p>
-                <h3 style="margin-top: var(--space-2)">Unlock the full download</h3>
-                <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 14px">
-                  Get the complete HTML/CSS source, ready to host anywhere — one payment, yours to
-                  keep.
-                </p>
-                <button appButton variant="primary" disabled title="Coming soon" class="btn-block" style="margin-top: var(--space-4)">
-                  Download ZIP
-                </button>
-                <p class="text-muted" style="text-align: center; font-size: 12px; margin-top: var(--space-2)">
-                  Coming soon
-                </p>
+              <app-card>
+                <p class="gp-cta__kicker">Generation details</p>
+                <div class="gp-stat-grid">
+                  <div class="gp-stat">
+                    <p class="gp-stat__value gp-stat__value--accent">{{ tierLabel(gen.tier) }}</p>
+                    <p class="gp-stat__label">Tier</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p class="gp-stat__value gp-stat__value--text" [title]="gen.template_used">{{ templateName(gen.template_used) }}</p>
+                    <p class="gp-stat__label">Template</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p
+                      class="gp-stat__value"
+                      [class.gp-stat__value--danger]="gen.contrast_warnings.length > 0"
+                      [class.gp-stat__value--success]="gen.contrast_warnings.length === 0"
+                    >
+                      {{ gen.contrast_warnings.length }}
+                    </p>
+                    <p class="gp-stat__label">Accessibility notes</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p class="gp-stat__value">1</p>
+                    <p class="gp-stat__label">Page rebuilt</p>
+                  </div>
+                </div>
+              </app-card>
+
+              <app-card>
+                <p class="gp-cta__kicker">What changed</p>
+                <ul class="gp-changelist">
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Rebuilt with a responsive layout for desktop and mobile
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Meta tags and Open Graph data added for search &amp; social
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Alt text added to any images that were missing it
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Sitemap generated for search engines
+                  </li>
+                  <li>
+                    @if (gen.contrast_warnings.length === 0) {
+                      <app-icon-check [size]="15" class="gp-changelist__icon" />
+                      No color-contrast issues found
+                    } @else {
+                      <app-icon-alert-triangle [size]="15" class="gp-changelist__icon gp-changelist__icon--warning" />
+                      {{ gen.contrast_warnings.length }} contrast issue{{ gen.contrast_warnings.length === 1 ? '' : 's' }} flagged below
+                    }
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Your original copy and contact details, kept as-is
+                  </li>
+                </ul>
               </app-card>
 
               @if (gen.contrast_warnings.length > 0) {
@@ -212,6 +249,14 @@
                   </ul>
                 </app-card>
               }
+
+              <app-card variant="gradient">
+                <p class="gp-cta__kicker">Nothing downloaded yet</p>
+                <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                  Downloading the full HTML/CSS source spends credits from your wallet — the exact
+                  cost depends on your plan.
+                </p>
+              </app-card>
             </aside>
           </div>
         }

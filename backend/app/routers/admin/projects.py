@@ -22,12 +22,19 @@ def list_projects(
     status: str | None = None,
     tier: str | None = None,
     search: str | None = None,
+    user_id: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> AdminProjectListResponse:
     result = admin_analytics_service.list_projects(
-        db, status=status, tier=tier, search=search, page=page, page_size=page_size
+        db,
+        status=status,
+        tier=tier,
+        search=search,
+        user_id=uuid.UUID(user_id) if user_id else None,
+        page=page,
+        page_size=page_size,
     )
     return AdminProjectListResponse(
         items=[
@@ -52,7 +59,7 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
     result = admin_analytics_service.get_project_detail(db, uuid.UUID(project_id))
     if result is None:
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
-    project, owner, blueprint, jobs = result
+    project, owner, blueprint, jobs, token_usage_by_job = result
 
     blueprint_summary = None
     if blueprint is not None:
@@ -64,27 +71,35 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
             version=blueprint.version,
         )
 
-    job_summaries = [
-        AdminGenerationJobSummary(
-            job_id=str(job.id),
-            tier=job.tier,
-            overall_status=job.overall_status,
-            failure_reason=job.failure_reason,
-            created_at=job.created_at,
-            finished_at=job.finished_at,
-            output=(
-                AdminGenerationOutputSummary(
-                    template_used=job.output.template_used,
-                    preview_url_path=job.output.preview_url_path,
-                    summary=job.output.summary,
-                    contrast_warnings=job.output.contrast_warnings or [],
-                )
-                if job.output is not None
-                else None
-            ),
+    job_summaries = []
+    for job in jobs:
+        usage = token_usage_by_job.get(job.id)
+        job_summaries.append(
+            AdminGenerationJobSummary(
+                job_id=str(job.id),
+                tier=job.tier,
+                scope=job.scope,
+                overall_status=job.overall_status,
+                failure_reason=job.failure_reason,
+                created_at=job.created_at,
+                finished_at=job.finished_at,
+                output=(
+                    AdminGenerationOutputSummary(
+                        template_used=job.output.template_used,
+                        preview_url_path=job.output.preview_url_path,
+                        summary=job.output.summary,
+                        contrast_warnings=job.output.contrast_warnings or [],
+                        prompt_tokens=job.output.prompt_tokens,
+                        completion_tokens=job.output.completion_tokens,
+                        iterations=job.output.iterations,
+                    )
+                    if job.output is not None
+                    else None
+                ),
+                models_used=usage.models_used if usage is not None else [],
+                total_cost_usd=usage.total_cost_usd if usage is not None else 0.0,
+            )
         )
-        for job in jobs
-    ]
 
     return AdminProjectDetailResponse(
         project_id=str(project.id),

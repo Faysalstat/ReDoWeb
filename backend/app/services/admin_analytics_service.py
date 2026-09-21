@@ -3,13 +3,17 @@
 this module is where the actual SQL lives."""
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Blueprint, CreditWallet, GenerationJob, Project, Purchase, TokenUsageLog, User
+
+
+def _since(days: int) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=days)
 
 
 @dataclass
@@ -29,7 +33,7 @@ class OverviewStats:
 
 
 def get_overview(db: Session, days: int) -> OverviewStats:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = _since(days)
 
     users_total = db.scalar(select(func.count(User.id))) or 0
     users_new_in_range = db.scalar(select(func.count(User.id)).where(User.created_at >= since)) or 0
@@ -117,6 +121,7 @@ def list_projects(
     status: str | None = None,
     tier: str | None = None,
     search: str | None = None,
+    user_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 25,
 ) -> ProjectListPage:
@@ -124,12 +129,16 @@ def list_projects(
     GET /api/v1/projects (current user's own list only), this has no
     ownership filter. `tier` filters on the most recent GenerationJob.tier
     per project, same "latest tier" idea routers/projects.py::list_projects
-    already uses for the regular per-user list."""
+    already uses for the regular per-user list. `user_id`, when given,
+    scopes to one user's projects -- shared by the Users admin page (a
+    user's own history) and a plain cross-user browse (user_id=None)."""
     query = select(Project, User.email).join(User, Project.user_id == User.id)
     if status:
         query = query.where(Project.status == status)
     if search:
         query = query.where(Project.source_url.ilike(f"%{search}%"))
+    if user_id:
+        query = query.where(Project.user_id == user_id)
 
     if tier:
         # Only projects whose most recent generation job used this tier.
@@ -176,7 +185,38 @@ def list_projects(
     return ProjectListPage(items=items, total=total)
 
 
-def get_project_detail(db: Session, project_id: uuid.UUID) -> tuple[Project, User, Blueprint | None, list[GenerationJob]] | None:
+@dataclass
+class JobTokenUsage:
+    models_used: list[str] = field(default_factory=list)
+    total_cost_usd: float = 0.0
+
+
+def get_token_usage_by_job(db: Session, job_ids: list[uuid.UUID]) -> dict[uuid.UUID, JobTokenUsage]:
+    """Aggregates TokenUsageLog rows per job_id -- a job can span more than
+    one AI call/purpose (e.g. blueprint review's vision+content calls plus
+    the generation call), so this is the authoritative source for "which
+    model(s) this specific job actually used" and its total estimated cost.
+    Tier.generation_model/AIModelSetting only reflect the *current* config,
+    which can drift after a past job ran, so they're not used here."""
+    if not job_ids:
+        return {}
+    rows = db.execute(
+        select(TokenUsageLog.job_id, TokenUsageLog.model_name, TokenUsageLog.cost_estimate_usd).where(
+            TokenUsageLog.job_id.in_(job_ids)
+        )
+    ).all()
+    usage: dict[uuid.UUID, JobTokenUsage] = {}
+    for job_id, model_name, cost in rows:
+        agg = usage.setdefault(job_id, JobTokenUsage())
+        if model_name not in agg.models_used:
+            agg.models_used.append(model_name)
+        agg.total_cost_usd += float(cost)
+    return usage
+
+
+def get_project_detail(
+    db: Session, project_id: uuid.UUID
+) -> tuple[Project, User, Blueprint | None, list[GenerationJob], dict[uuid.UUID, JobTokenUsage]] | None:
     """No ownership check here -- callers (the admin router) are already
     gated by require_admin, unlike GET /api/v1/projects/{id}, which enforces
     per-user ownership."""
@@ -189,13 +229,173 @@ def get_project_detail(db: Session, project_id: uuid.UUID) -> tuple[Project, Use
         select(Blueprint).where(Blueprint.project_id == project.id, Blueprint.is_current.is_(True))
     )
 
-    jobs = db.scalars(
-        select(GenerationJob)
-        .where(GenerationJob.project_id == project.id)
-        .order_by(GenerationJob.created_at.desc())
-    ).all()
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .where(GenerationJob.project_id == project.id)
+            .order_by(GenerationJob.created_at.desc())
+        ).all()
+    )
+    token_usage_by_job = get_token_usage_by_job(db, [job.id for job in jobs])
 
-    return project, owner, blueprint, list(jobs)
+    return project, owner, blueprint, jobs, token_usage_by_job
+
+
+@dataclass
+class ModelCostRow:
+    model_name: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+    call_count: int
+
+
+def cost_by_model(db: Session, days: int) -> list[ModelCostRow]:
+    since = _since(days)
+    rows = db.execute(
+        select(
+            TokenUsageLog.model_name,
+            func.coalesce(func.sum(TokenUsageLog.prompt_tokens), 0),
+            func.coalesce(func.sum(TokenUsageLog.completion_tokens), 0),
+            func.coalesce(func.sum(TokenUsageLog.cost_estimate_usd), 0),
+            func.count(),
+        )
+        .where(TokenUsageLog.created_at >= since)
+        .group_by(TokenUsageLog.model_name)
+        .order_by(func.sum(TokenUsageLog.cost_estimate_usd).desc())
+    ).all()
+    return [
+        ModelCostRow(
+            model_name=model_name,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost_usd=float(cost),
+            call_count=call_count,
+        )
+        for model_name, prompt_tokens, completion_tokens, cost, call_count in rows
+    ]
+
+
+@dataclass
+class CostByUserRow:
+    user_id: uuid.UUID
+    email: str
+    cost_usd: float
+    call_count: int
+
+
+@dataclass
+class CostByUserPage:
+    items: list[CostByUserRow]
+    total: int
+
+
+def cost_by_user(db: Session, days: int, page: int = 1, page_size: int = 25) -> CostByUserPage:
+    since = _since(days)
+    base = (
+        select(
+            TokenUsageLog.user_id,
+            User.email,
+            func.coalesce(func.sum(TokenUsageLog.cost_estimate_usd), 0).label("cost_usd"),
+            func.count().label("call_count"),
+        )
+        .join(User, TokenUsageLog.user_id == User.id)
+        .where(TokenUsageLog.created_at >= since)
+        .group_by(TokenUsageLog.user_id, User.email)
+    )
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    rows = db.execute(
+        base.order_by(func.sum(TokenUsageLog.cost_estimate_usd).desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    items = [
+        CostByUserRow(user_id=user_id, email=email, cost_usd=float(cost_usd), call_count=call_count)
+        for user_id, email, cost_usd, call_count in rows
+    ]
+    return CostByUserPage(items=items, total=total)
+
+
+@dataclass
+class CostByProjectRow:
+    project_id: uuid.UUID
+    source_url: str
+    cost_usd: float
+    call_count: int
+
+
+@dataclass
+class CostByProjectPage:
+    items: list[CostByProjectRow]
+    total: int
+
+
+def cost_by_project(db: Session, days: int, page: int = 1, page_size: int = 25) -> CostByProjectPage:
+    since = _since(days)
+    base = (
+        select(
+            TokenUsageLog.project_id,
+            Project.source_url,
+            func.coalesce(func.sum(TokenUsageLog.cost_estimate_usd), 0).label("cost_usd"),
+            func.count().label("call_count"),
+        )
+        .join(Project, TokenUsageLog.project_id == Project.id)
+        .where(TokenUsageLog.created_at >= since)
+        .group_by(TokenUsageLog.project_id, Project.source_url)
+    )
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    rows = db.execute(
+        base.order_by(func.sum(TokenUsageLog.cost_estimate_usd).desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    items = [
+        CostByProjectRow(
+            project_id=project_id, source_url=source_url, cost_usd=float(cost_usd), call_count=call_count
+        )
+        for project_id, source_url, cost_usd, call_count in rows
+    ]
+    return CostByProjectPage(items=items, total=total)
+
+
+@dataclass
+class RevenueBreakdown:
+    revenue_usd_in_range: float
+    revenue_usd_all_time: float
+    stripe_revenue_usd_in_range: float
+    manual_revenue_usd_in_range: float
+    purchase_count_in_range: int
+
+
+def revenue_breakdown(db: Session, days: int) -> RevenueBreakdown:
+    since = _since(days)
+
+    def _sum_cents(*, source: str | None = None, since_filter: bool = True) -> int:
+        query = select(func.coalesce(func.sum(Purchase.amount_usd_cents), 0)).where(
+            Purchase.status == "completed"
+        )
+        if since_filter:
+            query = query.where(Purchase.created_at >= since)
+        if source is not None:
+            query = query.where(Purchase.source == source)
+        return db.scalar(query) or 0
+
+    purchase_count_in_range = (
+        db.scalar(
+            select(func.count(Purchase.id)).where(
+                Purchase.status == "completed", Purchase.created_at >= since
+            )
+        )
+        or 0
+    )
+
+    return RevenueBreakdown(
+        revenue_usd_in_range=_sum_cents() / 100,
+        revenue_usd_all_time=_sum_cents(since_filter=False) / 100,
+        stripe_revenue_usd_in_range=_sum_cents(source="stripe") / 100,
+        manual_revenue_usd_in_range=_sum_cents(source="manual_admin") / 100,
+        purchase_count_in_range=purchase_count_in_range,
+    )
 
 
 def _generation_success_rate_pct(db: Session, since: datetime) -> float | None:

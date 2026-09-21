@@ -1,0 +1,59 @@
+<div>
+  <a routerLink="/admin/projects" class="label">&larr; All projects</a>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+  } @else if (detail(); as d) {
+    <h1 class="display display--sm" style="margin-top: var(--space-2)" [title]="d.source_url">{{ d.source_url }}</h1>
+    <p class="sub">
+      Owner <a [routerLink]="['/admin/users', d.owner_id]">{{ d.owner_email }}</a>
+      · Status {{ d.status }}
+      @if (d.rejection_reason) {
+        · {{ d.rejection_reason }}
+      }
+    </p>
+
+    @if (d.blueprint) {
+      <p class="sub">Blueprint v{{ d.blueprint.version }}{{ d.blueprint.site_name ? ' · ' + d.blueprint.site_name : '' }}</p>
+    }
+
+    <p class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading)); margin-bottom: var(--space-3)">
+      Generation history
+    </p>
+    @for (job of d.generation_jobs; track job.job_id) {
+      <div class="job-card">
+        <div class="row row--between">
+          <div class="row" style="gap: var(--space-2)">
+            <strong>{{ job.tier }}</strong>
+            <app-badge [variant]="statusBadgeVariant(job.overall_status)">{{ job.overall_status }}</app-badge>
+            <span class="label" style="display: inline">{{ job.scope }}</span>
+          </div>
+          <span class="label" style="display: inline">{{ job.created_at | date: 'medium' }}</span>
+        </div>
+
+        @if (job.output) {
+          <div class="row" style="gap: calc(2 * var(--space-4)); margin-top: var(--space-3); flex-wrap: wrap">
+            <div class="fact"><span class="fact-label">Template</span><span class="fact-value">{{ job.output.template_used }}</span></div>
+            <div class="fact"><span class="fact-label">Model(s)</span><span class="fact-value">{{ job.models_used.join(', ') || '—' }}</span></div>
+            <div class="fact"><span class="fact-label">Tokens</span><span class="fact-value">{{ job.output.prompt_tokens }} in / {{ job.output.completion_tokens }} out</span></div>
+            <div class="fact"><span class="fact-label">Iterations</span><span class="fact-value">{{ job.output.iterations }}</span></div>
+            <div class="fact"><span class="fact-label">Est. cost</span><span class="fact-value" style="color: var(--color-accent)">{{ formatUsd(job.total_cost_usd) }}</span></div>
+          </div>
+          @if (job.output.contrast_warnings.length > 0) {
+            <p style="color: var(--color-accent-2-800); margin-top: var(--space-2); font-size: 12px">
+              Contrast warnings: {{ job.output.contrast_warnings.join(', ') }}
+            </p>
+          }
+        } @else if (job.failure_reason) {
+          <p style="color: var(--color-danger); margin-top: var(--space-3); font-size: 13px">{{ job.failure_reason }}</p>
+        }
+      </div>
+    } @empty {
+      <p class="sub">No generation jobs yet.</p>
+    }
+  }
+</div>

@@ -13,15 +13,16 @@ import {
   statusLabel,
   tierLabel,
 } from '../../core/project-status';
-import { ProjectGenerationSummary, ProjectStatusResponse } from '../../core/redowebs-api.models';
+import {
+  ProjectGenerationSummary,
+  ProjectStatusResponse,
+} from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
-import { BadgeComponent } from '../../shared/ui/badge/badge.component';
 import { BrowserFrameComponent } from '../../shared/ui/browser-frame/browser-frame.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
 import { CardComponent } from '../../shared/ui/card/card.component';
-import { IconAlertTriangle, IconExternalLink, IconMaximize2, IconX } from '../../shared/ui/icons/icons';
-import { SiteMockComponent } from '../../shared/ui/site-mock/site-mock.component';
+import { IconAlertTriangle, IconCheck, IconExternalLink, IconMaximize2, IconX } from '../../shared/ui/icons/icons';
 import { StepItemComponent, StepStatus } from '../../shared/ui/step-item/step-item.component';
 
 type Device = 'desktop' | 'phone';
@@ -62,13 +63,12 @@ const SUBSTEPS: Partial<Record<Stage, string[]>> = {
   imports: [
     RouterLink,
     AppHeaderComponent,
-    BadgeComponent,
     ButtonComponent,
     CardComponent,
     StepItemComponent,
     BrowserFrameComponent,
-    SiteMockComponent,
     IconAlertTriangle,
+    IconCheck,
     IconMaximize2,
     IconExternalLink,
     IconX,
@@ -90,6 +90,12 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   readonly isFullscreenPreview = signal(false);
   readonly device = signal<Device>('desktop');
   readonly tierLabel = tierLabel;
+  /** Per-tier download state -- 'idle' until the user clicks, 'starting'
+   * while POST /download is in flight, 'building' while a multi-page
+   * project's full-site job runs (polled), then 'ready'/'failed'. */
+  readonly downloadStatus = signal<Record<string, 'idle' | 'starting' | 'building' | 'ready' | 'failed'>>(
+    {}
+  );
 
   get frameWidth(): number {
     return this.device() === 'phone' ? 360 : 900;
@@ -98,6 +104,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   private pollSubscription?: Subscription;
   private tickSubscription?: Subscription;
   private substepSubscription?: Subscription;
+  private downloadPollSubscription?: Subscription;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -146,11 +153,24 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     let label = `Step ${idx + 1} of ${STAGE_ORDER.length} — ${statusLabel(this.status()?.status ?? '')}`;
     const s = this.status();
     if (stage === 'generating' && s && s.tiers_total > 1) {
-      const tierNum = Math.min(s.tiers_completed + 1, s.tiers_total);
-      const suffix = s.current_tier ? `: ${tierLabel(s.current_tier)}` : '';
-      label += ` (tier ${tierNum} of ${s.tiers_total}${suffix})`;
+      // Tiers now fan out and can run concurrently, so there's no single
+      // "current tier" position -- list whichever ones are actually running.
+      const runningLabels = s.current_tiers.map(tierLabel).join(', ');
+      const suffix = runningLabels ? `: ${runningLabels}` : '';
+      label += ` (${s.tiers_completed} of ${s.tiers_total} done${suffix})`;
     }
     return label;
+  }
+
+  /** Turns a prompt-file slug like "business_simpleweb_prompt" into a
+   * readable label ("Business Simpleweb") for the results summary tile. */
+  templateName(raw: string): string {
+    return raw
+      .replace(/_prompt$/i, '')
+      .split(/[_-]+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   activeGeneration(): ProjectGenerationSummary | null {
@@ -190,13 +210,13 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   }
 
   tryAgain(): void {
-    this.router.navigate(['/app']);
+    this.router.navigate(['/']);
   }
 
   ngOnInit(): void {
     const projectId = this.route.snapshot.paramMap.get('id');
     if (!projectId) {
-      this.router.navigate(['/app']);
+      this.router.navigate(['/']);
       return;
     }
     this.startTicking();
@@ -208,6 +228,60 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     this.pollSubscription?.unsubscribe();
     this.tickSubscription?.unsubscribe();
     this.substepSubscription?.unsubscribe();
+    this.downloadPollSubscription?.unsubscribe();
+  }
+
+  /** Starts (or resumes watching) a tier's download. Most projects are
+   * single-page and come back "ready" immediately, same as an instant zip
+   * download today; a multi-page project without a cached full-site build
+   * yet comes back "building" and this switches to polling
+   * getDownloadStatus, same timer/switchMap/takeWhile pattern startPolling
+   * above uses for the main generation poll. */
+  download(tier: string): void {
+    const projectId = this.route.snapshot.paramMap.get('id');
+    if (!projectId) {
+      return;
+    }
+    this.setDownloadStatus(tier, 'starting');
+    this.api.startDownload(projectId, tier).subscribe({
+      next: (res) => (res.status === 'ready' ? this.fetchFile(projectId, tier) : this.pollDownload(projectId, tier)),
+      error: () => this.setDownloadStatus(tier, 'failed'),
+    });
+  }
+
+  private pollDownload(projectId: string, tier: string): void {
+    this.setDownloadStatus(tier, 'building');
+    this.downloadPollSubscription = timer(0, POLL_INTERVAL_MS)
+      .pipe(
+        switchMap(() => this.api.getDownloadStatus(projectId, tier)),
+        takeWhile((res) => res.status === 'building', true)
+      )
+      .subscribe((res) => {
+        if (res.status === 'ready') {
+          this.fetchFile(projectId, tier);
+        } else if (res.status === 'failed') {
+          this.setDownloadStatus(tier, 'failed');
+        }
+      });
+  }
+
+  private fetchFile(projectId: string, tier: string): void {
+    this.api.downloadFile(projectId, tier).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${projectId}-${tier}.zip`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.setDownloadStatus(tier, 'ready');
+      },
+      error: () => this.setDownloadStatus(tier, 'failed'),
+    });
+  }
+
+  private setDownloadStatus(tier: string, value: 'idle' | 'starting' | 'building' | 'ready' | 'failed'): void {
+    this.downloadStatus.set({ ...this.downloadStatus(), [tier]: value });
   }
 
   private startTicking(): void {

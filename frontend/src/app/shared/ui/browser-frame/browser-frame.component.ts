@@ -28,8 +28,10 @@ import { SafeResourceUrl } from '@angular/platform-browser';
   styles: [
     `
       .browser-frame {
-        border: 2px solid var(--color-divider);
+        border: 1px solid var(--color-divider);
         background: var(--color-bg);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
       }
       .browser-frame--fullscreen {
         position: fixed;
@@ -38,13 +40,14 @@ import { SafeResourceUrl } from '@angular/platform-browser';
         display: flex;
         flex-direction: column;
         border: none;
+        border-radius: 0;
       }
       .browser-frame__toolbar {
         display: flex;
         align-items: center;
         gap: var(--space-3);
         padding: var(--space-2) var(--space-3);
-        border-bottom: 2px solid var(--color-divider);
+        border-bottom: 1px solid var(--color-divider);
         background: var(--color-surface);
       }
       .browser-frame__dots {
@@ -59,13 +62,13 @@ import { SafeResourceUrl } from '@angular/platform-browser';
         border-radius: 50%;
       }
       .browser-frame__dot--red {
-        background: var(--color-accent-500);
+        background: #ff5f57;
       }
       .browser-frame__dot--amber {
-        background: var(--color-accent-2-500);
+        background: #febc2e;
       }
       .browser-frame__dot--green {
-        background: var(--color-neutral-500);
+        background: #28c840;
       }
       .browser-frame__url {
         flex: 1;

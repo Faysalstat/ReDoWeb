@@ -32,16 +32,26 @@ class AdminGenerationOutputSummary(BaseModel):
     preview_url_path: str
     summary: str | None = None
     contrast_warnings: list[str] = []
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    iterations: int = 0
 
 
 class AdminGenerationJobSummary(BaseModel):
     job_id: str
     tier: str
+    scope: str
     overall_status: str
     failure_reason: str | None = None
     created_at: datetime
     finished_at: datetime | None = None
     output: AdminGenerationOutputSummary | None = None
+    # Resolved from TokenUsageLog (see
+    # admin_analytics_service.get_token_usage_by_job) -- the authoritative
+    # per-job source, since Tier.generation_model/AIModelSetting only
+    # reflect the *current* config and can drift after this job ran.
+    models_used: list[str] = []
+    total_cost_usd: float = 0.0
 
 
 class AdminProjectDetailResponse(BaseModel):

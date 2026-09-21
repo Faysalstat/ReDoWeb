@@ -21,7 +21,15 @@ def extract_blueprint_task(project_id: str, tier_keys: list[str]) -> str:
 
         vision_model = model_config_service.get_vision_model(db)
         try:
-            result = run_blueprint_pipeline(project_root, vision_model=vision_model)
+            # Initial pipeline run: AI-review only the home page (index 0)
+            # regardless of how many pages were crawled -- keeps preview
+            # AI-review cost matched to what site_generator.generate_site()
+            # actually uses today. The rest of a multi-page crawl's pages
+            # are reviewed later, lazily, only if/when a user pays to
+            # download a full multi-page site (see tasks_full_site.py).
+            result = run_blueprint_pipeline(
+                project_root, vision_model=vision_model, page_indices=[0], include_meta=True
+            )
         except Exception as exc:
             project.status = "failed"
             project.rejection_reason = str(exc)
@@ -47,16 +55,14 @@ def extract_blueprint_task(project_id: str, tier_keys: list[str]) -> str:
         db.add(build_blueprint_row(project.id, next_version, result))
         project.status = "blueprint_ready"
 
-        # Sequential, one tier at a time -- each generate_tier_task enqueues
-        # the next tier in `remaining_tiers` on its own success, same
-        # link-by-link behavior the old Celery chain had (see
-        # routers/projects.py's note on why this isn't a parallel group yet).
-        if tier_keys:
-            enqueue(
-                db,
-                "generate_tier",
-                {"project_id": project_id, "tier": tier_keys[0], "remaining_tiers": tier_keys[1:]},
-            )
+        # Fan out: every enabled tier's generate_tier job is enqueued here,
+        # up front, instead of chaining one at a time. Multiple queue workers
+        # (see docs/concurrency-scaling-plan.md) can then claim and run them
+        # concurrently, and each tier now succeeds or fails independently --
+        # previously, one tier raising meant every tier after it in the
+        # chain silently never even attempted to run.
+        for tier_key in tier_keys:
+            enqueue(db, "generate_tier", {"project_id": project_id, "tier": tier_key})
 
         db.commit()
         return project_id

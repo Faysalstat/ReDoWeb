@@ -70,16 +70,14 @@ def spend(
     call this from a Celery task with no retry policy, and to let a second
     `POST /projects/{id}/download` for the same tier be a free re-download
     instead of a second charge.
-    """
-    if idempotency_key is not None:
-        existing = (
-            db.query(CreditTransaction)
-            .filter(CreditTransaction.idempotency_key == idempotency_key)
-            .one_or_none()
-        )
-        if existing is not None:
-            return db.query(CreditWallet).filter(CreditWallet.id == existing.wallet_id).one()
 
+    The wallet lock is acquired *before* the idempotency check (not after),
+    so two concurrent calls with the same key serialize on this lock rather
+    than racing to insert it: the second call only proceeds once the first
+    has committed, so its idempotency check below reliably finds the
+    existing row instead of hitting the unique-constraint violation a
+    check-then-lock ordering would allow.
+    """
     # SELECT ... FOR UPDATE: serializes concurrent spends against the same
     # wallet so two racing requests against a low balance can't both read
     # "sufficient" before either writes back the debit.
@@ -90,6 +88,15 @@ def spend(
         wallet = CreditWallet(user_id=user_id, balance=0)
         db.add(wallet)
         db.flush()
+
+    if idempotency_key is not None:
+        existing = (
+            db.query(CreditTransaction)
+            .filter(CreditTransaction.idempotency_key == idempotency_key)
+            .one_or_none()
+        )
+        if existing is not None:
+            return wallet
 
     if wallet.balance < amount:
         raise InsufficientCreditsError(
@@ -109,3 +116,65 @@ def spend(
     )
     db.flush()
     return wallet
+
+
+def admin_adjust(
+    db: Session,
+    user_id: uuid.UUID,
+    amount: int,
+    *,
+    related_project_id: uuid.UUID | None = None,
+    idempotency_key: str | None = None,
+) -> tuple[CreditWallet, CreditTransaction]:
+    """Admin-initiated wallet adjustment -- positive `amount` grants credits
+    (e.g. a goodwill credit or a refund for a failed generation), negative
+    `amount` claws back a prior over-grant. Unlike spend()/
+    grant_signup_credits(), `amount` here is the actual SIGNED ledger delta
+    rather than an always-positive magnitude that gets negated internally --
+    this is the one function in this module where the sign convention
+    flips, since it's the only one that legitimately needs to move balance
+    in either direction. Don't copy spend()'s always-positive-amount
+    assumption here. A negative adjustment that would take the wallet below
+    zero is rejected the same way spend() rejects an over-spend -- an admin
+    adjustment still can't manufacture a negative balance.
+
+    Purely a ledger primitive, same as spend(): no Purchase or admin-
+    identity awareness here (that's admin_credits_service.issue_adjustment's
+    job, which records the admin/note on a paired Purchase row) -- caller
+    commits.
+    """
+    if idempotency_key is not None:
+        existing = (
+            db.query(CreditTransaction)
+            .filter(CreditTransaction.idempotency_key == idempotency_key)
+            .one_or_none()
+        )
+        if existing is not None:
+            wallet = db.query(CreditWallet).filter(CreditWallet.id == existing.wallet_id).one()
+            return wallet, existing
+
+    wallet = (
+        db.query(CreditWallet).filter(CreditWallet.user_id == user_id).with_for_update().one_or_none()
+    )
+    if wallet is None:
+        wallet = CreditWallet(user_id=user_id, balance=0)
+        db.add(wallet)
+        db.flush()
+
+    if wallet.balance + amount < 0:
+        raise InsufficientCreditsError(
+            f"admin_adjust({amount}) would take wallet {wallet.id} below zero "
+            f"(balance {wallet.balance})"
+        )
+
+    wallet.balance += amount
+    txn = CreditTransaction(
+        wallet_id=wallet.id,
+        amount=amount,
+        reason="admin_adjustment",
+        related_project_id=related_project_id,
+        idempotency_key=idempotency_key,
+    )
+    db.add(txn)
+    db.flush()
+    return wallet, txn

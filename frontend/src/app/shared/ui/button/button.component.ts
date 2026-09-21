@@ -1,6 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'accent-2';
 
 @Component({
   selector: 'button[appButton], a[appButton]',
@@ -18,6 +18,7 @@ export class ButtonComponent {
       primary: 'btn btn-primary',
       secondary: 'btn btn-secondary',
       ghost: 'btn btn-ghost',
+      'accent-2': 'btn btn-accent-2',
     };
     return variants[this.variant()];
   });

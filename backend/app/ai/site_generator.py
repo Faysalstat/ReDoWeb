@@ -7,6 +7,8 @@ from pathlib import Path
 
 from ..config import get_settings
 from ..services import tier_service
+from .blueprint_legacy_compat import render_design_md_compat
+from .blueprint_schema import BlueprintDocument
 from .errors import GenerationError, OpenRouterError
 from .generation_tools import TOOL_SCHEMAS, make_tool_dispatch
 from .openrouter_client import chat_completion
@@ -28,10 +30,35 @@ IMPORTANT project-specific constraints (these override anything above that confl
 - Build ONLY the home page for this run -- a single index.html plus style.css (and an optional script.js). If the content below describes more than one page, use only the home page's content; ignore the rest (additional pages are a separate, later generation pass, not part of this run).
 """
 
+FULL_SITE_TECH_CONSTRAINTS = """
 
-def _select_template(override: str | None = None) -> Path:
+---
+
+IMPORTANT project-specific constraints (these override anything above that conflicts):
+- There is no existing codebase and no build tooling. Do NOT scaffold React, Next.js, Vue, or any framework/bundler.
+- index.html and style.css already exist in this output directory and are the LIVE, already-generated, already-shown-to-the-user home page and design system -- copied here verbatim. index.html is READ-ONLY: calling write_file on it will fail with an error and do nothing. style.css is APPEND-ONLY: calling write_file on it never replaces its contents, it only adds your new content to the end -- so never re-paste the whole stylesheet, only write the new rules a new page actually needs beyond what's already there (new component classes, never edits to existing colors/fonts/spacing/layout rules).
+- Build every other page listed in the user message below (NOT the home page, which is already done) as its own .html file, using the exact filename given for each. Every page's <head>, nav, and footer must match index.html's exactly, so read index.html first with read_file before writing anything, and reuse its markup structure/classes so the whole site looks like one consistent design.
+- You may use Tailwind CSS via its CDN script tag, Bootstrap via its CDN link, or hand-written CSS in style.css -- whichever index.html already uses (match it, don't introduce a second approach).
+- An images/ folder already exists in the output directory with the site's real logo and photos, downloaded from the original site. Do not invent placeholder images -- reference only the exact filenames listed in the user message.
+- There is no user to ask questions of -- the content below is your complete brief; just build the pages.
+- When completely finished with every page listed, respond with a final plain-text summary of the pages and files you created, and do not request any more tool calls.
+"""
+
+FULL_SITE_PAGES_PER_BATCH = 4
+
+
+def _select_template(override: str | None = None, candidates: list[str] | None = None) -> Path:
     """Picks one of PROMPTS_DIR's static business_*.txt design-strategy
-    files at random -- the sole generation strategy for every tier."""
+    files at random -- the sole generation strategy for every tier.
+
+    `candidates`, when given, restricts the random choice to that set of
+    filenames (the admin-enabled subset resolved by
+    prompt_template_service.get_active_template_filenames -- this function
+    stays DB-free per its existing contract, so the DB query happens one
+    layer up in tasks_generate.py). `candidates=None` preserves the
+    original "every file on disk" behavior exactly, for callers that don't
+    pass it (debug routes, tests, generate_full_site's template_override
+    path)."""
     if override:
         prompts_root = PROMPTS_DIR.resolve()
         template_path = (PROMPTS_DIR / override).resolve()
@@ -40,6 +67,9 @@ def _select_template(override: str | None = None) -> Path:
         return template_path
 
     templates = sorted(PROMPTS_DIR.glob("*.txt"))
+    if candidates is not None:
+        allowed = set(candidates)
+        templates = [t for t in templates if t.name in allowed]
     if not templates:
         raise GenerationError(f"No design-strategy templates found in {PROMPTS_DIR}")
     return random.choice(templates)
@@ -82,6 +112,7 @@ def generate_site(
     tier_key: str,
     template_override: str | None = None,
     generation_model: str | None = None,
+    candidate_templates: list[str] | None = None,
 ) -> dict:
     """Builds the tier's home page from project_root/blueprint/design.md --
     which the blueprint pipeline (blueprint_pipeline.run_blueprint_pipeline)
@@ -108,6 +139,12 @@ def generate_site(
     without a rebuild) and pass it in; this function stays DB-free and
     falls back to config.py's static default when it's omitted (debug
     routes rely on that default).
+
+    `candidate_templates`, similarly, is the admin-enabled filename subset
+    resolved by tasks_generate.py via
+    prompt_template_service.get_active_template_filenames() -- omitted
+    (None), every file in PROMPTS_DIR is a candidate, same as before this
+    admin control existed.
     """
     if not tier_service.is_tier_enabled(tier_key):
         raise GenerationError(f"Tier '{tier_key}' is not currently enabled")
@@ -137,7 +174,7 @@ def generate_site(
             blueprint_json_path.read_text(encoding="utf-8"), encoding="utf-8"
         )
 
-    template_path = _select_template(template_override)
+    template_path = _select_template(template_override, candidate_templates)
     system_prompt = template_path.read_text(encoding="utf-8") + TECH_CONSTRAINTS
     strategy_used = template_path.name
 
@@ -164,6 +201,187 @@ def generate_site(
         "summary": summary_text,
         "usage": total_usage,
         "iterations": iterations_used,
+        "model": generation_model,
+    }
+
+
+def _page_output_filename(index: int, page_url: str) -> str:
+    """index 0 -> "index.html" (the already-generated, locked home page);
+    index N>0 -> "page-{N}.html", mirroring crawl_service.py's own
+    index/page-{n} snapshot naming convention rather than a URL-slugify
+    scheme. `page_url` isn't used in the filename itself (kept in the
+    signature since callers already have it and it documents which page
+    each call is for)."""
+    return "index.html" if index == 0 else f"page-{index}.html"
+
+
+def _build_full_site_batch_message(
+    batch_design_md: str,
+    filename_map: str,
+    batch_filenames: list[str],
+    image_names: list[str],
+) -> str:
+    image_list = "\n".join(f"- images/{name}" for name in image_names) or "(no images available)"
+    pages_list = "\n".join(f"- {name}" for name in batch_filenames)
+    return (
+        "Full site page -> filename map (use this for every nav link you "
+        "write, including links to pages outside this batch -- they'll be "
+        "built in a later batch but must still be linked correctly now):\n"
+        f"{filename_map}\n\n"
+        f"Build ONLY these pages in this batch:\n{pages_list}\n\n"
+        "Business content and brand blueprint (YAML frontmatter + page "
+        "content). The 'Home Page' section below is reference only -- "
+        "index.html is already built and locked, do not rebuild it; every "
+        "other section below is a page you must build this batch:\n\n"
+        f"{batch_design_md}\n\n"
+        "Available image files already in the output directory's images/ "
+        f"folder (reference these exact paths, do not invent new ones):\n{image_list}\n\n"
+        "Build these pages now."
+    )
+
+
+def generate_full_site(
+    project_root: Path,
+    tier_key: str,
+    template_override: str | None = None,
+    generation_model: str | None = None,
+) -> dict:
+    """Builds every crawled page (not just the home page) into
+    generated/{tier}/full/ -- a sibling of generated/{tier}/, so the
+    already-served preview output is never touched. Reads blueprint.json
+    directly (by this point already merged to include every crawled page --
+    see workers/tasks_full_site.py) since it needs the page list to build
+    the filename map and per-batch design.md excerpts, but the model is
+    still only ever shown design.md-rendered text (via
+    blueprint_legacy_compat.render_design_md_compat), exactly like
+    generate_site().
+
+    `template_override` is REQUIRED (raises if omitted) -- this never
+    re-rolls _select_template()'s random choice; real callers always pass
+    the original preview run's `template_used` so the additional pages are
+    built with the same design-strategy prompt as the already-shown home
+    page.
+
+    Style continuity is enforced twice: physically, by copying the
+    preview's actual index.html/style.css into the new output directory
+    before generation starts, and at the tool layer, by making index.html
+    unwritable and style.css append-only for the whole run (see
+    generation_tools.make_tool_dispatch's locked_files/append_only_files) --
+    the system prompt's wording (FULL_SITE_TECH_CONSTRAINTS) explains this
+    to the model, it doesn't rely on the model obeying it voluntarily.
+
+    Generated in batches of FULL_SITE_PAGES_PER_BATCH pages per agent-loop
+    call, not one call for every remaining page -- a full ~19-page crawl's
+    worth of content and page requirements in a single prompt risks the
+    same truncation/iteration-exhaustion failure mode CLAUDE.md documents
+    for an undersized max_tokens; each batch call stays close to
+    generate_site()'s single-page prompt size instead. Batches share the
+    same output_dir and tool dispatch, so a later batch can read_file/
+    list_files an earlier batch's pages to keep nav/markup consistent.
+    """
+    if not tier_service.is_tier_enabled(tier_key):
+        raise GenerationError(f"Tier '{tier_key}' is not currently enabled")
+    if not template_override:
+        raise GenerationError("generate_full_site requires the preview run's template_used")
+
+    blueprint_json_path = project_root / "blueprint" / "blueprint.json"
+    if not blueprint_json_path.exists():
+        raise GenerationError("No blueprint found for this project -- run blueprint extraction first")
+    blueprint = BlueprintDocument.model_validate(json.loads(blueprint_json_path.read_text(encoding="utf-8")))
+    if len(blueprint.pages) < 2:
+        raise GenerationError("generate_full_site requires more than one reviewed page")
+
+    design_md_path = project_root / "blueprint" / "design.md"
+    design_md = (
+        design_md_path.read_text(encoding="utf-8") if design_md_path.exists() else render_design_md_compat(blueprint)
+    )
+    frontmatter = parse_frontmatter(design_md)
+
+    metadata = json.loads((project_root / "metadata.json").read_text(encoding="utf-8"))
+    assets = metadata.get("assets") or []
+
+    settings = get_settings()
+    generation_model = generation_model or settings.generation_model
+
+    preview_dir = project_root / "generated" / tier_key
+    output_dir = preview_dir / "full"
+    if output_dir.exists():
+        _rmtree_with_retry(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for name in ("index.html", "style.css"):
+        src = preview_dir / name
+        if src.exists():
+            (output_dir / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    if not (output_dir / "index.html").exists():
+        raise GenerationError("No preview index.html found on disk to anchor the full-site design to")
+
+    image_names = _copy_images(project_root, output_dir, assets)
+    (output_dir / "design.md").write_text(design_md, encoding="utf-8")
+    (output_dir / "blueprint.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json"), indent=2), encoding="utf-8"
+    )
+
+    template_path = _select_template(template_override)
+    system_prompt = template_path.read_text(encoding="utf-8") + FULL_SITE_TECH_CONSTRAINTS
+    strategy_used = template_path.name
+
+    page_filenames = [_page_output_filename(i, page.page_url) for i, page in enumerate(blueprint.pages)]
+    filename_map = "\n".join(
+        f"- {page.page_url} -> {filename}" for page, filename in zip(blueprint.pages, page_filenames)
+    )
+
+    dispatch = make_tool_dispatch(output_dir, locked_files={"index.html"}, append_only_files={"style.css"})
+
+    total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
+    total_iterations = 0
+    last_summary = ""
+
+    home_page = blueprint.pages[0]
+    remaining_indices = list(range(1, len(blueprint.pages)))
+    for batch_number, batch_start in enumerate(range(0, len(remaining_indices), FULL_SITE_PAGES_PER_BATCH)):
+        batch_indices = remaining_indices[batch_start : batch_start + FULL_SITE_PAGES_PER_BATCH]
+        # home_page always occupies position 0 so blueprint_legacy_compat's
+        # positional "index 0 == Home Page" labeling stays correct -- a
+        # batch_doc built from ONLY the non-home pages would put a real
+        # other page at position 0 and mislabel it "Home Page".
+        batch_doc = BlueprintDocument(
+            meta=blueprint.meta,
+            navigation=blueprint.navigation,
+            pages=[home_page] + [blueprint.pages[i] for i in batch_indices],
+        )
+        batch_design_md = render_design_md_compat(batch_doc)
+        batch_filenames = [page_filenames[i] for i in batch_indices]
+
+        user_message = _build_full_site_batch_message(batch_design_md, filename_map, batch_filenames, image_names)
+
+        trace_path = output_dir / f"_debug_trace_batch_{batch_number}.json"
+        summary_text, batch_usage, batch_iterations = _run_agent_loop(
+            settings,
+            generation_model,
+            system_prompt,
+            user_message,
+            dispatch,
+            trace_path=trace_path,
+            required_files=tuple(batch_filenames),
+        )
+        total_usage["prompt_tokens"] += batch_usage["prompt_tokens"]
+        total_usage["completion_tokens"] += batch_usage["completion_tokens"]
+        total_iterations += batch_iterations
+        last_summary = summary_text
+
+    postprocess_report = postprocess_output(output_dir, frontmatter)
+    written_files = sorted(p.relative_to(output_dir).as_posix() for p in output_dir.rglob("*") if p.is_file())
+
+    return {
+        "tier": tier_key,
+        "postprocess": postprocess_report,
+        "template_used": strategy_used,
+        "output_dir": output_dir.relative_to(project_root).as_posix(),
+        "files": written_files,
+        "summary": last_summary,
+        "usage": total_usage,
+        "iterations": total_iterations,
         "model": generation_model,
     }
 
@@ -208,15 +426,18 @@ def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> Non
 REQUIRED_OUTPUT_FILES = ("index.html", "style.css")
 
 
-def _missing_required_output_files(trace_path: Path | None) -> list[str]:
-    """Checks REQUIRED_OUTPUT_FILES against the actual output directory
-    (trace_path.parent -- trace_path is always output_dir/_debug_trace.json,
-    see generate_site()). Returns [] (never blocking) when trace_path is
-    None, since that only happens if a caller opts out of tracing."""
+def _missing_required_output_files(
+    trace_path: Path | None, required_files: tuple[str, ...] = REQUIRED_OUTPUT_FILES
+) -> list[str]:
+    """Checks `required_files` (REQUIRED_OUTPUT_FILES by default) against
+    the actual output directory (trace_path.parent -- trace_path is always
+    output_dir/_debug_trace.json, see generate_site()/generate_full_site()).
+    Returns [] (never blocking) when trace_path is None, since that only
+    happens if a caller opts out of tracing."""
     if trace_path is None:
         return []
     output_dir = trace_path.parent
-    return [name for name in REQUIRED_OUTPUT_FILES if not (output_dir / name).exists()]
+    return [name for name in required_files if not (output_dir / name).exists()]
 
 
 def _run_agent_loop(
@@ -226,6 +447,7 @@ def _run_agent_loop(
     user_message: str,
     dispatch: dict,
     trace_path: Path | None = None,
+    required_files: tuple[str, ...] = REQUIRED_OUTPUT_FILES,
 ):
     caching_enabled = settings.generation_prompt_caching_enabled
     system_content: str | list[dict] = system_prompt
@@ -355,7 +577,7 @@ def _run_agent_loop(
                     )
                 continue
 
-            missing_files = _missing_required_output_files(trace_path)
+            missing_files = _missing_required_output_files(trace_path, required_files=required_files)
             if missing_files:
                 # The model believes it's done (finish_reason != "length",
                 # no more tool calls), but a required file from an earlier

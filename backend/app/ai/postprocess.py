@@ -5,7 +5,9 @@ nothing verifies it did. This module is the safety net: fills in any
 missing/empty alt text, injects Open Graph tags if absent, runs a
 best-effort WCAG AA contrast check against the blueprint's color palette
 (flagged only -- never auto-"fixed", since a fix could contradict the
-design), and writes sitemap.xml.
+design), fixes up scroll-reveal CSS/JS gaps (see
+`_fix_reveal_visibility_gaps`, auto-fixed since it's a mechanical bug, not
+a content decision), and writes sitemap.xml.
 """
 
 import re
@@ -15,6 +17,20 @@ import yaml
 from bs4 import BeautifulSoup
 
 FALLBACK_ALT = "Image"
+
+# Real failure mode seen 2026-09-16: the agent writes JS that adds a class
+# to reveal a scroll-triggered element (classList.add('is-visible')) but
+# never writes the CSS rule for that revealed state -- the element (and
+# everything inside it) stays at opacity:0 forever, i.e. the whole page
+# between header and footer renders blank. These regexes are a static,
+# heuristic cross-check between the generated CSS and JS, not a real
+# parser of either -- see _find_js_reveal_pairs for why that's an
+# acceptable tradeoff here.
+_HIDDEN_DECL_RE = re.compile(r"opacity\s*:\s*0(?:\.0*)?\s*;|visibility\s*:\s*hidden\s*;")
+_SIMPLE_CLASS_RULE_RE = re.compile(r"(?<![.\w-])\.([A-Za-z0-9_-]+)\s*\{([^{}]*)\}")
+_JS_ADD_CLASS_RE = re.compile(r"classList\.(?:add|toggle)\(\s*['\"]([A-Za-z0-9_-]+)['\"]")
+_QUERY_SELECTOR_CLASS_RE = re.compile(r"querySelector(?:All)?\(\s*['\"]\.([A-Za-z0-9_-]+)")
+_REVEAL_PAIR_PROXIMITY_CHARS = 3000
 
 
 def parse_frontmatter(design_md: str) -> dict:
@@ -35,6 +51,7 @@ def postprocess_output(output_dir: Path, frontmatter: dict) -> dict:
         "alt_text_added": [],
         "og_tags_added": [],
         "contrast_warnings": [],
+        "reveal_visibility_fixes": [],
         "sitemap_written": False,
     }
 
@@ -58,6 +75,7 @@ def postprocess_output(output_dir: Path, frontmatter: dict) -> dict:
             html_path.write_text(str(soup), encoding="utf-8")
 
     report["contrast_warnings"] = _check_contrast(frontmatter)
+    report["reveal_visibility_fixes"] = _fix_reveal_visibility_gaps(output_dir)
 
     _write_sitemap(output_dir, html_files)
     report["sitemap_written"] = True
@@ -148,6 +166,96 @@ def _check_contrast(frontmatter: dict) -> list[str]:
         if ratio < 4.5:
             warnings.append(f"{label} ({c1} vs {c2}): contrast ratio {ratio:.2f}:1 is below WCAG AA (4.5:1)")
     return warnings
+
+
+def _find_hidden_by_default_classes(css_text: str) -> set[str]:
+    """Class names with a standalone rule (".name{...}", not a compound
+    selector) whose own declarations set opacity:0 or visibility:hidden --
+    i.e. elements that start invisible and rely on something else (JS,
+    normally) to reveal them."""
+    hidden = set()
+    for name, decls in _SIMPLE_CLASS_RULE_RE.findall(css_text):
+        if _HIDDEN_DECL_RE.search(decls):
+            hidden.add(name)
+    return hidden
+
+
+def _find_js_reveal_pairs(js_text: str, hidden_classes: set[str]) -> set[tuple[str, str]]:
+    """Pairs a class JS adds via classList.add/toggle with whichever
+    "starts hidden" class was most recently selected via
+    querySelector(All) before it in the same file -- a proximity heuristic
+    for "this add call is meant to reveal that element", not a real JS
+    parse. False negatives (a reveal pattern written differently than
+    this) just mean this check is skipped for that case; false positives
+    just mean an extra, harmless override rule gets added below."""
+    query_positions = [(m.start(), m.group(1)) for m in _QUERY_SELECTOR_CLASS_RE.finditer(js_text)]
+    pairs = set()
+    for add_match in _JS_ADD_CLASS_RE.finditer(js_text):
+        add_class = add_match.group(1)
+        add_pos = add_match.start()
+        best = None
+        for q_pos, q_class in query_positions:
+            if q_pos >= add_pos:
+                break
+            if add_pos - q_pos > _REVEAL_PAIR_PROXIMITY_CHARS:
+                continue
+            if q_class in hidden_classes:
+                best = q_class
+        if best and best != add_class:
+            pairs.add((best, add_class))
+    return pairs
+
+
+def _has_compound_override(css_text: str, class_a: str, class_b: str) -> bool:
+    """True if some rule's selector already combines both classes (in
+    either order) -- e.g. ".reveal.is-visible" or ".is-visible.reveal" --
+    regardless of what it sets, since a rule the model wrote on purpose to
+    react to both classes is assumed to be handling this correctly."""
+    for selector in re.findall(r"([^{}]+)\{", css_text):
+        if f".{class_a}" in selector and f".{class_b}" in selector:
+            return True
+    return False
+
+
+def _fix_reveal_visibility_gaps(output_dir: Path) -> list[str]:
+    """Safety net for a real, seen failure mode: the generation agent
+    writes JS that adds a class to reveal a scroll-triggered element but
+    never writes the matching CSS rule for that revealed state, so the
+    element (and everything inside it) stays invisible forever. Fixed by
+    appending a `!important` override rule rather than re-running the
+    agent, since this is a mechanical CSS gap, not a content decision."""
+    css_paths = sorted(output_dir.glob("*.css"))
+    js_paths = sorted(output_dir.glob("*.js"))
+    if not css_paths or not js_paths:
+        return []
+
+    js_text = "\n".join(p.read_text(encoding="utf-8") for p in js_paths)
+    fixes: list[str] = []
+
+    for css_path in css_paths:
+        css_text = css_path.read_text(encoding="utf-8")
+        hidden_classes = _find_hidden_by_default_classes(css_text)
+        if not hidden_classes:
+            continue
+
+        additions = []
+        for hidden_class, reveal_class in sorted(_find_js_reveal_pairs(js_text, hidden_classes)):
+            if _has_compound_override(css_text, hidden_class, reveal_class):
+                continue
+            additions.append(
+                f".{hidden_class}.{reveal_class}"
+                "{opacity:1 !important;visibility:visible !important;transform:none !important}"
+            )
+            fixes.append(
+                f"{css_path.name}: .{hidden_class}.{reveal_class} was never styled "
+                "-- JS reveals it but nothing made it visible"
+            )
+
+        if additions:
+            note = "\n/* Auto-added by postprocess: JS reveals this class but no CSS rule showed it */\n"
+            css_path.write_text(css_text + note + "\n".join(additions) + "\n", encoding="utf-8")
+
+    return fixes
 
 
 def _write_sitemap(output_dir: Path, html_files: list[Path]) -> None:

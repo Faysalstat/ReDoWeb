@@ -1,50 +1,99 @@
-<div class="auth">
-  <section class="auth__form">
-    <span class="nav-brand">ReDoWebs</span>
-    <h1 class="display display--sm" style="margin-top: var(--space-8)">Welcome back.</h1>
-    <p class="sub" style="max-width: 44ch">
-      Sign in to crawl your site, get an AI-generated brand blueprint, and preview a modern
-      redesign — free to try, no credit card required.
-    </p>
+<div class="login">
+  <div class="login__col login__col--form">
+    <div class="login__wrap">
+      <a routerLink="/" class="login__brand">
+        <span class="login__mark">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12h16M4 12l6-6M4 12l6 6" stroke="var(--color-bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <span class="login__brand-name">ReDoWebs</span>
+      </a>
 
-    <span class="tag tag-accent" style="margin-top: var(--space-6)">AI-powered website modernization</span>
+      <div class="login__card">
+        <h1 class="login__title">Welcome back</h1>
+        <p class="login__subtitle">
+          Sign in to crawl your site, get an AI-generated brand blueprint, and preview a modern
+          redesign.
+        </p>
 
-    <div class="auth__fields">
-      <button class="btn btn-secondary btn-block" type="button" (click)="onGoogleLoginClick()">
-        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-          <path
-            fill="#FFC107"
-            d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"
-          />
-          <path
-            fill="#FF3D00"
-            d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3c-7.7 0-14.4 4.4-17.7 10.7z"
-          />
-          <path
-            fill="#4CAF50"
-            d="M24 45c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 35.9 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-7.9l-6.6 5.1C9.5 40.5 16.2 45 24 45z"
-          />
-          <path
-            fill="#1976D2"
-            d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C41.4 36 45 30.6 45 24c0-1.4-.1-2.7-.4-3.5z"
-          />
-        </svg>
-        Continue with Google
-      </button>
-      <p style="font-size: 13.5px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
-        3 free credits on signup · free preview always.
-      </p>
-    </div>
-  </section>
+        <button type="button" class="login__google" (click)="onGoogleLoginClick()">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path
+              fill="#FFC107"
+              d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"
+            />
+            <path
+              fill="#FF3D00"
+              d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3c-7.7 0-14.4 4.4-17.7 10.7z"
+            />
+            <path
+              fill="#4CAF50"
+              d="M24 45c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 35.9 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-7.9l-6.6 5.1C9.5 40.5 16.2 45 24 45z"
+            />
+            <path
+              fill="#1976D2"
+              d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C41.4 36 45 30.6 45 24c0-1.4-.1-2.7-.4-3.5z"
+            />
+          </svg>
+          Continue with Google
+        </button>
 
-  <aside class="auth__poster">
-    <h2>Nothing published<br />without your word.</h2>
-    <div class="auth__foot">
-      <p>
+        <button type="button" class="login__apple" disabled title="Coming soon">
+          <svg width="16" height="18" viewBox="0 0 814 1000" aria-hidden="true">
+            <path
+              fill="#ffffff"
+              d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zM554.1 159.4c31.9-37.8 54.4-90.3 54.4-142.8 0-7.3-.6-14.7-1.9-20.6-51.9 1.9-113.6 34.5-150.8 77.9-29.2 33.3-56.4 85.8-56.4 139.1 0 8 1.3 16 1.9 18.6 3.2.6 8.4 1.3 13.6 1.3 46.5 0 105-31.2 139.2-73.5z"
+            />
+          </svg>
+          Continue with Apple
+        </button>
+
+        <p class="login__note">3 free credits on signup · free preview always.</p>
+      </div>
+
+      <p class="login__fineprint">
         We crawl what's publicly on your site, draft a modern replacement, and let you preview it
         page by page. Nothing goes live until you decide to publish it.
       </p>
-      <p class="label" style="color: var(--color-bg)">AI-generated redesigns · your facts, kept intact</p>
     </div>
-  </aside>
+  </div>
+
+  <div class="login__col login__col--pitch">
+    <div class="login__glow login__glow--a" aria-hidden="true"></div>
+    <div class="login__glow login__glow--b" aria-hidden="true"></div>
+
+    <div class="login__pitch">
+      <span class="login__pitch-kicker">AI-powered website modernization</span>
+      <h2 class="login__pitch-title">
+        <span class="line">Your website,</span>
+        <span class="line">reimagined by <span class="login__pitch-accent">AI.</span></span>
+      </h2>
+      <p class="login__pitch-sub">
+        Paste a URL, get a modern, on-brand redesign in under a minute — free to preview, your
+        facts kept intact.
+      </p>
+
+      <ul class="login__pitch-list">
+        @for (point of pitchPoints; track point) {
+          <li>
+            <app-icon-check [size]="16" />
+            <span>{{ point }}</span>
+          </li>
+        }
+      </ul>
+
+      <div class="login__mock" aria-hidden="true">
+        <div class="login__mock-head">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="login__mock-body">
+          <div class="login__mock-bar login__mock-bar--title"></div>
+          <div class="login__mock-bar login__mock-bar--text"></div>
+          <div class="login__mock-bar login__mock-bar--text" style="width: 62%"></div>
+          <div class="login__mock-cta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -1,13 +1,13 @@
 <app-header />
 
-<div class="wrap">
+<div class="wrap--narrow">
   <section class="band--tight">
     <div class="row row--between">
       <div>
         <h1 class="display display--sm">My Generations</h1>
         <p class="sub">Every site you've submitted, newest first.</p>
       </div>
-      <a appButton variant="primary" routerLink="/app">+ New Generation</a>
+      <a appButton variant="primary" routerLink="/">+ New Generation</a>
     </div>
 
     @if (loading()) {
@@ -17,12 +17,12 @@
         }
       </div>
     } @else if (errorMessage()) {
-      <p style="color: var(--color-accent-700); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+      <p style="color: var(--color-danger); margin-top: var(--space-6)">{{ errorMessage() }}</p>
     } @else if (projects().length === 0) {
       <div class="panel" style="margin-top: calc(1.2 * var(--leading)); text-align: center; padding: var(--space-8)">
         <p style="font-weight: 600">No redesigns yet</p>
         <p class="sub" style="margin: var(--space-1) auto 0">Submit a URL to generate your first one.</p>
-        <a appButton variant="primary" routerLink="/app" style="margin-top: var(--space-4); display: inline-flex">
+        <a appButton variant="primary" routerLink="/" style="margin-top: var(--space-4); display: inline-flex">
           Start a redesign
         </a>
       </div>

@@ -1,16 +1,23 @@
 <app-header />
 
-<div class="wrap">
-  <section class="hero home-hero">
+<div style="background:
+    radial-gradient(820px 520px at 26% 12%, color-mix(in srgb, var(--color-accent-2) 20%, transparent), transparent 62%),
+    radial-gradient(720px 420px at 78% -8%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 60%),
+    radial-gradient(600px 360px at 8% 8%, color-mix(in srgb, var(--color-success) 6%, transparent), transparent 60%),
+    var(--color-bg);">
+  <section class="wrap--narrow home-hero">
     <div>
-      <span class="kicker">AI-powered website modernization</span>
+      <div class="home-hero__kicker">
+        <span class="home-hero__kicker-dot"></span>
+        <span>AI-powered website modernization</span>
+      </div>
 
-      <h1 class="display" style="margin-top: var(--space-4)">
+      <h1 class="home-hero__title">
         <span class="line">Turn your outdated website</span>
-        <span class="line">into a modern masterpiece.</span>
+        <span class="line">into a modern <span class="home-hero__title-accent">masterpiece.</span></span>
       </h1>
 
-      <p class="sub" style="margin-top: var(--space-4)">
+      <p class="home-hero__sub">
         Paste your website's URL. Our AI crawls it, understands your brand, and rebuilds it with
         modern design, sharper copy, and stronger SEO — while keeping everything that makes your
         business yours.
@@ -24,13 +31,14 @@
           required
           placeholder="https://example.com"
           [(ngModel)]="url"
-          class="input"
+          class="input home-hero__input"
         />
-        <button appButton variant="primary" type="submit" [disabled]="!canSubmit">
+        <button appButton variant="primary" type="submit" class="home-hero__submit" [disabled]="!canSubmit">
           @if (isSubmitting()) {
             <app-spinner size="sm" />
           }
           Generate My Redesign
+          <app-icon-arrow-right [size]="16" />
         </button>
       </form>
 
@@ -46,82 +54,98 @@
         <span>I own this website, or am authorized to have it redesigned.</span>
       </label>
 
-      <p class="hero__note">
+      <p class="home-hero__note">
         Free preview · No credit card required
         @if (balance(); as b) {
           · {{ b }} credit{{ b === 1 ? '' : 's' }} available
         }
       </p>
 
-      <div class="hero__stats">
-        @for (s of stats; track s.label) {
+      <div class="home-hero__stats">
+        @for (s of stats; track s.label; let i = $index) {
           <div>
-            <p class="stat__num">{{ s.value }}</p>
-            <p class="metric__label">{{ s.label }}</p>
+            <p class="home-hero__stat-num" [style.color]="accentColor(i)">{{ s.value }}</p>
+            <p class="home-hero__stat-label">{{ s.label }}</p>
           </div>
         }
       </div>
     </div>
 
-    <aside class="panel">
-      <div class="panel__head">
-        <span class="row" style="gap: var(--space-2)">
-          <span style="width: 10px; height: 10px; background: var(--color-accent)"></span>
-          <span class="label">Live · rebuilding yourbusiness.com</span>
-        </span>
+    <aside class="home-hero__panel">
+      <div class="home-hero__panel-head">
+        <span class="home-hero__live-dot"></span>
+        <span>Live · rebuilding yourbusiness.com</span>
       </div>
-      <div class="panel__body stack">
-        <div class="hero__live">
+      <div class="home-hero__panel-body">
+        <div class="home-hero__live">
           <div>
-            <span class="label">Before</span>
-            <app-site-mock variant="old" [height]="160" />
+            <span class="home-hero__live-label">Before</span>
+            <div class="home-hero__mock home-hero__mock--old">
+              <div style="width: 60%; height: 10px; background: var(--color-neutral-400); border-radius: 3px"></div>
+              <div style="width: 40%; height: 8px; background: var(--color-neutral-300); border-radius: 3px"></div>
+              <div style="flex: 1; margin-top: 4px; background: var(--color-neutral-200); border-radius: 6px"></div>
+              <div style="display: flex; gap: 6px">
+                <div style="width: 34px; height: 8px; background: var(--color-neutral-400); border-radius: 3px"></div>
+                <div style="width: 34px; height: 8px; background: var(--color-neutral-400); border-radius: 3px"></div>
+              </div>
+            </div>
           </div>
           <div>
-            <span class="label" style="color: var(--color-accent-700)">After</span>
-            <app-site-mock variant="new" [height]="160" />
+            <span class="home-hero__live-label" style="color: var(--color-success)">After</span>
+            <div class="home-hero__mock home-hero__mock--new">
+              <div style="width: 46%; height: 10px; background: var(--color-accent); border-radius: 3px"></div>
+              <div style="width: 70%; height: 8px; background: var(--color-neutral-500); border-radius: 3px"></div>
+              <div
+                style="flex: 1; margin-top: 4px; border-radius: 6px; border: 1px solid var(--color-divider); background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 22%, transparent), color-mix(in srgb, var(--color-success) 14%, transparent))"
+              ></div>
+              <div style="width: 64px; height: 18px; background: var(--color-accent); border-radius: 999px"></div>
+            </div>
           </div>
         </div>
-        <div class="meter" style="height: 2px">
-          <div class="meter__fill" style="width: 44%"></div>
+        <div class="home-hero__meter">
+          <div class="home-hero__meter-fill"></div>
         </div>
-        <p class="hero__caption">Rewriting your homepage · fixing accessibility issues · optimizing images and fonts.</p>
+        <p class="home-hero__caption">
+          Rewriting your homepage · fixing accessibility issues · optimizing images and fonts.
+        </p>
       </div>
     </aside>
   </section>
+</div>
 
-  <hr class="rule2" />
-
-  <section class="band" id="how-it-works">
-    <span class="kicker">How it works</span>
-    <div class="cells cells--3 how-it-works__cells" style="margin-top: var(--space-6)">
-      @for (step of steps; track step.n) {
-        <div class="cell how-it-works__cell">
-          <p class="how-it-works__num">{{ step.n }}</p>
-          <h2 class="how-it-works__title">{{ step.title }}</h2>
-          <p class="how-it-works__copy">{{ step.copy }}</p>
+<section id="how-it-works" class="home-band">
+  <div class="wrap--narrow">
+    <span class="home-band__kicker">How it works</span>
+    <div class="home-band__grid home-band__grid--3">
+      @for (step of steps; track step.n; let i = $index) {
+        <div class="home-card" [style.borderTopColor]="accentColor(i)">
+          <p class="home-card__num" [style.color]="accentColor(i)">{{ step.n }}</p>
+          <h3 class="home-card__title">{{ step.title }}</h3>
+          <p class="home-card__copy">{{ step.copy }}</p>
         </div>
       }
     </div>
-  </section>
+  </div>
+</section>
 
-  <hr class="rule2" />
-
-  <section class="band" id="in-action">
+<section id="in-action" class="home-band home-band--soft">
+  <div class="wrap--narrow">
     <app-generation-demo />
-  </section>
+  </div>
+</section>
 
-  <hr class="rule2" />
-
-  <section class="band" id="pricing">
+<section id="pricing" class="home-band">
+  <div class="wrap--narrow">
     <div style="max-width: 640px">
-      <h2 class="display display--sm">Simple, one-time pricing</h2>
-      <p class="sub">
+      <span class="home-band__kicker" style="color: var(--color-success)">Pricing</span>
+      <h2 class="home-band__title">Simple, one-time pricing.</h2>
+      <p class="home-band__sub">
         Pay once per redesign, no subscriptions. Every tier includes a free live preview before
         you pay for the download.
       </p>
     </div>
 
-    <div class="cells cells--3" style="margin-top: calc(1.5 * var(--leading))">
+    <div class="grid-3" style="margin-top: 40px; align-items: start">
       @for (tier of pricingTiers; track tier.name) {
         <app-pricing-tier
           [name]="tier.name"
@@ -130,27 +154,64 @@
           [tagline]="tier.tagline"
           [features]="tier.features"
           [highlighted]="tier.highlighted"
+          [tone]="tier.tone"
           [ctaLabel]="tier.ctaLabel"
         />
       }
     </div>
 
-    <p class="text-muted" style="margin-top: var(--space-4); font-size: 12px">
-      Placeholder pricing shown for preview — final pricing will be confirmed before launch. See the
-      <a routerLink="/pricing">full plan comparison</a>.
+    <p class="home-band__fineprint">
+      Placeholder pricing shown for preview — final pricing will be confirmed before launch. See
+      the <a routerLink="/pricing">full plan comparison</a>.
     </p>
-  </section>
-</div>
-
-<section class="poster">
-  <div class="wrap">
-    <h2 class="display display--sm">See it before you buy it.</h2>
-    <div class="row" style="margin-top: var(--space-6)">
-      <a class="btn btn-ghost" routerLink="/pricing">See what publishing costs</a>
-    </div>
   </div>
 </section>
 
-<footer class="wrap band--tight" style="text-align: center; font-size: 13px; color: var(--color-neutral-700)">
-  © 2026 ReDoWebs. All rights reserved.
+<section class="poster">
+  <div class="wrap--narrow home-poster">
+    <h2 class="home-poster__title">See it before you buy it.</h2>
+    <a class="home-poster__cta" routerLink="/pricing">
+      See what publishing costs
+      <app-icon-arrow-right [size]="15" />
+    </a>
+  </div>
+</section>
+
+<footer class="home-footer">
+  <div class="wrap--narrow">
+    <div class="home-footer__top">
+      <div class="home-footer__brand">
+        <span class="nav-brand" style="display: block; margin: 0">ReDoWebs</span>
+        <p class="home-footer__tagline">
+          AI-generated redesigns of your existing site — your facts kept intact, nothing published
+          without your word.
+        </p>
+      </div>
+
+      <div class="home-footer__cols">
+        <div>
+          <p class="home-footer__col-title">Product</p>
+          <div class="home-footer__links">
+            <a href="#how-it-works">How it works</a>
+            <a href="#in-action">See it in action</a>
+            <a href="#pricing">Pricing</a>
+          </div>
+        </div>
+        <div>
+          <p class="home-footer__col-title">Account</p>
+          <div class="home-footer__links">
+            <a routerLink="/history">History</a>
+            <a routerLink="/settings/billing">Billing</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-footer__rule"></div>
+
+    <div class="home-footer__bottom">
+      <span>© 2026 ReDoWebs. All rights reserved.</span>
+      <span>We only redesign sites you own or are authorized to submit.</span>
+    </div>
+  </div>
 </footer>

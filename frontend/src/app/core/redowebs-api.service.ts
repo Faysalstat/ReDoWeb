@@ -6,6 +6,8 @@ import { API_BASE_URL } from './api-config';
 import {
   BlueprintResponse,
   CrawlResponse,
+  DownloadStartResponse,
+  DownloadStatusResponse,
   GenerationResponse,
   ProjectListItem,
   ProjectStatusResponse,
@@ -60,5 +62,27 @@ export class RedoWebsApiService {
 
   getWallet(): Observable<WalletResponse> {
     return this.http.get<WalletResponse>(`${API_BASE_URL}/api/v1/credits/wallet`);
+  }
+
+  /** Charges the tier's download cost (idempotent per project+tier) and,
+   * for a multi-page project without a cached full-site build yet, kicks
+   * off one and returns status: "building" instead of "ready". */
+  startDownload(projectId: string, tier: string): Observable<DownloadStartResponse> {
+    return this.http.post<DownloadStartResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/download?tier=${tier}`,
+      {}
+    );
+  }
+
+  getDownloadStatus(projectId: string, tier: string): Observable<DownloadStatusResponse> {
+    return this.http.get<DownloadStatusResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/download-status?tier=${tier}`
+    );
+  }
+
+  downloadFile(projectId: string, tier: string): Observable<Blob> {
+    return this.http.get(`${API_BASE_URL}/api/v1/projects/${projectId}/download-file?tier=${tier}`, {
+      responseType: 'blob',
+    });
   }
 }

@@ -8,9 +8,12 @@ import { HomeComponent } from './features/home/home.component';
 import { WelcomeComponent } from './features/welcome/welcome.component';
 
 export const routes: Routes = [
-  { path: '', component: WelcomeComponent, canActivate: [redirectIfAuthenticatedGuard] },
+  // Public: no guard. Anyone can land here and read the pitch / paste a URL;
+  // submit() itself checks auth and bounces to /login if needed (see
+  // home.component.ts) rather than gating the whole page.
+  { path: '', component: HomeComponent },
+  { path: 'login', component: WelcomeComponent, canActivate: [redirectIfAuthenticatedGuard] },
   { path: 'auth/callback', component: AuthCallbackComponent },
-  { path: 'app', component: HomeComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: GenerationProgressComponent, canActivate: [authGuard] },
   { path: 'history', component: HistoryComponent, canActivate: [authGuard] },
   {

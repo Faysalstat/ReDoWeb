@@ -6,6 +6,9 @@ export interface PricingTier {
   features: string[];
   highlighted: boolean;
   ctaLabel: string;
+  /** Visual accent for a non-highlighted tier that still wants a brand tint
+   * (e.g. Pro's coral treatment) instead of the plain neutral card. */
+  tone?: 'accent-2';
 }
 
 // Placeholder pricing — dummy figures/copy, to be replaced with real tier data
@@ -48,6 +51,7 @@ export const PRICING_TIERS: PricingTier[] = [
     ],
     highlighted: false,
     ctaLabel: 'Get Started',
+    tone: 'accent-2',
   },
 ];
 

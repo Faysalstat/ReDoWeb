@@ -1,10 +1,16 @@
 """Postgres-backed replacement for `celery -A app.workers.celery_app worker`.
-Run with: `python -m app.workers.queue_worker`. Single long-running process,
-polling `queued_jobs` -- matches the previous Celery setup's concurrency
-(Windows required `--pool=solo`, i.e. one task at a time), so there's no
-concurrency loss from not sharding work across processes."""
+Run with: `python -m app.workers.queue_worker`. Multiple instances of this
+process can run concurrently against the same `queued_jobs` table -- claiming
+is already safe via `claim_next_job()`'s `SELECT ... FOR UPDATE SKIP LOCKED`
+(see queue.py) -- see docs/concurrency-scaling-plan.md for the recommended
+worker count and rollout. A project's own pipeline stages can never race each
+other regardless of worker count: stage N+1's queue row doesn't exist until
+stage N's task creates it, so running more of this process only adds
+parallelism *across* projects/tiers, never within one."""
 
+import os
 import time
+import uuid
 from datetime import datetime, timezone
 
 from ..db.session import SessionLocal
@@ -12,6 +18,7 @@ from ..models import QueuedJob
 from .queue import claim_next_job
 from .tasks_blueprint import extract_blueprint_task
 from .tasks_crawl import run_crawl_task
+from .tasks_full_site import generate_full_site_task
 from .tasks_generate import generate_tier_task
 
 POLL_INTERVAL_SECONDS = 1.0
@@ -20,11 +27,17 @@ TASK_HANDLERS = {
     "run_crawl": run_crawl_task,
     "extract_blueprint": extract_blueprint_task,
     "generate_tier": generate_tier_task,
+    "generate_full_site": generate_full_site_task,
 }
+
+# Short per-process tag so concurrent workers' interleaved stdout is
+# distinguishable -- falls back to a random suffix outside of
+# start_workers.ps1 (which sets this per launched process).
+WORKER_ID = os.environ.get("REDOWEBS_WORKER_ID") or uuid.uuid4().hex[:6]
 
 
 def run_worker_loop() -> None:
-    print("queue_worker: started, polling queued_jobs every " f"{POLL_INTERVAL_SECONDS}s")
+    print(f"queue_worker[{WORKER_ID}]: started, polling queued_jobs every {POLL_INTERVAL_SECONDS}s")
     while True:
         db = SessionLocal()
         try:
@@ -43,7 +56,7 @@ def run_worker_loop() -> None:
             time.sleep(POLL_INTERVAL_SECONDS)
             continue
 
-        print(f"queue_worker: running {task_name} ({job_id})")
+        print(f"queue_worker[{WORKER_ID}]: running {task_name} ({job_id})")
 
         handler = TASK_HANDLERS[task_name]
         try:
@@ -63,7 +76,7 @@ def run_worker_loop() -> None:
                 db.commit()
             finally:
                 db.close()
-            print(f"queue_worker: {task_name} ({job_id}) failed: {exc}")
+            print(f"queue_worker[{WORKER_ID}]: {task_name} ({job_id}) failed: {exc}")
             continue
 
         db = SessionLocal()
@@ -74,7 +87,7 @@ def run_worker_loop() -> None:
             db.commit()
         finally:
             db.close()
-        print(f"queue_worker: {task_name} ({job_id}) succeeded")
+        print(f"queue_worker[{WORKER_ID}]: {task_name} ({job_id}) succeeded")
 
 
 if __name__ == "__main__":

@@ -3,32 +3,33 @@ import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from './auth.service';
 
-/** Gates the authenticated routes (/app, /history). By the time this runs,
- * the app-init silent refresh (see app.config.ts) has already resolved, so
- * isAuthenticated() reflects the real session state, not a pre-load guess. */
+/** Gates the authenticated-only routes (/history, /projects/:id, /settings/billing).
+ * By the time this runs, the app-init silent refresh (see app.config.ts) has
+ * already resolved, so isAuthenticated() reflects the real session state, not
+ * a pre-load guess. */
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated() ? true : router.parseUrl('/');
+  return auth.isAuthenticated() ? true : router.parseUrl('/login');
 };
 
-/** Keeps an already-signed-in user from seeing the welcome/login screen
- * again -- sends them straight to /app instead. */
+/** Keeps an already-signed-in user from seeing the login screen again --
+ * sends them straight to the (public) homepage instead. */
 export const redirectIfAuthenticatedGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated() ? router.parseUrl('/app') : true;
+  return auth.isAuthenticated() ? router.parseUrl('/') : true;
 };
 
-/** Gates the /admin section. Unauthenticated users go to the welcome page
- * (same as authGuard); a logged-in but non-admin user goes to /app rather
- * than the welcome page, since they do have a valid session -- just not
- * this permission. */
+/** Gates the /admin section. Unauthenticated users go to /login (same as
+ * authGuard); a logged-in but non-admin user goes to the homepage rather
+ * than /login, since they do have a valid session -- just not this
+ * permission. */
 export const adminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.parseUrl('/');
+    return router.parseUrl('/login');
   }
-  return auth.currentUser()?.is_admin ? true : router.parseUrl('/app');
+  return auth.currentUser()?.is_admin ? true : router.parseUrl('/');
 };

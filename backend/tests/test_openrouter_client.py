@@ -68,6 +68,97 @@ def test_vision_json_chat_succeeds_with_real_json_content(monkeypatch):
     assert usage == {"prompt_tokens": 5, "completion_tokens": 3}
 
 
+def _status_response(status_code: int, payload: dict | None = None, headers: dict | None = None) -> httpx.Response:
+    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    return httpx.Response(status_code, json=payload, headers=headers or {}, request=request)
+
+
+def _no_sleep(monkeypatch):
+    """Retry backoff is 2s/4s/8s -- patch it out so these tests run fast."""
+    import app.ai.openrouter_client as client_module
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda seconds: None)
+
+
+def test_chat_completion_retries_on_429_then_succeeds(monkeypatch):
+    _no_sleep(monkeypatch)
+    responses = [
+        _status_response(429),
+        _status_response(200, {"choices": [{"message": {"content": "ok"}}], "usage": {}}),
+    ]
+    calls = []
+
+    def fake_post(*args, **kwargs):
+        calls.append(1)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    result = chat_completion({"model": "test-model", "messages": []})
+
+    assert len(calls) == 2
+    assert result["choices"][0]["message"]["content"] == "ok"
+
+
+def test_chat_completion_raises_after_exhausting_retries_on_503(monkeypatch):
+    _no_sleep(monkeypatch)
+    calls = []
+
+    def fake_post(*args, **kwargs):
+        calls.append(1)
+        return _status_response(503)
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(OpenRouterError):
+        chat_completion({"model": "test-model", "messages": []})
+
+    import app.ai.openrouter_client as client_module
+
+    assert len(calls) == client_module._MAX_ATTEMPTS
+
+
+def test_chat_completion_does_not_retry_non_transient_4xx(monkeypatch):
+    """A 400 (bad request) is never transient -- retrying it would just
+    waste time before surfacing the same error."""
+    _no_sleep(monkeypatch)
+    calls = []
+
+    def fake_post(*args, **kwargs):
+        calls.append(1)
+        return _status_response(400)
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(OpenRouterError):
+        chat_completion({"model": "test-model", "messages": []})
+
+    assert len(calls) == 1
+
+
+def test_chat_completion_honors_retry_after_header(monkeypatch):
+    import app.ai.openrouter_client as client_module
+
+    sleep_calls = []
+    monkeypatch.setattr(client_module.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    responses = [
+        _status_response(429, headers={"Retry-After": "5"}),
+        _status_response(200, {"choices": [{"message": {"content": "ok"}}], "usage": {}}),
+    ]
+    calls = []
+
+    def fake_post(*args, **kwargs):
+        calls.append(1)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    chat_completion({"model": "test-model", "messages": []})
+
+    assert sleep_calls[0] >= 5.0
+
+
 def test_chat_completion_raises_openrouter_error_past_hard_deadline(monkeypatch):
     """Regression test for a real incident (2026-09-16): a generation call
     hung for 30+ minutes because httpx's own `timeout=` only bounds time

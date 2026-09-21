@@ -4,6 +4,7 @@ from ..crawler.errors import CrawlRejected
 from ..db.session import SessionLocal
 from ..models import Asset, CrawlPage, CrawlSnapshot, Project
 from ..services.crawl_service import run_crawl
+from ..services.storage_capacity_service import InsufficientDiskSpaceError, check_free_disk_space
 from .queue import enqueue
 
 
@@ -21,6 +22,18 @@ def run_crawl_task(project_id: str, url: str, tier_keys: list[str]) -> str:
     db = SessionLocal()
     try:
         project = db.get(Project, uuid.UUID(project_id))
+
+        # Defensive re-check -- submission already checked this, but other
+        # concurrent projects may have consumed space since then (see
+        # docs/concurrency-scaling-plan.md).
+        try:
+            check_free_disk_space()
+        except InsufficientDiskSpaceError as exc:
+            project.status = "failed"
+            project.rejection_reason = str(exc)
+            db.commit()
+            raise
+
         project.status = "crawling"
         db.commit()
 

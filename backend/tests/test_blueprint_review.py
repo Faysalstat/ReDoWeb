@@ -13,8 +13,13 @@ from app.ai.blueprint_review import (
 from app.ai.blueprint_schema import (
     AboutSection,
     AdditionalSection,
+    BlueprintDocument,
+    ColorPalette,
     FaqItem,
+    Fonts,
     HeroSection,
+    MetaBlock,
+    PageBlueprint,
     PageSections,
     ServiceItem,
     TestimonialItem,
@@ -289,3 +294,103 @@ def test_merge_gap_sections_appends_without_touching_existing_entries():
 
     assert [s.key for s in merged] == ["a", "gap-b"]
     assert existing == [AdditionalSection(key="a", title="A", body="body a")]
+
+
+# --- review_blueprint(): page_indices/include_meta scoping ------------------
+
+
+def _make_scraped_document(num_pages: int) -> BlueprintDocument:
+    meta = MetaBlock(
+        site_name="Acme",
+        colors=ColorPalette(primary="#111111", secondary="#222222", accent="#333333"),
+        fonts=Fonts(heading="Inter", body="Inter"),
+    )
+    urls = ["https://example.com/"] + [f"https://example.com/page-{i}" for i in range(1, num_pages)]
+    pages = [PageBlueprint(page_url=url, sections=PageSections()) for url in urls]
+    return BlueprintDocument(meta=meta, navigation=[], pages=pages)
+
+
+@pytest.fixture
+def multi_page_project_root(tmp_path):
+    pages_dir = tmp_path / "snapshot" / "pages"
+    pages_dir.mkdir(parents=True)
+    urls = ["https://example.com/", "https://example.com/page-1", "https://example.com/page-2"]
+    pages_meta = []
+    for index, url in enumerate(urls):
+        slug = "index" if index == 0 else f"page-{index}"
+        (pages_dir / f"{slug}.html").write_text(SAMPLE_PAGE_HTML, encoding="utf-8")
+        pages_meta.append({"url": url, "storage_path": f"snapshot/pages/{slug}.html"})
+    (tmp_path / "metadata.json").write_text(json.dumps({"pages": pages_meta}), encoding="utf-8")
+    return tmp_path
+
+
+def _fake_vision_json_chat_recording(calls: list):
+    def fake(system_prompt, user_text, image_paths, model=None):
+        calls.append(system_prompt)
+        if system_prompt == blueprint_review.META_REVIEW_SYSTEM_PROMPT:
+            return {"site_name": "Acme Reviewed"}, {"prompt_tokens": 1, "completion_tokens": 1}
+        if system_prompt == blueprint_review.CONTENT_REVIEW_SYSTEM_PROMPT:
+            return {}, {"prompt_tokens": 2, "completion_tokens": 2}
+        return {"gaps": []}, {"prompt_tokens": 1, "completion_tokens": 1}
+
+    return fake
+
+
+def test_review_blueprint_page_indices_filters_to_requested_page(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", _fake_vision_json_chat_recording(calls))
+
+    reviewed, _usage = blueprint_review.review_blueprint(multi_page_project_root, scraped, page_indices=[0])
+
+    assert len(reviewed.pages) == 1
+    assert reviewed.pages[0].page_url == scraped.pages[0].page_url
+
+
+def test_review_blueprint_page_indices_preserves_order_and_skips_home(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", _fake_vision_json_chat_recording(calls))
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, page_indices=[1, 2], include_meta=False
+    )
+
+    assert [p.page_url for p in reviewed.pages] == [scraped.pages[1].page_url, scraped.pages[2].page_url]
+
+
+def test_review_blueprint_include_meta_false_never_calls_meta_and_leaves_it_untouched(
+    multi_page_project_root, monkeypatch
+):
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", _fake_vision_json_chat_recording(calls))
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, page_indices=[1, 2], include_meta=False
+    )
+
+    assert blueprint_review.META_REVIEW_SYSTEM_PROMPT not in calls
+    assert reviewed.meta.site_name == "Acme"  # untouched -- the "Acme Reviewed" mock response was never applied
+
+
+def test_review_blueprint_page_indices_none_regression_tests_full_review(multi_page_project_root, monkeypatch):
+    """Default behavior (no page_indices given) must stay unchanged: every
+    page reviewed, meta called."""
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", _fake_vision_json_chat_recording(calls))
+
+    reviewed, _usage = blueprint_review.review_blueprint(multi_page_project_root, scraped)
+
+    assert len(reviewed.pages) == 3
+    assert [p.page_url for p in reviewed.pages] == [p.page_url for p in scraped.pages]
+    assert blueprint_review.META_REVIEW_SYSTEM_PROMPT in calls
+    assert reviewed.meta.site_name == "Acme Reviewed"
+
+
+def test_worker_count_scales_with_target_pages_and_include_meta():
+    assert blueprint_review._worker_count(1, include_meta=True) == 3  # 1 meta + 2 for the page
+    assert blueprint_review._worker_count(1, include_meta=False) == 2
+    assert blueprint_review._worker_count(19, include_meta=False) == 16  # capped, not 38
+    assert blueprint_review._worker_count(0, include_meta=False) == 1  # never zero (ThreadPoolExecutor requirement)

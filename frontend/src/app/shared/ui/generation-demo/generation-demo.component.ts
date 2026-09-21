@@ -63,7 +63,7 @@ const SUBSTATUS: Record<DemoPhase, string> = {
       <aside class="panel">
         <div class="panel__head">
           <span class="row" style="gap: var(--space-2)">
-            <span style="width: 10px; height: 10px; background: var(--color-accent)"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--color-success)"></span>
             <span class="label">Live · rebuilding yourbusiness.com</span>
           </span>
         </div>
@@ -74,7 +74,7 @@ const SUBSTATUS: Record<DemoPhase, string> = {
               <app-site-mock variant="old" [height]="150" />
             </div>
             <div>
-              <span class="label" style="color: var(--color-accent-700)">After</span>
+              <span class="label" style="color: var(--color-success)">After</span>
               <app-site-mock variant="new" [height]="150" />
             </div>
           </div>

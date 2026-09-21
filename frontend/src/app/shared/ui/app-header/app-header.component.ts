@@ -4,49 +4,79 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth.service';
 import { RedoWebsApiService } from '../../../core/redowebs-api.service';
 import { BadgeComponent } from '../badge/badge.component';
+import { ButtonComponent } from '../button/button.component';
 import { IconChevronDown } from '../icons/icons';
 
-/** Shared header for the authenticated pages (/app, /history) -- brand,
- * nav links, credit balance, avatar dropdown (profile + sign out). Not used
- * on the public welcome page, which has no session yet. */
+/** Shared header for every page, public or authenticated -- brand, nav
+ * links, and on the right either a credit balance + avatar dropdown (signed
+ * in) or a single "Log in" button (signed out). */
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, BadgeComponent, IconChevronDown],
+  imports: [RouterLink, RouterLinkActive, BadgeComponent, ButtonComponent, IconChevronDown],
   template: `
     <header class="nav">
-      <a routerLink="/app" class="nav-brand">ReDoWebs</a>
+      <a routerLink="/" class="nav-brand app-header__brand">
+        <span class="app-header__mark">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12h16M4 12l6-6M4 12l6 6" stroke="var(--color-bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        ReDoWebs
+      </a>
 
-      <a routerLink="/app" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive>Home</a>
-      <a routerLink="/history" ariaCurrentWhenActive="page" routerLinkActive>History</a>
-      <a routerLink="/settings/billing" ariaCurrentWhenActive="page" routerLinkActive>Billing</a>
+      <a routerLink="/" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive>Home</a>
 
-      @if (balance(); as b) {
-        <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
-      }
+      @if (auth.isAuthenticated()) {
+        <a routerLink="/history" ariaCurrentWhenActive="page" routerLinkActive>History</a>
+        <a routerLink="/settings/billing" ariaCurrentWhenActive="page" routerLinkActive>Billing</a>
 
-      <div class="app-header__menu">
-        <button type="button" (click)="toggleMenu($event)" class="app-header__avatar-btn">
-          <span class="app-header__avatar">{{ initial() }}</span>
-          <app-icon-chevron-down [size]="16" />
-        </button>
-
-        @if (menuOpen()) {
-          <div class="app-header__dropdown">
-            <p class="app-header__email">{{ auth.currentUser()?.email }}</p>
-            <hr class="hr" />
-            <a routerLink="/history" (click)="closeMenu()">My Generations</a>
-            <hr class="hr" />
-            <button type="button" (click)="signOut()" class="app-header__signout">Sign Out</button>
-          </div>
+        @if (balance(); as b) {
+          <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
         }
-      </div>
+
+        <div class="app-header__menu">
+          <button type="button" (click)="toggleMenu($event)" class="app-header__avatar-btn">
+            <span class="app-header__avatar">{{ initial() }}</span>
+            <app-icon-chevron-down [size]="16" />
+          </button>
+
+          @if (menuOpen()) {
+            <div class="app-header__dropdown">
+              <p class="app-header__email">{{ auth.currentUser()?.email }}</p>
+              <hr class="hr" />
+              <a routerLink="/history" (click)="closeMenu()">My Generations</a>
+              <hr class="hr" />
+              <button type="button" (click)="signOut()" class="app-header__signout">Sign Out</button>
+            </div>
+          }
+        </div>
+      } @else {
+        <a appButton variant="primary" routerLink="/login" class="app-header__login">Log in</a>
+      }
     </header>
   `,
   styles: [
     `
+      .app-header__brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .app-header__mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+      }
       .app-header__menu {
         position: relative;
+        margin-left: var(--space-2);
+      }
+      .app-header__login {
         margin-left: var(--space-2);
       }
       .app-header__avatar-btn {

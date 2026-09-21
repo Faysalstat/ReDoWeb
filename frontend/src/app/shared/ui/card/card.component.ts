@@ -27,7 +27,7 @@ export class CardComponent {
       default: 'none',
       glass: 'none',
       gradient: '2px solid var(--color-accent)',
-      danger: '2px solid var(--color-accent-800)',
+      danger: '2px solid var(--color-danger)',
     };
     return borders[this.variant()];
   });

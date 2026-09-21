@@ -14,7 +14,7 @@ export type BadgeVariant = 'accent' | 'muted' | 'warning' | 'success' | 'danger'
         font-size: 11px;
         letter-spacing: 0.02em;
         padding: 3px 10px;
-        background: var(--color-accent-800);
+        background: var(--color-danger);
         color: var(--color-bg);
       }
     `,

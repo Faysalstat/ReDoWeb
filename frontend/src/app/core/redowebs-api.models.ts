@@ -102,7 +102,9 @@ export interface ProjectStatusResponse {
   generations: ProjectGenerationSummary[];
   tiers_total: number;
   tiers_completed: number;
-  current_tier?: string | null;
+  /** Tiers now fan out and generate independently, so more than one can be
+   * "running" at once -- plural, not just the tail of a chain. */
+  current_tiers: string[];
 }
 
 export interface ProjectListItem {
@@ -130,4 +132,18 @@ export interface WalletResponse {
 export interface PreviewTokenResponse {
   preview_token: string;
   expires_in: number;
+}
+
+// --- Downloads (lazy full-site build on purchase) ---
+
+export interface DownloadStartResponse {
+  status: 'ready' | 'building';
+  project_id: string;
+  tier: string;
+  job_id?: string | null;
+}
+
+export interface DownloadStatusResponse {
+  status: 'ready' | 'building' | 'failed';
+  failure_reason?: string | null;
 }

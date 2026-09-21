@@ -42,6 +42,33 @@ def test_missing_required_output_files_never_blocks_when_trace_path_is_none():
     assert _missing_required_output_files(None) == []
 
 
+def test_missing_required_output_files_respects_injected_required_files(tmp_path):
+    """generate_full_site()'s batches check a per-batch page list, not the
+    module-level REQUIRED_OUTPUT_FILES constant generate_site() uses."""
+    output_dir = tmp_path / "generated" / "pro" / "full"
+    output_dir.mkdir(parents=True)
+    (output_dir / "page-1.html").write_text("<html></html>", encoding="utf-8")
+    trace_path = output_dir / "_debug_trace.json"
+
+    missing = _missing_required_output_files(
+        trace_path, required_files=("page-1.html", "page-2.html", "style.css")
+    )
+
+    assert set(missing) == {"page-2.html", "style.css"}
+
+
+# --- _page_output_filename -------------------------------------------------
+
+
+def test_page_output_filename_home_page_is_index_html():
+    assert site_generator._page_output_filename(0, "https://example.com/") == "index.html"
+
+
+def test_page_output_filename_other_pages_use_position_based_name():
+    assert site_generator._page_output_filename(1, "https://example.com/about") == "page-1.html"
+    assert site_generator._page_output_filename(4, "https://example.com/contact") == "page-4.html"
+
+
 # --- _run_agent_loop: premature-stop regression --------------------------
 # Locks in a real failure seen end-to-end: one write_file call in an
 # iteration succeeded (index.html) while a sibling call in the SAME
@@ -169,6 +196,49 @@ def test_select_template_without_override_picks_a_real_template():
     assert path.suffix == ".txt"
 
 
+def test_select_template_with_candidates_restricts_random_choice(monkeypatch):
+    """The admin-enabled subset (candidate_templates from
+    prompt_template_service.get_active_template_filenames) must be the only
+    thing random.choice ever sees -- this is what makes an admin-disabled
+    template actually stop being picked."""
+    captured = {}
+
+    def fake_choice(seq):
+        captured["seq"] = list(seq)
+        return seq[0]
+
+    monkeypatch.setattr(site_generator.random, "choice", fake_choice)
+    all_templates = sorted(p.name for p in site_generator.PROMPTS_DIR.glob("*.txt"))
+    subset = all_templates[:2]
+
+    result = site_generator._select_template(candidates=subset)
+
+    assert {p.name for p in captured["seq"]} == set(subset)
+    assert result.name in subset
+
+
+def test_select_template_candidates_none_preserves_every_file_behavior(monkeypatch):
+    """Regression: omitting candidates must behave exactly as it did before
+    this admin control existed -- every file on disk is a candidate."""
+    captured = {}
+
+    def fake_choice(seq):
+        captured["seq"] = list(seq)
+        return seq[0]
+
+    monkeypatch.setattr(site_generator.random, "choice", fake_choice)
+    all_templates = sorted(p.name for p in site_generator.PROMPTS_DIR.glob("*.txt"))
+
+    site_generator._select_template()
+
+    assert {p.name for p in captured["seq"]} == set(all_templates)
+
+
+def test_select_template_empty_candidates_raises():
+    with pytest.raises(GenerationError):
+        site_generator._select_template(candidates=[])
+
+
 # --- generate_site: every tier uses the template-based strategy -----------
 
 
@@ -229,3 +299,94 @@ def test_generate_site_uses_template_strategy_for_every_tier(tmp_path, monkeypat
     output_dir = project_root / "generated" / tier_key
     assert not (output_dir / "design_system.json").exists()
     assert responses == []
+
+
+# --- generate_full_site: batching, style-continuity pre-copy --------------
+
+
+def _make_multi_page_project(tmp_path, num_pages: int):
+    project_root = tmp_path / "project"
+    blueprint_dir = project_root / "blueprint"
+    blueprint_dir.mkdir(parents=True)
+    preview_dir = project_root / "generated" / "pro"
+    preview_dir.mkdir(parents=True)
+    (preview_dir / "index.html").write_text("<html>home</html>", encoding="utf-8")
+    (preview_dir / "style.css").write_text("body{color:red}", encoding="utf-8")
+
+    meta = {
+        "site_name": "Acme",
+        "colors": {"primary": "#111111", "secondary": "#222222", "accent": "#333333"},
+        "fonts": {"heading": "Inter", "body": "Inter"},
+    }
+    pages = [{"page_url": "https://example.com/"}] + [
+        {"page_url": f"https://example.com/page-{i}"} for i in range(1, num_pages)
+    ]
+    (blueprint_dir / "blueprint.json").write_text(
+        json.dumps({"meta": meta, "navigation": [], "pages": pages}), encoding="utf-8"
+    )
+    design_md = (
+        "---\n"
+        "site_name: Acme\n"
+        "colors:\n  primary: '#111111'\n  secondary: '#222222'\n  accent: '#333333'\n"
+        "logo: null\n"
+        "fonts:\n  heading: Inter\n  body: Inter\n"
+        "tone: warm\n"
+        "---\n\n## Home Page\n### Hero\nHeadline: Welcome\n"
+    )
+    (blueprint_dir / "design.md").write_text(design_md, encoding="utf-8")
+    (project_root / "metadata.json").write_text(json.dumps({"assets": []}), encoding="utf-8")
+    return project_root
+
+
+def test_generate_full_site_requires_template_override(tmp_path, monkeypatch):
+    monkeypatch.setattr(site_generator.tier_service, "is_tier_enabled", lambda key: True)
+    project_root = _make_multi_page_project(tmp_path, num_pages=3)
+
+    with pytest.raises(GenerationError):
+        site_generator.generate_full_site(project_root, "pro")
+
+
+def test_generate_full_site_batches_remaining_pages_and_sums_usage(tmp_path, monkeypatch):
+    monkeypatch.setattr(site_generator.tier_service, "is_tier_enabled", lambda key: True)
+    # 1 home page + 9 remaining -> ceil(9 / FULL_SITE_PAGES_PER_BATCH=4) == 3 batches.
+    project_root = _make_multi_page_project(tmp_path, num_pages=10)
+
+    batch_required_files: list[list[str]] = []
+
+    def fake_run_agent_loop(settings, model_name, system_prompt, user_message, dispatch, trace_path=None, required_files=()):
+        # Real _run_agent_loop would call dispatch's write_file; here we
+        # just materialize the required files directly to isolate the
+        # batching/aggregation logic under test from the agent loop itself
+        # (already covered by test_run_agent_loop_* above).
+        for name in required_files:
+            (trace_path.parent / name).write_text("<html></html>", encoding="utf-8")
+        batch_required_files.append(list(required_files))
+        return "batch done", {"prompt_tokens": 10, "completion_tokens": 5}, 1
+
+    monkeypatch.setattr(site_generator, "_run_agent_loop", fake_run_agent_loop)
+
+    result = site_generator.generate_full_site(project_root, "pro", template_override="business_Industrial_prompt.txt")
+
+    assert len(batch_required_files) == 3
+    assert sum(len(batch) for batch in batch_required_files) == 9
+    assert result["usage"] == {"prompt_tokens": 30, "completion_tokens": 15}
+    assert result["iterations"] == 3
+    assert result["template_used"] == "business_Industrial_prompt.txt"
+
+
+def test_generate_full_site_precopies_preview_files_byte_identical(tmp_path, monkeypatch):
+    monkeypatch.setattr(site_generator.tier_service, "is_tier_enabled", lambda key: True)
+    project_root = _make_multi_page_project(tmp_path, num_pages=3)
+
+    def fake_run_agent_loop(settings, model_name, system_prompt, user_message, dispatch, trace_path=None, required_files=()):
+        for name in required_files:
+            (trace_path.parent / name).write_text("<html></html>", encoding="utf-8")
+        return "done", {"prompt_tokens": 0, "completion_tokens": 0}, 1
+
+    monkeypatch.setattr(site_generator, "_run_agent_loop", fake_run_agent_loop)
+
+    site_generator.generate_full_site(project_root, "pro", template_override="business_Industrial_prompt.txt")
+
+    full_dir = project_root / "generated" / "pro" / "full"
+    assert full_dir.joinpath("index.html").read_text(encoding="utf-8") == "<html>home</html>"
+    assert full_dir.joinpath("style.css").read_text(encoding="utf-8") == "body{color:red}"

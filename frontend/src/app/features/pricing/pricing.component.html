@@ -8,7 +8,7 @@
       redesign, no subscriptions.
     </p>
 
-    <div class="cells cells--3" style="margin-top: calc(1.5 * var(--leading))">
+    <div class="grid-3" style="margin-top: calc(1.5 * var(--leading)); align-items: start">
       @for (tier of tiers; track tier.name) {
         <app-pricing-tier
           [name]="tier.name"
@@ -17,6 +17,7 @@
           [tagline]="tier.tagline"
           [features]="tier.features"
           [highlighted]="tier.highlighted"
+          [tone]="tier.tone"
           [ctaLabel]="tier.ctaLabel"
         />
       }

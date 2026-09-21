@@ -3,8 +3,11 @@
 same schema shape. See docs/blueprint-json-pipeline-plan.md.
 
 Three call types, fired concurrently via a ThreadPoolExecutor (thread-level
-HTTP concurrency, safe under the queue worker's single-task-at-a-time
-processing on Windows):
+HTTP concurrency, capped per-project at `_worker_count()`'s ceiling below --
+note that with multiple `queue_worker.py` processes running (see
+docs/concurrency-scaling-plan.md), several projects' blueprint reviews can
+now run at once, so total outbound OpenRouter connections scale with worker
+count too, not just this per-project cap):
 - Call A (meta, x1): reviews site_name/tagline/fonts/tone only.
 - Call B (content, x1 per page): reviews the 5 Mandatory text-bearing
   sections (hero/about/services_features/faq/cta_section) of that one page,
@@ -361,57 +364,92 @@ def _merge_gap_sections(existing: list[AdditionalSection], verified_gaps: list[A
     return existing + verified_gaps
 
 
+def _worker_count(num_pages: int, include_meta: bool) -> int:
+    """1 meta + 2 calls (content, gap) per targeted page. Capped at 16 --
+    not for correctness (concurrency here only ever affects latency, never
+    correctness), but to bound simultaneous outbound OpenRouter connections
+    now that a single review batch can span up to ~19 pages (the
+    remaining-pages-after-home-page case triggered by a full-site purchase,
+    see tasks_full_site.py) rather than the old 3-page-cap assumption this
+    replaces."""
+    return min((1 if include_meta else 0) + 2 * num_pages, 16) or 1
+
+
 def review_blueprint(
-    project_root: Path, scraped: BlueprintDocument, model: str | None = None
+    project_root: Path,
+    scraped: BlueprintDocument,
+    model: str | None = None,
+    page_indices: list[int] | None = None,
+    include_meta: bool = True,
 ) -> tuple[BlueprintDocument, dict]:
     """`model` overrides the OpenRouter model id used for all three call
     types below (real callers resolve it once from the DB-backed
     model_config_service.get_vision_model() in blueprint_pipeline.py and
     pass it down here; omitted, each call falls back to config.py's static
-    vision_model default)."""
+    vision_model default).
+
+    `page_indices` restricts Call B/C to only these positions in
+    `scraped.pages` -- the returned document's `.pages` is filtered down to
+    just those indices, in the given order, rather than the full original
+    list. None (default) reviews every page, matching the original
+    behavior -- used by the DB-free debug routes and a from-scratch full
+    re-review. The real pipeline's initial run passes `page_indices=[0]`
+    (home page only, see tasks_blueprint.py); a full-site purchase later
+    passes just the remaining indices (see tasks_full_site.py).
+
+    `include_meta=False` skips Call A entirely and leaves `blueprint.meta`
+    as `scraped.meta` untouched -- used when re-reviewing the remaining
+    pages after a purchase, since meta was already resolved (and possibly
+    AI-corrected) by the original home-page run and doesn't need re-spending.
+    """
     blueprint = scraped.model_copy(deep=True)
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
+
+    target_indices = page_indices if page_indices is not None else list(range(len(scraped.pages)))
 
     logo_path = scraped.meta.logo
     image_paths = [project_root / logo_path] if logo_path else []
     meta_digest = _build_meta_digest(scraped)
     storage_paths_by_url = _load_page_storage_paths(project_root)
 
-    # max_workers covers 1 meta + N content + N gap-check calls (was 1+N,
-    # now 1+2N with Call C added) -- 8 comfortably covers the project's
-    # 3-page cap (1 + 3 + 3 = 7) with headroom.
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        meta_future = executor.submit(
-            vision_json_chat,
-            META_REVIEW_SYSTEM_PROMPT,
-            f"Heuristic site name guess: {scraped.meta.site_name}\n\n{meta_digest}",
-            image_paths,
-            model=model,
+    with ThreadPoolExecutor(max_workers=_worker_count(len(target_indices), include_meta)) as executor:
+        meta_future = (
+            executor.submit(
+                vision_json_chat,
+                META_REVIEW_SYSTEM_PROMPT,
+                f"Heuristic site name guess: {scraped.meta.site_name}\n\n{meta_digest}",
+                image_paths,
+                model=model,
+            )
+            if include_meta
+            else None
         )
         content_futures = [
-            executor.submit(_review_page, page, scraped, index, model)
-            for index, page in enumerate(scraped.pages)
+            executor.submit(_review_page, scraped.pages[i], scraped, i, model) for i in target_indices
         ]
         gap_futures = [
             executor.submit(
                 _review_page_gaps,
                 project_root,
-                storage_paths_by_url.get(page.page_url),
-                page.sections,
+                storage_paths_by_url.get(scraped.pages[i].page_url),
+                scraped.pages[i].sections,
                 scraped.navigation,
                 model,
             )
-            for page in scraped.pages
+            for i in target_indices
         ]
 
-        try:
-            meta_result, meta_usage = meta_future.result()
-        except OpenRouterError:
-            # Every meta field now has a working heuristic fallback, so a
-            # meta-review failure degrades instead of failing the whole
-            # pipeline (supersedes the old brand-review fail-hard rule --
-            # see docs/blueprint-json-pipeline-plan.md).
+        if meta_future is None:
             meta_result, meta_usage = {}, {}
+        else:
+            try:
+                meta_result, meta_usage = meta_future.result()
+            except OpenRouterError:
+                # Every meta field now has a working heuristic fallback, so a
+                # meta-review failure degrades instead of failing the whole
+                # pipeline (supersedes the old brand-review fail-hard rule --
+                # see docs/blueprint-json-pipeline-plan.md).
+                meta_result, meta_usage = {}, {}
 
         page_results = [future.result() for future in content_futures]
         gap_results = [future.result() for future in gap_futures]
@@ -419,32 +457,39 @@ def review_blueprint(
     total_usage["prompt_tokens"] += meta_usage.get("prompt_tokens", 0)
     total_usage["completion_tokens"] += meta_usage.get("completion_tokens", 0)
 
-    blueprint.meta.site_name = meta_result.get("site_name") or scraped.meta.site_name
-    blueprint.meta.tagline = meta_result.get("tagline") or scraped.meta.tagline
-    fonts = meta_result.get("fonts") or {}
-    # Code-enforced, not just prompted -- the meta-review call is a
-    # free-text vision guess, and it has genuinely hallucinated a
-    # plausible-but-fake font name in practice ("Pawtastic" for a
-    # dog-themed logo), which would otherwise silently fail to load and
-    # fall back to generic sans-serif in generated CSS. See font_library.py.
-    heading_fallback = normalize_font(scraped.meta.fonts.heading, DEFAULT_HEADING_FONT)
-    body_fallback = normalize_font(scraped.meta.fonts.body, DEFAULT_BODY_FONT)
-    blueprint.meta.fonts.heading = normalize_font(fonts.get("heading"), heading_fallback)
-    blueprint.meta.fonts.body = normalize_font(fonts.get("body"), body_fallback)
-    blueprint.meta.tone = meta_result.get("tone") or scraped.meta.tone
+    if include_meta:
+        blueprint.meta.site_name = meta_result.get("site_name") or scraped.meta.site_name
+        blueprint.meta.tagline = meta_result.get("tagline") or scraped.meta.tagline
+        fonts = meta_result.get("fonts") or {}
+        # Code-enforced, not just prompted -- the meta-review call is a
+        # free-text vision guess, and it has genuinely hallucinated a
+        # plausible-but-fake font name in practice ("Pawtastic" for a
+        # dog-themed logo), which would otherwise silently fail to load and
+        # fall back to generic sans-serif in generated CSS. See font_library.py.
+        heading_fallback = normalize_font(scraped.meta.fonts.heading, DEFAULT_HEADING_FONT)
+        body_fallback = normalize_font(scraped.meta.fonts.body, DEFAULT_BODY_FONT)
+        blueprint.meta.fonts.heading = normalize_font(fonts.get("heading"), heading_fallback)
+        blueprint.meta.fonts.body = normalize_font(fonts.get("body"), body_fallback)
+        blueprint.meta.tone = meta_result.get("tone") or scraped.meta.tone
+
+    # Filter down to just the targeted pages, in target_indices' order.
+    # From here on, blueprint.pages[position] and
+    # page_results[position]/gap_results[position] are aligned by position
+    # in target_indices, NOT by the pages' original index in scraped.pages.
+    blueprint.pages = [blueprint.pages[i] for i in target_indices]
 
     # Call B's result becomes the base for each page first (its own,
     # subset-filtered additional_sections); Call C's verified new entries
     # are appended on top, never the other way around -- see
     # _merge_gap_sections' docstring for why this ordering is safe.
-    for index, (reviewed_sections, usage) in enumerate(page_results):
-        blueprint.pages[index].sections = reviewed_sections
+    for position, (reviewed_sections, usage) in enumerate(page_results):
+        blueprint.pages[position].sections = reviewed_sections
         total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
         total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
 
-    for index, (verified_gaps, usage) in enumerate(gap_results):
-        blueprint.pages[index].sections.additional_sections = _merge_gap_sections(
-            blueprint.pages[index].sections.additional_sections, verified_gaps
+    for position, (verified_gaps, usage) in enumerate(gap_results):
+        blueprint.pages[position].sections.additional_sections = _merge_gap_sections(
+            blueprint.pages[position].sections.additional_sections, verified_gaps
         )
         total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
         total_usage["completion_tokens"] += usage.get("completion_tokens", 0)

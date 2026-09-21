@@ -94,9 +94,9 @@ edits won't take effect otherwise.
 
 API docs: http://localhost:8123/docs
 
-### 2.5 Start the queue worker
+### 2.5 Start the queue worker(s)
 
-In a second terminal:
+Single worker (a second terminal):
 
 ```powershell
 cd "G:\Current Works\ReDoWebs\backend"
@@ -104,10 +104,26 @@ cd "G:\Current Works\ReDoWebs\backend"
 python -m app.workers.queue_worker
 ```
 
-This polls the Postgres-backed `queued_jobs` table and runs the
-crawl/blueprint/generate pipeline stages one at a time (see CLAUDE.md) —
-no separate broker process to run, unlike the Celery+Redis setup this
-replaced.
+This polls the Postgres-backed `queued_jobs` table and dispatches
+crawl/blueprint/generate pipeline stages — no separate broker process to
+run, unlike the Celery+Redis setup this replaced.
+
+**Multiple workers** (recommended once more than one user generates at a
+time — see `docs/concurrency-scaling-plan.md`): claiming is already safe
+for concurrent processes (`claim_next_job()`'s `SELECT ... FOR UPDATE SKIP
+LOCKED`), so just run more of the same command in more terminals, or use
+the helper script, which starts each in its own window with a distinct
+`REDOWEBS_WORKER_ID` for log disambiguation:
+
+```powershell
+.\backend\scripts\start_workers.ps1 -Count 2
+```
+
+Start at 2 and only step up (`-Count 3`/`-Count 4`) after confirming no
+OpenRouter rate-limit errors or DB pool timeouts under load — each
+project's blueprint-review step can already burst to 16 concurrent
+OpenRouter calls on its own, so total outbound connections scale with
+worker count too.
 
 ### 2.6 Run the backend test suite
 
@@ -139,7 +155,39 @@ npx tsc -p tsconfig.app.json --noEmit
 ng build
 ```
 
-## 4. Bringing everything up (typical dev session order)
+## 4. Admin access
+
+There's no separate admin login — the admin panel reuses the same Google
+SSO session every regular user gets. Granting the *admin* role is a
+one-time, CLI-only step (never exposed over HTTP, on purpose):
+
+1. Sign in normally once at http://localhost:4200 with the Google account
+   you want to make an admin, so a `User` row exists for that email.
+2. Promote it:
+
+   ```powershell
+   cd "G:\Current Works\ReDoWebs\backend"
+   .\venv\Scripts\Activate.ps1        # Git Bash: source venv/Scripts/activate
+   python -m scripts.promote_admin you@example.com
+   ```
+
+3. Sign out and back in (or just refresh) so the frontend picks up the
+   updated `is_admin` flag on the current session, then open
+   http://localhost:4200/admin.
+
+The `/admin` route is gated client-side by `adminGuard`
+(`frontend/src/app/core/auth.guard.ts`) — a non-admin gets redirected to
+`/app`, and a signed-out visitor to `/`. Every `/api/v1/admin/*` endpoint
+is independently gated server-side by the `require_admin` dependency
+(`backend/app/auth/dependencies.py`, checking `User.is_admin` off the same
+JWT), so the client-side guard is a UX convenience, not the actual
+security boundary.
+
+To revoke admin access, run the same promotion query in reverse (there's
+no `demote_admin` script yet — set `is_admin = false` directly via `psql`
+or a one-off script, since this is a rare, deliberately-manual action).
+
+## 5. Bringing everything up (typical dev session order)
 
 1. `G:\Current Works\ReDoWebs\standalone`: `docker compose up -d`
 2. `G:\Current Works\ReDoWebs\backend` (terminal 1): activate venv →
@@ -149,7 +197,7 @@ ng build
 4. `G:\Current Works\ReDoWebs\frontend` (terminal 3): `npm start`
 5. Open http://localhost:4200 — you should land on the welcome/sign-in page.
 
-## 5. Shutting everything down
+## 6. Shutting everything down
 
 ```powershell
 # Ctrl+C in the uvicorn, queue worker, and ng serve terminals, then:

@@ -1,0 +1,67 @@
+<div>
+  <h1 class="display display--sm">Model config</h1>
+  <p class="sub">Change which OpenRouter model each tier uses for generation, and the shared vision/review model.</p>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else {
+    @if (errorMessage()) {
+      <p style="color: var(--color-danger); margin-top: var(--space-4)">{{ errorMessage() }}</p>
+    }
+    @if (savedMessage()) {
+      <p style="color: var(--color-accent); margin-top: var(--space-4)">{{ savedMessage() }}</p>
+    }
+
+    <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">Generation model per tier</h2>
+    <div class="rows" style="margin-top: var(--space-3)">
+      @for (tier of tiers(); track tier.key) {
+        <div class="rows__item">
+          <div class="row row--between" style="flex-wrap: wrap; gap: var(--space-3)">
+            <div>
+              <span class="row" style="gap: var(--space-2); align-items: center">
+                <strong>{{ tier.label }}</strong>
+                <app-badge [variant]="tier.is_active ? 'success' : 'muted'">{{ tier.is_active ? 'active' : 'disabled' }}</app-badge>
+              </span>
+              <p class="sub" style="margin: var(--space-1) 0 0; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap">
+                <span>Effective: {{ tier.effective_generation_model }}</span>
+                @if (tier.updated_by_admin_id) {
+                  <span class="tag tag-neutral">last edited {{ tier.updated_at | date: 'medium' }}</span>
+                }
+              </p>
+            </div>
+            <div class="row" style="gap: var(--space-2)">
+              <input
+                class="input"
+                type="text"
+                placeholder="leave blank to use the default"
+                style="width: 280px"
+                [ngModel]="draftFor(tier.key)"
+                (ngModelChange)="setDraft(tier.key, $event)"
+              />
+              <button type="button" appButton variant="secondary" [disabled]="savingKey() === tier.key" (click)="saveTierModel(tier.key)">
+                {{ savingKey() === tier.key ? 'Saving…' : 'Save' }}
+              </button>
+              <button type="button" appButton variant="ghost" [disabled]="togglingKey() === tier.key" (click)="toggleTierActive(tier)">
+                {{ togglingKey() === tier.key ? 'Updating…' : tier.is_active ? 'Disable' : 'Enable' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">Shared vision / review model</h2>
+    <p class="sub">Used by every blueprint review call (the vision meta call and the per-page content review call).</p>
+    @if (visionModel(); as v) {
+      <div class="row" style="gap: var(--space-2); margin-top: var(--space-3); flex-wrap: wrap">
+        <input class="input" type="text" style="width: 280px" [ngModel]="visionDraft()" (ngModelChange)="visionDraft.set($event)" />
+        <button type="button" appButton variant="primary" [disabled]="savingVision()" (click)="saveVisionModel()">
+          {{ savingVision() ? 'Saving…' : 'Save' }}
+        </button>
+        <span class="sub">Effective: {{ v.effective_model_name }}</span>
+      </div>
+    }
+  }
+</div>

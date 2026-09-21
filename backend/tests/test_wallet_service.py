@@ -118,10 +118,118 @@ def test_spend_is_idempotent_by_key(db_session):
     assert len(spend_txns) == 1
 
 
+def test_spend_locks_wallet_before_idempotency_check(db_session, monkeypatch):
+    """Regression test: spend() must acquire the wallet's FOR UPDATE lock
+    *before* checking the idempotency key, not after -- otherwise two
+    concurrent calls with the same key can both pass the check and race to
+    insert it, and the loser hits the DB's unique constraint on
+    idempotency_key as an unhandled IntegrityError instead of quietly
+    no-op'ing. This can't easily be tested with real thread concurrency
+    against SQLite (no row locking), so instead it asserts the *order* of
+    operations: the idempotency SELECT must not run before the wallet SELECT
+    ... FOR UPDATE."""
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+
+    call_order = []
+    original_query = db_session.query
+
+    def tracking_query(model):
+        if model is CreditWallet:
+            call_order.append("wallet_lock")
+        elif model is CreditTransaction:
+            call_order.append("idempotency_check")
+        return original_query(model)
+
+    monkeypatch.setattr(db_session, "query", tracking_query)
+
+    wallet_service.spend(db_session, user.id, 1, "generation_spend", idempotency_key="k1")
+
+    assert call_order[0] == "wallet_lock"
+    assert "idempotency_check" in call_order
+    assert call_order.index("wallet_lock") < call_order.index("idempotency_check")
+
+
 def test_spend_creates_wallet_with_zero_balance_if_missing(db_session):
     user = _make_user(db_session)
 
     with pytest.raises(InsufficientCreditsError):
         wallet_service.spend(db_session, user.id, 1, "generation_spend")
 
+    assert db_session.query(CreditWallet).filter(CreditWallet.user_id == user.id).count() == 1
+
+
+def test_admin_adjust_positive_increases_balance_and_writes_ledger_row(db_session):
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+
+    wallet, txn = wallet_service.admin_adjust(db_session, user.id, 5)
+    db_session.commit()
+
+    assert wallet.balance == wallet_service.SIGNUP_GRANT_CREDITS + 5
+    assert txn.amount == 5
+    assert txn.reason == "admin_adjustment"
+
+
+def test_admin_adjust_negative_decreases_balance(db_session):
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+
+    wallet, txn = wallet_service.admin_adjust(db_session, user.id, -1)
+    db_session.commit()
+
+    assert wallet.balance == wallet_service.SIGNUP_GRANT_CREDITS - 1
+    assert txn.amount == -1
+    assert txn.reason == "admin_adjustment"
+
+
+def test_admin_adjust_negative_below_zero_raises_and_writes_nothing(db_session):
+    user = _make_user(db_session)
+    wallet_service.get_or_create_wallet(db_session, user.id)  # balance 0
+    db_session.commit()
+
+    with pytest.raises(InsufficientCreditsError):
+        wallet_service.admin_adjust(db_session, user.id, -1)
+
+    wallet = db_session.query(CreditWallet).filter(CreditWallet.user_id == user.id).one()
+    assert wallet.balance == 0
+    assert (
+        db_session.query(CreditTransaction)
+        .filter(CreditTransaction.wallet_id == wallet.id, CreditTransaction.reason == "admin_adjustment")
+        .count()
+        == 0
+    )
+
+
+def test_admin_adjust_is_idempotent_by_key(db_session):
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+
+    key = "admin_adjustment:some-purchase-id"
+    wallet_service.admin_adjust(db_session, user.id, 5, idempotency_key=key)
+    db_session.commit()
+    wallet, txn = wallet_service.admin_adjust(db_session, user.id, 5, idempotency_key=key)
+    db_session.commit()
+
+    assert wallet.balance == wallet_service.SIGNUP_GRANT_CREDITS + 5
+    adjustment_txns = (
+        db_session.query(CreditTransaction)
+        .filter(CreditTransaction.wallet_id == wallet.id, CreditTransaction.reason == "admin_adjustment")
+        .all()
+    )
+    assert len(adjustment_txns) == 1
+    assert txn.id == adjustment_txns[0].id
+
+
+def test_admin_adjust_creates_wallet_with_zero_balance_if_missing(db_session):
+    user = _make_user(db_session)
+
+    wallet, txn = wallet_service.admin_adjust(db_session, user.id, 3)
+    db_session.commit()
+
+    assert wallet.balance == 3
     assert db_session.query(CreditWallet).filter(CreditWallet.user_id == user.id).count() == 1

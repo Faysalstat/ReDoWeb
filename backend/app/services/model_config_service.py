@@ -19,6 +19,8 @@ Follows the same DB-wins-over-hardcoded-default shape as
 token_usage_service.get_model_pricing / ModelPricing.
 """
 
+import uuid
+
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -53,3 +55,27 @@ def get_vision_model(db: Session | None = None) -> str:
 
     override = _with_session(db, _query)
     return override or get_settings().vision_model
+
+
+def set_vision_model(model_name: str, admin_id: uuid.UUID, db: Session | None = None) -> AIModelSetting:
+    """Admin write path -- upserts the ai_model_settings row keyed
+    VISION_MODEL_KEY. Unlike the read helpers above, a self-opened session
+    (db=None) commits before closing, since a write must not be silently
+    lost just because the caller didn't pass an existing session."""
+    owns_session = db is None
+    session = db if db is not None else SessionLocal()
+    try:
+        row = session.get(AIModelSetting, VISION_MODEL_KEY)
+        if row is None:
+            row = AIModelSetting(key=VISION_MODEL_KEY, model_name=model_name, updated_by_admin_id=admin_id)
+            session.add(row)
+        else:
+            row.model_name = model_name
+            row.updated_by_admin_id = admin_id
+        session.flush()
+        if owns_session:
+            session.commit()
+        return row
+    finally:
+        if owns_session:
+            session.close()

@@ -16,7 +16,8 @@ from ..schemas.project import (
     ProjectStatusResponse,
     ProjectSubmitResponse,
 )
-from ..services import tier_service, wallet_service
+from ..services import storage_capacity_service, tier_service, wallet_service
+from ..services.storage_capacity_service import InsufficientDiskSpaceError
 from ..workers.queue import enqueue
 
 router = APIRouter(prefix="/api/v1", tags=["projects"])
@@ -31,6 +32,13 @@ def submit_project(
     current_user: User = Depends(get_current_user),
 ) -> ProjectSubmitResponse:
     client_ip = request.client.host if request.client else None
+
+    # Checked before any DB writes or credit check -- a rejected submission
+    # here never charges a credit and never enqueues a crawl.
+    try:
+        storage_capacity_service.check_free_disk_space()
+    except InsufficientDiskSpaceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     # Fast-fail before spending any crawl/AI cost -- this is a UX
     # optimization only, not the real enforcement (that's the row-locking
@@ -64,11 +72,10 @@ def submit_project(
 
     project_id = str(project.id)
 
-    # Only one tier is enabled today, so this is a simple linear pipeline.
-    # Once basic/premium have real templates, the generate stage for each
-    # enabled tier should become a parallel fan-out instead of the
-    # sequential remaining_tiers chaining in tasks_generate.py -- see
-    # docs/PROGRESS.md.
+    # Every enabled tier's generate_tier job is enqueued as an independent
+    # fan-out (see tasks_blueprint.py::extract_blueprint_task) once crawl +
+    # blueprint extraction succeed, rather than chained one at a time -- see
+    # docs/concurrency-scaling-plan.md.
     tier_keys = [tier.key for tier in tier_service.get_enabled_tiers()]
     enqueue(db, "run_crawl", {"project_id": project_id, "url": str(payload.url), "tier_keys": tier_keys})
     db.commit()
@@ -135,12 +142,13 @@ def get_project_status(
             tone=blueprint_row.tone,
         )
 
-    # Tiers run as a sequential chain of queued_jobs rows (see submit_project
-    # below), so several GenerationJob rows can exist for one project at
-    # once: earlier tiers already "succeeded" while the current one is still
-    # "running". Surface every succeeded tier's output as soon as it lands,
-    # ordered to match the enabled-tiers display order, rather than waiting
-    # for the whole project to reach "ready".
+    # All enabled tiers' generate_tier jobs are enqueued as an independent
+    # fan-out (see submit_project above), so several GenerationJob rows can
+    # exist for one project at once, potentially more than one "running"
+    # concurrently on different queue workers. Surface every succeeded
+    # tier's output as soon as it lands, ordered to match the enabled-tiers
+    # display order, rather than waiting for the whole project to reach
+    # "ready".
     enabled_tiers = tier_service.get_enabled_tiers()
     tier_order = {tier.key: index for index, tier in enumerate(enabled_tiers)}
 
@@ -162,7 +170,10 @@ def get_project_status(
         if job.overall_status == "succeeded" and job.output is not None
     ]
     generations.sort(key=lambda gen: tier_order.get(gen.tier, len(tier_order)))
-    current_tier = next((job.tier for job in jobs if job.overall_status == "running"), None)
+    # Plural: fan-out means more than one tier can be "running" at once, not
+    # just the tail of a chain -- see tier_service.get_enabled_tiers() usage
+    # above and docs/concurrency-scaling-plan.md.
+    current_tiers = [job.tier for job in jobs if job.overall_status == "running"]
 
     return ProjectStatusResponse(
         project_id=project_id,
@@ -173,5 +184,5 @@ def get_project_status(
         generations=generations,
         tiers_total=len(enabled_tiers),
         tiers_completed=len(generations),
-        current_tier=current_tier,
+        current_tiers=current_tiers,
     )

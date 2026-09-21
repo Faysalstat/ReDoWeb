@@ -1,0 +1,61 @@
+<div>
+  <div class="row row--between">
+    <div>
+      <h1 class="display display--sm">Users</h1>
+      <p class="sub">Browse users, wallet balances, and their generation history.</p>
+    </div>
+  </div>
+
+  <div class="field" style="max-width: 320px; margin-top: var(--space-4)">
+    <label for="user-search">Search by email</label>
+    <input
+      id="user-search"
+      class="input"
+      type="text"
+      placeholder="name@example.com"
+      [value]="search()"
+      (input)="onSearchChange($any($event.target).value)"
+    />
+  </div>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+  } @else {
+    <table class="table" style="margin-top: calc(1.2 * var(--leading))">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Wallet</th>
+          <th>Projects</th>
+          <th>Admin</th>
+          <th>Joined</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users(); track user.user_id) {
+          <tr>
+            <td><a [routerLink]="['/admin/users', user.user_id]">{{ user.email }}</a></td>
+            <td>{{ user.wallet_balance }}</td>
+            <td>{{ user.projects_count }}</td>
+            <td>{{ user.is_admin ? 'Yes' : '' }}</td>
+            <td>{{ user.created_at | date: 'medium' }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5">No users found.</td></tr>
+        }
+      </tbody>
+    </table>
+
+    <div class="row row--between" style="margin-top: var(--space-4)">
+      <span class="label">{{ total() }} total</span>
+      <div class="row">
+        <button type="button" appButton variant="secondary" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
+        <button type="button" appButton variant="secondary" [disabled]="page() * pageSize >= total()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+  }
+</div>
