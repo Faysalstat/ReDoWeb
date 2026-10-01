@@ -20,6 +20,7 @@ def run_blueprint_pipeline(
     vision_model: str | None = None,
     page_indices: list[int] | None = None,
     include_meta: bool = True,
+    available_categories: list[str] | None = None,
 ) -> dict:
     """`vision_model` overrides the OpenRouter model id used for every AI
     call in this pipeline (blueprint review's meta/content/gap-check calls)
@@ -35,7 +36,12 @@ def run_blueprint_pipeline(
     so AI-review cost only ever scales with the home page, regardless of
     how many pages were crawled; `scraped.json` below still captures every
     crawled page's deterministic extraction, unused until a later
-    full-site purchase (tasks_full_site.py) reviews the rest."""
+    full-site purchase (tasks_full_site.py) reviews the rest.
+
+    `available_categories` also passes straight through to
+    review_blueprint()'s meta call -- see its docstring. Omitted (None),
+    the DB-free debug routes still get a site_category guess back, just
+    an unconstrained one."""
     scraped = extract_scraped_json(project_root)
 
     blueprint_dir = project_root / "blueprint"
@@ -47,7 +53,12 @@ def run_blueprint_pipeline(
     )
 
     blueprint, usage = review_blueprint(
-        project_root, scraped, model=vision_model, page_indices=page_indices, include_meta=include_meta
+        project_root,
+        scraped,
+        model=vision_model,
+        page_indices=page_indices,
+        include_meta=include_meta,
+        available_categories=available_categories,
     )
 
     blueprint_json_path = blueprint_dir / "blueprint.json"

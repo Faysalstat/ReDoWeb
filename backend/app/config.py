@@ -71,6 +71,17 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "10/minute"
     rate_limit_submit: str = "5/minute"
 
+    # Cold-start defaults for the cost_settings table (see
+    # docs/generation-cost-gate-plan.md) -- a missing row falls back to
+    # these; an admin-set row (services/cost_settings_service.py) wins.
+    # generation_cost_alert_usd: above this estimated total (all enabled
+    # tiers combined), tasks_blueprint.py pauses the pipeline for approval
+    # instead of fanning out generate_tier jobs. usd_per_credit: converts
+    # that USD estimate into a required wallet-credit balance -- no such
+    # rate existed anywhere in this codebase before this feature.
+    generation_cost_alert_usd_default: float = 1.00
+    usd_per_credit_default: float = 1.00
+
     class Config:
         env_prefix = "REDOWEBS_"
         env_file = ".env"

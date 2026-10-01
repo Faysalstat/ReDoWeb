@@ -54,6 +54,11 @@ export const ADMIN_ROUTES: Routes = [
         loadComponent: () =>
           import('./earnings/admin-earnings.component').then((m) => m.AdminEarningsComponent),
       },
+      {
+        path: 'cost-gate',
+        loadComponent: () =>
+          import('./cost-gate/admin-cost-gate.component').then((m) => m.AdminCostGateComponent),
+      },
     ],
   },
 ];

@@ -1,6 +1,6 @@
 import uuid
 
-from ..crawler.errors import CrawlRejected
+from ..crawler.errors import CrawlError, CrawlRejected
 from ..db.session import SessionLocal
 from ..models import Asset, CrawlPage, CrawlSnapshot, Project
 from ..services.crawl_service import run_crawl
@@ -44,9 +44,22 @@ def run_crawl_task(project_id: str, url: str, tier_keys: list[str]) -> str:
             project.rejection_reason = exc.message
             db.commit()
             raise
-        except Exception as exc:
+        except CrawlError as exc:
+            # SiteInaccessible and any other definitive, already-friendly
+            # crawl failure (bad HTTP status, network error, login wall,
+            # robots.txt disallow -- see crawler/fetch.py) -- exc.message
+            # is already written to be shown to the end user as-is.
             project.status = "failed"
-            project.rejection_reason = getattr(exc, "message", str(exc))
+            project.rejection_reason = exc.message
+            db.commit()
+            raise
+        except Exception as exc:
+            # Truly unexpected (a bug, not a handled failure mode) -- don't
+            # leak a raw Python/library exception string to the user.
+            # queue_worker.py separately records str(exc) on the
+            # queued_jobs row, so the real error isn't lost for debugging.
+            project.status = "failed"
+            project.rejection_reason = "Something went wrong while crawling this site. Please try again."
             db.commit()
             raise
 

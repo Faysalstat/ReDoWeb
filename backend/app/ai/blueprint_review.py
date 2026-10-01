@@ -8,7 +8,10 @@ note that with multiple `queue_worker.py` processes running (see
 docs/concurrency-scaling-plan.md), several projects' blueprint reviews can
 now run at once, so total outbound OpenRouter connections scale with worker
 count too, not just this per-project cap):
-- Call A (meta, x1): reviews site_name/tagline/fonts/tone only.
+- Call A (meta, x1): reviews site_name/tagline/fonts/tone, and (when the
+  caller supplies `available_categories`) classifies site_category from
+  that fixed list -- used only to narrow site_generator's template choice
+  to a matching category, never to gate/fail generation.
 - Call B (content, x1 per page): reviews the 5 Mandatory text-bearing
   sections (hero/about/services_features/faq/cta_section) of that one page,
   plus `additional_sections` -- real, site-specific content the extractor
@@ -83,8 +86,33 @@ META_REVIEW_SYSTEM_PROMPT = (
     "Respond with ONLY a JSON object (no prose, no markdown fences) in this "
     "exact shape:\n"
     '{"site_name": string, "tagline": string, '
-    '"fonts": {"heading": string, "body": string}, "tone": string}'
+    '"fonts": {"heading": string, "body": string}, "tone": string, '
+    '"site_category": string}'
 )
+
+
+def _build_meta_category_instruction(available_categories: list[str] | None) -> str:
+    """Appended to META_REVIEW_SYSTEM_PROMPT only when the caller supplies
+    a live category list (tasks_blueprint.py resolves it from
+    prompt_template_service.get_active_template_categories) -- the DB-free
+    debug routes and tests that omit it get no category instruction, and
+    the model's site_category answer is then just ignored downstream
+    (filter_templates_by_category treats an unrecognized category as a
+    no-op). Deliberately not baked into the module-level prompt constant,
+    unlike the font list, because the category list is admin-managed and
+    can change between requests without a restart."""
+    if not available_categories:
+        return ""
+    category_list = ", ".join(available_categories)
+    return (
+        "\n\nAlso classify the overall site into exactly one category from "
+        f"this exact list: {category_list}. Pick whichever single category "
+        "the site's real content and purpose most closely matches (for "
+        "example, a personal portfolio/resume/creative-work showcase site "
+        "vs. a local business or service site). Put your answer in "
+        "site_category, copied exactly as spelled in the list. If genuinely "
+        "none of them fit, respond with an empty string for site_category."
+    )
 
 CONTENT_REVIEW_SYSTEM_PROMPT = (
     "You are a content and marketing editor reviewing one page's scraped "
@@ -381,6 +409,7 @@ def review_blueprint(
     model: str | None = None,
     page_indices: list[int] | None = None,
     include_meta: bool = True,
+    available_categories: list[str] | None = None,
 ) -> tuple[BlueprintDocument, dict]:
     """`model` overrides the OpenRouter model id used for all three call
     types below (real callers resolve it once from the DB-backed
@@ -401,6 +430,14 @@ def review_blueprint(
     as `scraped.meta` untouched -- used when re-reviewing the remaining
     pages after a purchase, since meta was already resolved (and possibly
     AI-corrected) by the original home-page run and doesn't need re-spending.
+
+    `available_categories`, when given, constrains Call A's site_category
+    answer to that exact list (real callers resolve it from
+    prompt_template_service.get_active_template_categories() and pass it
+    down via blueprint_pipeline.py) -- omitted, Call A still returns a
+    site_category guess but nothing downstream constrains or explains it,
+    and tasks_generate.py's category filter treats any unrecognized value
+    as a no-op anyway.
     """
     blueprint = scraped.model_copy(deep=True)
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
@@ -411,12 +448,13 @@ def review_blueprint(
     image_paths = [project_root / logo_path] if logo_path else []
     meta_digest = _build_meta_digest(scraped)
     storage_paths_by_url = _load_page_storage_paths(project_root)
+    meta_system_prompt = META_REVIEW_SYSTEM_PROMPT + _build_meta_category_instruction(available_categories)
 
     with ThreadPoolExecutor(max_workers=_worker_count(len(target_indices), include_meta)) as executor:
         meta_future = (
             executor.submit(
                 vision_json_chat,
-                META_REVIEW_SYSTEM_PROMPT,
+                meta_system_prompt,
                 f"Heuristic site name guess: {scraped.meta.site_name}\n\n{meta_digest}",
                 image_paths,
                 model=model,
@@ -471,6 +509,7 @@ def review_blueprint(
         blueprint.meta.fonts.heading = normalize_font(fonts.get("heading"), heading_fallback)
         blueprint.meta.fonts.body = normalize_font(fonts.get("body"), body_fallback)
         blueprint.meta.tone = meta_result.get("tone") or scraped.meta.tone
+        blueprint.meta.site_category = meta_result.get("site_category") or scraped.meta.site_category
 
     # Filter down to just the targeted pages, in target_indices' order.
     # From here on, blueprint.pages[position] and

@@ -7,6 +7,8 @@ import {
   AdminAdjustmentResponse,
   AdminCostByProjectResponse,
   AdminCostByUserResponse,
+  AdminCostSettingResponse,
+  AdminCostSettingUpdateRequest,
   AdminIssueAdjustmentRequest,
   AdminModelCostResponse,
   AdminModelPricingResponse,
@@ -160,6 +162,25 @@ export class AdminApiService {
 
   deletePromptTemplate(filename: string): Observable<void> {
     return this.http.delete<void>(`${ADMIN_BASE}/prompt-templates/${filename}`);
+  }
+
+  // -- Cost gate (pre-generation cost estimate + wallet-balance gate) ----
+  // See docs/generation-cost-gate-plan.md.
+
+  getCostAlertThreshold(): Observable<AdminCostSettingResponse> {
+    return this.http.get<AdminCostSettingResponse>(`${ADMIN_BASE}/cost-gate/threshold`);
+  }
+
+  updateCostAlertThreshold(body: AdminCostSettingUpdateRequest): Observable<AdminCostSettingResponse> {
+    return this.http.put<AdminCostSettingResponse>(`${ADMIN_BASE}/cost-gate/threshold`, body);
+  }
+
+  getUsdPerCredit(): Observable<AdminCostSettingResponse> {
+    return this.http.get<AdminCostSettingResponse>(`${ADMIN_BASE}/cost-gate/usd-per-credit`);
+  }
+
+  updateUsdPerCredit(body: AdminCostSettingUpdateRequest): Observable<AdminCostSettingResponse> {
+    return this.http.put<AdminCostSettingResponse>(`${ADMIN_BASE}/cost-gate/usd-per-credit`, body);
   }
 
   // -- Earnings -------------------------------------------------------------

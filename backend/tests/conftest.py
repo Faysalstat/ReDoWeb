@@ -7,6 +7,7 @@ from app.db.base import Base
 from app.models import (
     AIModelSetting,
     AuthIdentity,
+    CostSetting,
     CreditTransaction,
     CreditWallet,
     Purchase,
@@ -48,6 +49,7 @@ def db_session():
             Tier.__table__,
             AIModelSetting.__table__,
             PromptTemplate.__table__,
+            CostSetting.__table__,
         ],
     )
     session = Session(bind=engine)

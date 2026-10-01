@@ -187,6 +187,15 @@ To revoke admin access, run the same promotion query in reverse (there's
 no `demote_admin` script yet — set `is_admin = false` directly via `psql`
 or a one-off script, since this is a rare, deliberately-manual action).
 
+## 5. Alternative: running the backend in Docker
+
+Everything in section 2 above (venv + `uvicorn` + `queue_worker`) can
+instead run as containers — see **[DOCKER.md](DOCKER.md)** for the
+Dockerfile, the local compose file (connects to the same shared Postgres
+this section uses), and a generic cloud/VPS compose file. The frontend
+(section 3) isn't containerized — keep running it with `npm start` either
+way.
+
 ## 5. Bringing everything up (typical dev session order)
 
 1. `G:\Current Works\ReDoWebs\standalone`: `docker compose up -d`

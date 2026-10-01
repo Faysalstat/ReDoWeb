@@ -57,16 +57,34 @@
           <div class="panel__head">
             <span class="label">What's happening</span>
           </div>
-          <div class="panel__body stack">
-            <p class="sub" style="max-width: none">
-              We never touch your live site during this — we're only reading it to build the
-              replacement. You can close this tab; find this project anytime from your
-              <a routerLink="/history">History</a> page.
-            </p>
-            <p class="row" style="font-size: 13px; color: var(--color-neutral-700); gap: var(--space-2)">
-              <span style="width: 8px; height: 8px; background: var(--color-accent)"></span>
-              Working on {{ status()?.source_url }}
-            </p>
+          <div class="panel__body chat">
+            <div class="chat__msg">
+              <div class="chat__avatar">
+                <app-icon-sparkles [size]="13" />
+              </div>
+              <div class="chat__bubble">
+                <p class="chat__text">
+                  We never touch your live site during this — we're only reading it to build the
+                  replacement. You can close this tab; find this project anytime from your
+                  <a routerLink="/history">History</a> page.
+                  <span class="chat__cursor"></span>
+                </p>
+              </div>
+            </div>
+
+            <div class="chat__msg chat__msg--status">
+              <div class="chat__avatar chat__avatar--live">
+                <span class="chat__live-dot"></span>
+              </div>
+              <div class="chat__bubble chat__bubble--status">
+                <p class="chat__text">
+                  Working on <strong>{{ status()?.source_url }}</strong>
+                </p>
+                <span class="chat__typing" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </span>
+              </div>
+            </div>
           </div>
         </aside>
       </section>
@@ -78,12 +96,110 @@
         <div class="gp-error__icon">
           <app-icon-x [size]="24" />
         </div>
-        <h2 style="margin-top: var(--space-4)">Something went wrong</h2>
+        <h2 style="margin-top: var(--space-4)">{{ errorHeading() }}</h2>
         <p class="sub" style="margin: var(--space-2) auto 0">{{ errorMessage() }}</p>
-        <button appButton variant="primary" style="margin-top: var(--space-6)" (click)="tryAgain()">
-          Try Again
+
+        @if (status()?.tier_failures?.length) {
+          <app-card style="margin: var(--space-6) auto 0; max-width: 480px; text-align: left">
+            <p class="gp-cta__kicker">Retry a single tier</p>
+            <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+              Your site was already crawled and analysed — retrying reuses that work, so there's no
+              re-crawl and no extra credits.
+            </p>
+            @for (failure of status()!.tier_failures; track failure.tier) {
+              <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-divider)">
+                <div class="row row--between" style="gap: var(--space-2); flex-wrap: wrap">
+                  <strong>{{ tierLabel(failure.tier) }}</strong>
+                  <button
+                    appButton
+                    variant="secondary"
+                    [disabled]="isRetrying(failure.tier)"
+                    (click)="retryTier(failure.tier)"
+                  >
+                    {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                  </button>
+                </div>
+                @if (failure.failure_reason) {
+                  <p class="sub" style="margin-top: var(--space-2); font-size: 12px; max-width: none">
+                    {{ failure.failure_reason }}
+                  </p>
+                }
+              </div>
+            }
+            @if (retryError()) {
+              <p class="sub" style="margin-top: var(--space-3); font-size: 12px; color: var(--color-danger)">
+                {{ retryError() }}
+              </p>
+            }
+          </app-card>
+        }
+
+        <button appButton variant="secondary" style="margin-top: var(--space-6)" (click)="tryAgain()">
+          Start over with a new site
         </button>
       </div>
+    }
+
+    <!-- Awaiting cost approval -->
+    @if (stage() === 'awaiting_approval') {
+      @if (status()?.cost_gate; as gate) {
+        <div class="gp-error">
+          <div class="gp-error__icon">
+            <app-icon-alert-triangle [size]="24" />
+          </div>
+          <h2 style="margin-top: var(--space-4)">This page is bigger than usual</h2>
+          <p class="sub" style="margin: var(--space-2) auto 0; max-width: 480px">
+            Generating every enabled tier for this page is estimated to cost about
+            ${{ gate.estimated_cost_usd.toFixed(2) }} — more than usual for a single page. We pause here so
+            you can confirm before we spend it.
+          </p>
+
+          <app-card style="margin: var(--space-6) auto 0; max-width: 420px; text-align: left">
+            <div class="gp-stat-grid">
+              <div class="gp-stat">
+                <p class="gp-stat__value gp-stat__value--accent">${{ gate.estimated_cost_usd.toFixed(2) }}</p>
+                <p class="gp-stat__label">Estimated cost</p>
+              </div>
+              <div class="gp-stat">
+                <p class="gp-stat__value">{{ gate.required_credits }}</p>
+                <p class="gp-stat__label">Credits required</p>
+              </div>
+              <div class="gp-stat">
+                <p class="gp-stat__value">{{ gate.current_balance }}</p>
+                <p class="gp-stat__label">Your balance</p>
+              </div>
+            </div>
+          </app-card>
+
+          @if (gate.shortfall_credits > 0) {
+            <p class="sub" style="margin-top: var(--space-4); color: var(--color-danger)">
+              You need {{ gate.shortfall_credits }} more credit{{ gate.shortfall_credits === 1 ? '' : 's' }} to
+              continue.
+            </p>
+            <button appButton variant="primary" style="margin-top: var(--space-4)" (click)="goToTopUp()">
+              Top Up Credits
+            </button>
+          } @else {
+            <button
+              appButton
+              variant="primary"
+              style="margin-top: var(--space-6)"
+              [disabled]="approving()"
+              (click)="approveGeneration()"
+            >
+              {{ approving() ? 'Starting…' : 'Continue — spend credits and generate' }}
+            </button>
+          }
+
+          @if (approveError()) {
+            <p class="sub" style="margin-top: var(--space-3); color: var(--color-danger)">{{ approveError() }}</p>
+          }
+
+          <p class="text-muted" style="font-size: 12px; margin-top: var(--space-4)">
+            <a routerLink="/">Cancel and go back</a>
+          </p>
+        </div>
+      }
     }
 
     <!-- Ready -->
@@ -200,6 +316,44 @@
                   </div>
                 </div>
               </app-card>
+
+              @if (s.tier_failures.length > 0) {
+                <app-card>
+                  <p class="gp-cta__kicker">Tiers that didn't finish</p>
+                  <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                    Everything above generated fine. These didn't — retrying rebuilds only that tier from
+                    the blueprint we already have, and costs no extra credits.
+                  </p>
+                  @for (failure of s.tier_failures; track failure.tier) {
+                    <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-divider)">
+                      <div class="row row--between" style="gap: var(--space-2); flex-wrap: wrap">
+                        <span class="row" style="gap: var(--space-2); align-items: center">
+                          <app-icon-alert-triangle [size]="15" class="gp-changelist__icon gp-changelist__icon--warning" />
+                          <strong>{{ tierLabel(failure.tier) }}</strong>
+                        </span>
+                        <button
+                          appButton
+                          variant="secondary"
+                          [disabled]="isRetrying(failure.tier)"
+                          (click)="retryTier(failure.tier)"
+                        >
+                          {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                        </button>
+                      </div>
+                      @if (failure.failure_reason) {
+                        <p class="sub" style="margin-top: var(--space-2); font-size: 12px; max-width: none">
+                          {{ failure.failure_reason }}
+                        </p>
+                      }
+                    </div>
+                  }
+                  @if (retryError()) {
+                    <p class="sub" style="margin-top: var(--space-3); font-size: 12px; color: var(--color-danger)">
+                      {{ retryError() }}
+                    </p>
+                  }
+                </app-card>
+              }
 
               <app-card>
                 <p class="gp-cta__kicker">What changed</p>

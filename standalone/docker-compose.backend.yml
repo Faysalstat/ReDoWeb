@@ -1,0 +1,97 @@
+# Generic cloud/production deployment for the backend (api + queue worker),
+# self-contained (bundles its own Postgres) since no specific cloud platform
+# has been chosen yet -- see docs/DOCKER.md. Works as-is on any Linux host
+# with Docker + Compose v2 installed (a VPS, an EC2/Droplet/Hetzner box,
+# etc). If you later move to a managed Postgres (RDS/Cloud SQL/etc), delete
+# the `postgres` service and point REDOWEBS_DATABASE_URL at it instead.
+#
+# Usage:
+#   docker compose -f standalone/docker-compose.backend.yml --env-file backend/.env.prod up -d --build
+#
+# Secrets: this file reads REDOWEBS_* values from an env file passed via
+# --env-file (see docs/DOCKER.md for what belongs in backend/.env.prod).
+# Never commit that file. On a platform with a real secrets manager
+# (AWS Secrets Manager/SSM, etc), inject the same REDOWEBS_* variables that
+# way instead and drop --env-file.
+name: redowebs-backend
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${REDOWEBS_DB_USER:-redowebs}
+      POSTGRES_PASSWORD: ${REDOWEBS_DB_PASSWORD:?set REDOWEBS_DB_PASSWORD in the env file}
+      POSTGRES_DB: ${REDOWEBS_DB_NAME:-redowebs}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${REDOWEBS_DB_USER:-redowebs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: redowebs-backend:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://${REDOWEBS_DB_USER:-redowebs}:${REDOWEBS_DB_PASSWORD}@postgres:5432/${REDOWEBS_DB_NAME:-redowebs}
+    env_file:
+      - path: ../backend/.env.prod
+        required: false
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    image: redowebs-backend:latest
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://${REDOWEBS_DB_USER:-redowebs}:${REDOWEBS_DB_PASSWORD}@postgres:5432/${REDOWEBS_DB_NAME:-redowebs}
+    env_file:
+      - path: ../backend/.env.prod
+        required: false
+    ports:
+      - "8123:8123"
+    volumes:
+      - backend_storage:/app/storage_data
+      - backend_prompts:/app/prompts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8123/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: redowebs-backend:latest
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://${REDOWEBS_DB_USER:-redowebs}:${REDOWEBS_DB_PASSWORD}@postgres:5432/${REDOWEBS_DB_NAME:-redowebs}
+    env_file:
+      - path: ../backend/.env.prod
+        required: false
+    command: ["python", "-m", "app.workers.queue_worker"]
+    volumes:
+      # Same volume as `api` and at the same path -- required, not
+      # optional: the worker writes generated output that `api` later
+      # serves for preview/download from storage_root (see CLAUDE.md).
+      - backend_storage:/app/storage_data
+      - backend_prompts:/app/prompts
+    # Scale with: docker compose -f standalone/docker-compose.backend.yml
+    # --env-file backend/.env.prod up -d --build --scale worker=2
+    # (safe up to the point OpenRouter/DB budgets allow -- see
+    # docs/concurrency-scaling-plan.md).
+
+volumes:
+  postgres_data:
+  backend_storage:
+  backend_prompts:

@@ -45,6 +45,12 @@ class MetaBlock(BaseModel):
     fonts: Fonts
     tone: str = ""
     favicon: str | None = None
+    # AI-classified (blueprint_review.py's meta call), constrained to
+    # whichever prompt-template categories currently have an active
+    # template -- used only to narrow site_generator's random template
+    # choice to a matching category. Blank on failure/no-match, same
+    # degrade-on-failure pattern as tone/tagline; never blocks generation.
+    site_category: str = ""
 
 
 class HeroSection(BaseModel):

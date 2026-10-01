@@ -235,6 +235,20 @@ export interface AdminPromptTemplateListResponse {
   items: AdminPromptTemplateRow[];
 }
 
+// -- Cost gate (pre-generation cost estimate + wallet-balance gate) --------
+// See docs/generation-cost-gate-plan.md.
+
+export interface AdminCostSettingResponse {
+  value: number;
+  is_default: boolean;
+  updated_at: string | null;
+  updated_by_admin_id: string | null;
+}
+
+export interface AdminCostSettingUpdateRequest {
+  value: number;
+}
+
 // -- Earnings ---------------------------------------------------------------
 
 export interface AdminRevenueResponse {

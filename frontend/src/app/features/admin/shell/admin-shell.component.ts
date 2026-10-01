@@ -46,6 +46,9 @@ import { AuthService } from '../../../core/auth.service';
         <a class="shell-aside-link" routerLink="/admin/earnings" ariaCurrentWhenActive="page" routerLinkActive="active"
           >Earnings</a
         >
+        <a class="shell-aside-link" routerLink="/admin/cost-gate" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Cost gate</a
+        >
         <div style="margin-top: auto; padding-top: var(--space-4); border-top: 1px solid var(--color-divider)">
           <a class="shell-aside-link" routerLink="/" style="padding-inline: 0">← Back to app</a>
           <p class="label" style="margin: var(--space-3) 0 var(--space-1)">{{ auth.currentUser()?.email }}</p>

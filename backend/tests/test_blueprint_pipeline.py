@@ -89,6 +89,22 @@ def test_pipeline_degrades_gracefully_without_api_key(project_root: Path):
     assert result["usage"] == {"prompt_tokens": 0, "completion_tokens": 0}
 
 
+def test_pipeline_passes_available_categories_through_to_review_blueprint(project_root: Path, monkeypatch):
+    import app.ai.blueprint_pipeline as pipeline_module
+
+    captured = {}
+
+    def fake_review_blueprint(project_root_arg, scraped, model=None, page_indices=None, include_meta=True, available_categories=None):
+        captured["available_categories"] = available_categories
+        return scraped, {"prompt_tokens": 0, "completion_tokens": 0}
+
+    monkeypatch.setattr(pipeline_module, "review_blueprint", fake_review_blueprint)
+
+    run_blueprint_pipeline(project_root, available_categories=["business", "portfolio"])
+
+    assert captured["available_categories"] == ["business", "portfolio"]
+
+
 def test_pipeline_compat_design_md_has_valid_frontmatter(project_root: Path):
     from app.ai.postprocess import parse_frontmatter
 

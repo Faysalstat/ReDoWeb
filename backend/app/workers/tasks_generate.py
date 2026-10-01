@@ -2,12 +2,16 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
 from ..ai.errors import GenerationError
 from ..ai.site_generator import generate_site
 from ..config import get_settings
 from ..db.session import SessionLocal
+from ..errors import user_facing_message
 from ..models import Blueprint, GenerationJob, GenerationOutput, Project
 from ..services import (
+    generation_status_service,
     model_config_service,
     prompt_template_service,
     tier_service,
@@ -17,6 +21,25 @@ from ..services import (
 from ..services.preview_service import build_preview_url_path
 from ..services.storage_capacity_service import InsufficientDiskSpaceError, check_free_disk_space
 from ..services.wallet_service import InsufficientCreditsError
+
+
+def _apply_project_status(db: Session, project: Project, failure_reason: str | None = None) -> str:
+    """Recomputes and applies `project.status` from every enabled tier's
+    latest preview job -- the shared tail of both the success and failure
+    paths below, so one tier failing can never stomp a sibling tier's
+    delivered output (see generation_status_service for the rules).
+
+    `failure_reason` is only surfaced project-wide when *every* enabled
+    tier failed; a partial failure reports per tier instead, and a
+    successful retry clears a stale reason left by an earlier attempt.
+    """
+    db.flush()
+    enabled_tier_keys = {enabled_tier.key for enabled_tier in tier_service.get_enabled_tiers(db)}
+    outcomes = generation_status_service.get_preview_tier_outcomes(db, project.id)
+    status = generation_status_service.resolve_project_status(enabled_tier_keys, outcomes)
+    project.status = status
+    project.rejection_reason = failure_reason if status == "failed" else None
+    return status
 
 
 def generate_tier_task(project_id: str, tier: str) -> dict:
@@ -92,6 +115,9 @@ def generate_tier_task(project_id: str, tier: str) -> dict:
         try:
             generation_model = model_config_service.get_generation_model(tier, db)
             candidate_templates = prompt_template_service.get_active_template_filenames(db)
+            candidate_templates = prompt_template_service.filter_templates_by_category(
+                candidate_templates, blueprint_row.site_category
+            )
             result = generate_site(
                 project_root,
                 tier,
@@ -99,11 +125,19 @@ def generate_tier_task(project_id: str, tier: str) -> dict:
                 candidate_templates=candidate_templates,
             )
         except Exception as exc:
+            # Most failures here are an OpenRouterError, whose message is
+            # written for debugging (it embeds raw API response bodies or
+            # model output), not for an end user -- see app/errors.py.
+            message = user_facing_message(
+                exc, "Something went wrong while generating this tier. Please try again."
+            )
             job.overall_status = "failed"
-            job.failure_reason = str(exc)
+            job.failure_reason = message
             job.finished_at = datetime.now(timezone.utc)
-            project.status = "failed"
-            project.rejection_reason = str(exc)
+            # This tier is done for, but its siblings' output stands -- the
+            # project only goes "failed" if every enabled tier failed. The
+            # user retries just this tier via POST /projects/{id}/retry-tier.
+            _apply_project_status(db, project, failure_reason=message)
             db.commit()
             raise
 
@@ -141,22 +175,11 @@ def generate_tier_task(project_id: str, tier: str) -> dict:
 
         # All enabled tiers' generate_tier jobs are enqueued up front (see
         # tasks_blueprint.py) and may finish in any order, possibly
-        # concurrently on different queue workers. Only flip the project to
-        # the terminal "ready" status once every enabled tier has actually
-        # succeeded -- recomputed by set membership rather than by chain
-        # position, so this is correct regardless of which tier finishes
-        # last. Otherwise the frontend's poll (which stops on any terminal
-        # status) would stop after the first tier and never see the rest
-        # complete.
-        enabled_tier_keys = {enabled_tier.key for enabled_tier in tier_service.get_enabled_tiers(db)}
-        succeeded_tier_keys = {
-            row.tier
-            for row in db.query(GenerationJob)
-            .filter(GenerationJob.project_id == project.id, GenerationJob.overall_status == "succeeded")
-            .all()
-        }
-        succeeded_tier_keys.add(tier)
-        project.status = "ready" if enabled_tier_keys <= succeeded_tier_keys else "generating"
+        # concurrently on different queue workers, so the project's status is
+        # recomputed from every tier's latest outcome rather than from chain
+        # position -- correct regardless of which tier finishes last, and of
+        # whether any of them failed.
+        _apply_project_status(db, project)
 
         db.commit()
         return result

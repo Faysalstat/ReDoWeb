@@ -10,17 +10,33 @@ from ..models import Blueprint, GenerationJob, Project, SubmissionLog, User
 from ..rate_limit import limiter
 from ..schemas.crawl import CrawlRequest
 from ..schemas.project import (
+    GenerationApprovalResponse,
+    GenerationCostGateInfo,
     ProjectBlueprintSummary,
     ProjectGenerationSummary,
     ProjectListItem,
     ProjectStatusResponse,
     ProjectSubmitResponse,
+    ProjectTierFailure,
+    TierRetryResponse,
 )
-from ..services import storage_capacity_service, tier_service, wallet_service
+from ..services import (
+    cost_estimation_service,
+    cost_settings_service,
+    generation_status_service,
+    storage_capacity_service,
+    tier_service,
+    wallet_service,
+)
 from ..services.storage_capacity_service import InsufficientDiskSpaceError
 from ..workers.queue import enqueue
 
 router = APIRouter(prefix="/api/v1", tags=["projects"])
+
+
+def _outcome_status(outcomes: dict[str, generation_status_service.TierOutcome], tier_key: str) -> str | None:
+    outcome = outcomes.get(tier_key)
+    return outcome.status if outcome is not None else None
 
 
 @router.post("/projects", response_model=ProjectSubmitResponse, status_code=202)
@@ -152,28 +168,55 @@ def get_project_status(
     enabled_tiers = tier_service.get_enabled_tiers()
     tier_order = {tier.key: index for index, tier in enumerate(enabled_tiers)}
 
+    # Preview scope only, newest first: a full_site job (tasks_full_site.py)
+    # builds into a sibling directory for the same tier and must not show up
+    # as a second preview tab, and a retry's newer job supersedes the failed
+    # attempt it replaced.
     jobs = (
         db.query(GenerationJob)
-        .filter(GenerationJob.project_id == project.id)
-        .order_by(GenerationJob.created_at)
+        .filter(GenerationJob.project_id == project.id, GenerationJob.scope == "preview")
+        .order_by(GenerationJob.created_at.desc())
         .all()
     )
-    generations = [
-        ProjectGenerationSummary(
-            tier=job.tier,
-            template_used=job.output.template_used,
-            preview_url_path=job.output.preview_url_path,
-            summary=job.output.summary,
-            contrast_warnings=job.output.contrast_warnings or [],
+    generations: list[ProjectGenerationSummary] = []
+    seen_tiers: set[str] = set()
+    for job in jobs:
+        if job.tier in seen_tiers or job.overall_status != "succeeded" or job.output is None:
+            continue
+        seen_tiers.add(job.tier)
+        generations.append(
+            ProjectGenerationSummary(
+                tier=job.tier,
+                template_used=job.output.template_used,
+                preview_url_path=job.output.preview_url_path,
+                summary=job.output.summary,
+                contrast_warnings=job.output.contrast_warnings or [],
+            )
         )
-        for job in jobs
-        if job.overall_status == "succeeded" and job.output is not None
-    ]
     generations.sort(key=lambda gen: tier_order.get(gen.tier, len(tier_order)))
+
+    # A tier that failed is reported on its own rather than failing the whole
+    # project -- the tiers that did succeed stay previewable above, and each
+    # failure is separately retryable (see retry_tier below).
+    outcomes = generation_status_service.get_preview_tier_outcomes(db, project.id)
     # Plural: fan-out means more than one tier can be "running" at once, not
     # just the tail of a chain -- see tier_service.get_enabled_tiers() usage
     # above and docs/concurrency-scaling-plan.md.
-    current_tiers = [job.tier for job in jobs if job.overall_status == "running"]
+    current_tiers = [tier.key for tier in enabled_tiers if _outcome_status(outcomes, tier.key) == "running"]
+    tier_failures = [
+        ProjectTierFailure(tier=tier.key, failure_reason=outcomes[tier.key].failure_reason)
+        for tier in enabled_tiers
+        if _outcome_status(outcomes, tier.key) == "failed"
+    ]
+
+    cost_gate = None
+    if project.status == "awaiting_cost_approval":
+        wallet = wallet_service.get_or_create_wallet(db, current_user.id)
+        usd_per_credit = cost_settings_service.get_usd_per_credit(db)
+        gate_info = cost_estimation_service.compute_cost_gate_info(
+            project.estimated_generation_cost_usd, wallet.balance, usd_per_credit
+        )
+        cost_gate = GenerationCostGateInfo(**gate_info.__dict__)
 
     return ProjectStatusResponse(
         project_id=project_id,
@@ -185,4 +228,78 @@ def get_project_status(
         tiers_total=len(enabled_tiers),
         tiers_completed=len(generations),
         current_tiers=current_tiers,
+        tier_failures=tier_failures,
+        cost_gate=cost_gate,
     )
+
+
+@router.post("/projects/{project_id}/approve-generation", response_model=GenerationApprovalResponse)
+def approve_generation(
+    project_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> GenerationApprovalResponse:
+    """User's response to the awaiting_cost_approval gate set by
+    tasks_blueprint.py (see docs/generation-cost-gate-plan.md). A 200 with
+    approved=False on insufficient balance is a normal, poll-able outcome,
+    not a fault -- no debit happens here either way. The existing flat
+    wallet_service.spend() inside generate_tier_task remains the sole,
+    authoritative, row-locked charge, unchanged; this is purely a
+    balance-sufficiency pre-check against the estimate."""
+    project = db.get(Project, uuid.UUID(project_id))
+    if project is None or project.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
+    if project.status != "awaiting_cost_approval":
+        raise HTTPException(status_code=409, detail="No pending generation approval for this project")
+
+    wallet = wallet_service.get_or_create_wallet(db, current_user.id)
+    usd_per_credit = cost_settings_service.get_usd_per_credit(db)
+    gate_info = cost_estimation_service.compute_cost_gate_info(
+        project.estimated_generation_cost_usd, wallet.balance, usd_per_credit
+    )
+
+    if gate_info.shortfall_credits > 0:
+        return GenerationApprovalResponse(
+            project_id=project_id, status=project.status, approved=False, **gate_info.__dict__
+        )
+
+    for tier_key in project.pending_tier_keys:
+        enqueue(db, "generate_tier", {"project_id": project_id, "tier": tier_key})
+    project.status = "blueprint_ready"
+    project.pending_tier_keys = None
+    db.commit()
+
+    return GenerationApprovalResponse(
+        project_id=project_id, status=project.status, approved=True, **gate_info.__dict__
+    )
+
+
+@router.post("/projects/{project_id}/retry-tier", response_model=TierRetryResponse)
+def retry_tier(
+    project_id: str,
+    tier: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TierRetryResponse:
+    """Re-runs one failed tier's generation against the blueprint already on
+    disk -- no re-crawl, no re-review, and no extra credits (the project's
+    `generation_spend` idempotency key was already spent on the first
+    attempt, so generate_tier_task's spend() call no-ops on the retry).
+
+    Only a tier whose *latest* preview job failed can be retried; a tier
+    that's still running, or that already succeeded, is a 409.
+    """
+    project = db.get(Project, uuid.UUID(project_id))
+    if project is None or project.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
+    if not tier_service.is_tier_enabled(tier, db):
+        raise HTTPException(status_code=404, detail=f"No enabled tier named {tier!r}")
+
+    outcomes = generation_status_service.get_preview_tier_outcomes(db, project.id)
+    if _outcome_status(outcomes, tier) != "failed":
+        raise HTTPException(status_code=409, detail=f"Tier {tier!r} has no failed generation to retry")
+
+    enqueue(db, "generate_tier", {"project_id": project_id, "tier": tier})
+    project.status = "generating"
+    project.rejection_reason = None
+    db.commit()
+
+    return TierRetryResponse(project_id=project_id, tier=tier, status=project.status)

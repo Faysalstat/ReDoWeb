@@ -394,3 +394,95 @@ def test_worker_count_scales_with_target_pages_and_include_meta():
     assert blueprint_review._worker_count(1, include_meta=False) == 2
     assert blueprint_review._worker_count(19, include_meta=False) == 16  # capped, not 38
     assert blueprint_review._worker_count(0, include_meta=False) == 1  # never zero (ThreadPoolExecutor requirement)
+
+
+# --- review_blueprint(): site_category classification -----------------------
+
+
+def test_build_meta_category_instruction_empty_when_no_categories():
+    assert blueprint_review._build_meta_category_instruction(None) == ""
+    assert blueprint_review._build_meta_category_instruction([]) == ""
+
+
+def test_build_meta_category_instruction_lists_given_categories():
+    instruction = blueprint_review._build_meta_category_instruction(["business", "portfolio"])
+
+    assert "business, portfolio" in instruction
+    assert "site_category" in instruction
+
+
+def _fake_vision_json_chat_with_category(calls: list, site_category: str | None):
+    def fake(system_prompt, user_text, image_paths, model=None):
+        calls.append(system_prompt)
+        if system_prompt.startswith(blueprint_review.META_REVIEW_SYSTEM_PROMPT):
+            response = {"site_name": "Acme Reviewed"}
+            if site_category is not None:
+                response["site_category"] = site_category
+            return response, {"prompt_tokens": 1, "completion_tokens": 1}
+        if system_prompt == blueprint_review.CONTENT_REVIEW_SYSTEM_PROMPT:
+            return {}, {"prompt_tokens": 2, "completion_tokens": 2}
+        return {"gaps": []}, {"prompt_tokens": 1, "completion_tokens": 1}
+
+    return fake
+
+
+def test_review_blueprint_sets_site_category_from_meta_call(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(
+        blueprint_review, "vision_json_chat", _fake_vision_json_chat_with_category(calls, "portfolio")
+    )
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, available_categories=["business", "portfolio"]
+    )
+
+    assert reviewed.meta.site_category == "portfolio"
+    # The category list actually reached the model's system prompt.
+    assert any("business, portfolio" in call for call in calls)
+
+
+def test_review_blueprint_site_category_blank_when_meta_omits_it(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+    calls: list = []
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", _fake_vision_json_chat_with_category(calls, None))
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, available_categories=["business", "portfolio"]
+    )
+
+    assert reviewed.meta.site_category == ""  # scraped.meta.site_category default, never raises
+
+
+def test_review_blueprint_site_category_untouched_when_include_meta_false(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+    scraped.meta.site_category = "business"
+    calls: list = []
+    monkeypatch.setattr(
+        blueprint_review, "vision_json_chat", _fake_vision_json_chat_with_category(calls, "portfolio")
+    )
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, page_indices=[1, 2], include_meta=False
+    )
+
+    assert reviewed.meta.site_category == "business"  # unchanged -- meta call never ran
+
+
+def test_review_blueprint_site_category_degrades_on_openrouter_error(multi_page_project_root, monkeypatch):
+    scraped = _make_scraped_document(3)
+
+    def fake(system_prompt, user_text, image_paths, model=None):
+        if system_prompt.startswith(blueprint_review.META_REVIEW_SYSTEM_PROMPT):
+            raise OpenRouterError("boom")
+        if system_prompt == blueprint_review.CONTENT_REVIEW_SYSTEM_PROMPT:
+            return {}, {}
+        return {"gaps": []}, {}
+
+    monkeypatch.setattr(blueprint_review, "vision_json_chat", fake)
+
+    reviewed, _usage = blueprint_review.review_blueprint(
+        multi_page_project_root, scraped, available_categories=["business", "portfolio"]
+    )
+
+    assert reviewed.meta.site_category == ""

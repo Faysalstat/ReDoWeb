@@ -8,10 +8,12 @@ import {
   CrawlResponse,
   DownloadStartResponse,
   DownloadStatusResponse,
+  GenerationApprovalResponse,
   GenerationResponse,
   ProjectListItem,
   ProjectStatusResponse,
   ProjectSubmitResponse,
+  TierRetryResponse,
   WalletResponse,
 } from './redowebs-api.models';
 
@@ -54,6 +56,26 @@ export class RedoWebsApiService {
 
   getProjectStatus(projectId: string): Observable<ProjectStatusResponse> {
     return this.http.get<ProjectStatusResponse>(`${API_BASE_URL}/api/v1/projects/${projectId}`);
+  }
+
+  /** Re-runs one failed tier against the blueprint already on disk -- no
+   * re-crawl and no extra credits. Other tiers' finished output is
+   * untouched. */
+  retryTier(projectId: string, tier: string): Observable<TierRetryResponse> {
+    return this.http.post<TierRetryResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/retry-tier?tier=${encodeURIComponent(tier)}`,
+      {}
+    );
+  }
+
+  /** User's response to the awaiting_cost_approval gate (see
+   * docs/generation-cost-gate-plan.md) -- a 200 with approved: false on
+   * insufficient balance is a normal outcome, not an error. */
+  approveGeneration(projectId: string): Observable<GenerationApprovalResponse> {
+    return this.http.post<GenerationApprovalResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/approve-generation`,
+      {}
+    );
   }
 
   listProjects(): Observable<ProjectListItem[]> {

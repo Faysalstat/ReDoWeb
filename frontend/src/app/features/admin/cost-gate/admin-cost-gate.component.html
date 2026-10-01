@@ -1,0 +1,72 @@
+<div>
+  <h1 class="display display--sm">Cost gate</h1>
+  <p class="sub">
+    When a project's estimated generation cost (across every enabled tier) exceeds the alert threshold, the
+    pipeline pauses and the user must approve before we spend it. See docs/generation-cost-gate-plan.md.
+  </p>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else {
+    @if (errorMessage()) {
+      <p style="color: var(--color-danger); margin-top: var(--space-4)">{{ errorMessage() }}</p>
+    }
+    @if (savedMessage()) {
+      <p style="color: var(--color-accent); margin-top: var(--space-4)">{{ savedMessage() }}</p>
+    }
+
+    <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">Alert threshold (USD)</h2>
+    @if (threshold(); as t) {
+      <p class="sub" style="margin: var(--space-1) 0 0; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap">
+        <span>{{ t.is_default ? 'Using the config.py default' : 'Admin override' }}: ${{ t.value }}</span>
+        @if (!t.is_default && t.updated_at) {
+          <span class="tag tag-neutral">last edited {{ t.updated_at | date: 'medium' }}</span>
+        }
+      </p>
+      <div class="row" style="gap: var(--space-2); margin-top: var(--space-3); flex-wrap: wrap">
+        <input
+          class="input"
+          type="number"
+          min="0"
+          step="0.01"
+          style="width: 160px"
+          [ngModel]="thresholdDraft()"
+          (ngModelChange)="thresholdDraft.set($event)"
+        />
+        <button type="button" appButton variant="primary" [disabled]="savingThreshold()" (click)="saveThreshold()">
+          {{ savingThreshold() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    }
+
+    <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">USD per credit</h2>
+    <p class="sub">
+      Converts an estimated USD cost into the number of credits a user's wallet must hold to approve
+      generation.
+    </p>
+    @if (usdPerCredit(); as u) {
+      <p class="sub" style="margin: var(--space-1) 0 0; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap">
+        <span>{{ u.is_default ? 'Using the config.py default' : 'Admin override' }}: ${{ u.value }} / credit</span>
+        @if (!u.is_default && u.updated_at) {
+          <span class="tag tag-neutral">last edited {{ u.updated_at | date: 'medium' }}</span>
+        }
+      </p>
+      <div class="row" style="gap: var(--space-2); margin-top: var(--space-3); flex-wrap: wrap">
+        <input
+          class="input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          style="width: 160px"
+          [ngModel]="usdPerCreditDraft()"
+          (ngModelChange)="usdPerCreditDraft.set($event)"
+        />
+        <button type="button" appButton variant="primary" [disabled]="savingRate()" (click)="saveUsdPerCredit()">
+          {{ savingRate() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    }
+  }
+</div>

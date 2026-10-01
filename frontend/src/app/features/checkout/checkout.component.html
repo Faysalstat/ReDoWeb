@@ -6,6 +6,12 @@
 <div class="checkout">
   <form class="checkout__form" (ngSubmit)="pay()">
     <h1 class="display display--sm">Download the {{ tier.name }} tier</h1>
+    @if (requestedCredits) {
+      <p class="sub" style="margin-top: var(--space-2)">
+        You'll need at least {{ requestedCredits }} credit{{ requestedCredits === 1 ? '' : 's' }} to continue the
+        generation waiting on approval.
+      </p>
+    }
 
     <div class="checkout__fields">
       <div class="field">

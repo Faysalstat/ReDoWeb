@@ -91,6 +91,39 @@ export interface ProjectGenerationSummary {
   contrast_warnings: string[];
 }
 
+/** An enabled tier whose latest generation failed. Reported alongside any
+ * tiers that succeeded -- one tier failing never fails the whole project,
+ * and each failure is retryable at no extra credit cost. */
+export interface ProjectTierFailure {
+  tier: string;
+  failure_reason?: string | null;
+}
+
+export interface TierRetryResponse {
+  project_id: string;
+  tier: string;
+  status: string;
+}
+
+/** Only present while status === "awaiting_cost_approval" -- see
+ * docs/generation-cost-gate-plan.md. */
+export interface GenerationCostGateInfo {
+  estimated_cost_usd: number;
+  required_credits: number;
+  current_balance: number;
+  shortfall_credits: number;
+}
+
+export interface GenerationApprovalResponse {
+  project_id: string;
+  status: string;
+  approved: boolean;
+  estimated_cost_usd: number;
+  required_credits: number;
+  current_balance: number;
+  shortfall_credits: number;
+}
+
 export interface ProjectStatusResponse {
   project_id: string;
   status: string;
@@ -105,6 +138,10 @@ export interface ProjectStatusResponse {
   /** Tiers now fan out and generate independently, so more than one can be
    * "running" at once -- plural, not just the tail of a chain. */
   current_tiers: string[];
+  /** Populated whenever an enabled tier's latest generation failed,
+   * including on an otherwise-"ready" project where other tiers succeeded. */
+  tier_failures: ProjectTierFailure[];
+  cost_gate?: GenerationCostGateInfo | null;
 }
 
 export interface ProjectListItem {

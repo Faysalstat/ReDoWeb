@@ -1,5 +1,6 @@
 from .ai_model_setting import AIModelSetting
 from .blueprint import Blueprint
+from .cost_setting import CostSetting
 from .job import GenerationJob, GenerationOutput
 from .job_queue import QueuedJob
 from .model_pricing import ModelPricing
@@ -31,4 +32,5 @@ __all__ = [
     "ModelPricing",
     "AIModelSetting",
     "PromptTemplate",
+    "CostSetting",
 ]

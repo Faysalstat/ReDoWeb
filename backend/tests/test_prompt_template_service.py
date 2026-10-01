@@ -192,3 +192,53 @@ def test_get_active_template_filenames_excludes_disabled(db_session, fake_prompt
     result = svc.get_active_template_filenames(db_session)
 
     assert result == ["business_a_prompt.txt"]
+
+
+# -- get_active_template_categories -----------------------------------------
+
+
+def test_get_active_template_categories_dedupes_and_sorts(db_session, fake_prompts_dir):
+    (fake_prompts_dir / "portfolio_sketch_prompt.txt").write_text("a", encoding="utf-8")
+    (fake_prompts_dir / "portfolio_asthetic_prompt.txt").write_text("b", encoding="utf-8")
+    (fake_prompts_dir / "business_corporate_prompt.txt").write_text("c", encoding="utf-8")
+
+    result = svc.get_active_template_categories(db_session)
+
+    assert result == ["business", "portfolio"]
+
+
+def test_get_active_template_categories_excludes_disabled(db_session, fake_prompts_dir):
+    admin = _make_admin(db_session)
+    (fake_prompts_dir / "business_a_prompt.txt").write_text("a", encoding="utf-8")
+    (fake_prompts_dir / "service_a_prompt.txt").write_text("b", encoding="utf-8")
+    svc.set_active(db_session, "service_a_prompt.txt", False, admin.id)
+    db_session.commit()
+
+    result = svc.get_active_template_categories(db_session)
+
+    assert result == ["business"]
+
+
+# -- filter_templates_by_category --------------------------------------------
+
+
+def test_filter_templates_by_category_matches_prefix_case_insensitively():
+    filenames = ["business_a_prompt.txt", "portfolio_a_prompt.txt", "portfolio_b_prompt.txt"]
+
+    assert svc.filter_templates_by_category(filenames, "Portfolio") == [
+        "portfolio_a_prompt.txt",
+        "portfolio_b_prompt.txt",
+    ]
+
+
+def test_filter_templates_by_category_falls_back_to_full_list_when_no_match():
+    filenames = ["business_a_prompt.txt", "portfolio_a_prompt.txt"]
+
+    assert svc.filter_templates_by_category(filenames, "restaurant") == filenames
+
+
+@pytest.mark.parametrize("category", [None, ""])
+def test_filter_templates_by_category_noop_for_falsy_category(category):
+    filenames = ["business_a_prompt.txt", "portfolio_a_prompt.txt"]
+
+    assert svc.filter_templates_by_category(filenames, category) == filenames

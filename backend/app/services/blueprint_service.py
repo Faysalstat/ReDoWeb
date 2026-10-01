@@ -23,5 +23,6 @@ def build_blueprint_row(project_id: uuid.UUID, version: int, result: dict) -> Bl
         favicon_path=meta.get("favicon"),
         fonts=meta.get("fonts"),
         tone=meta.get("tone"),
+        site_category=meta.get("site_category"),
         is_current=True,
     )

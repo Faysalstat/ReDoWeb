@@ -196,3 +196,25 @@ def get_active_template_filenames(db: Session) -> list[str]:
         for row in db.scalars(select(PromptTemplate).where(PromptTemplate.is_active.is_(False))).all()
     }
     return [p.name for p in PROMPTS_DIR.glob("*.txt") if p.name not in disabled]
+
+
+def get_active_template_categories(db: Session) -> list[str]:
+    """Distinct categories (inferred from filename prefix, same as
+    _infer_category) among currently-active templates -- sorted for a
+    stable prompt. Used by tasks_blueprint.py to constrain the AI
+    site-category classifier's allowed answers to categories that
+    actually have an available template right now."""
+    return sorted({_infer_category(name) for name in get_active_template_filenames(db)})
+
+
+def filter_templates_by_category(filenames: list[str], category: str | None) -> list[str]:
+    """Narrows `filenames` (already the active candidate set) down to
+    those whose inferred category matches `category` (case-insensitive).
+    Falsy `category` or zero matches both return `filenames` unchanged --
+    this is a pure narrowing, never a hard filter, so an unclassified or
+    unrecognized category can't block generation or empty out the
+    candidate list."""
+    if not category:
+        return filenames
+    matched = [name for name in filenames if _infer_category(name).lower() == category.lower()]
+    return matched or filenames
