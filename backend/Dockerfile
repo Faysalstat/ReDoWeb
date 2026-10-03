@@ -16,6 +16,9 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini .
 COPY prompts ./prompts
+# Opt-in API+worker-in-one-container entrypoint for Railway (see the script's
+# header) -- not the default CMD, which the compose files rely on.
+COPY start.sh .
 
 # storage_root (config.py) and prompts/ are both written to at runtime
 # (generated site output, and admin-uploaded prompt templates respectively)

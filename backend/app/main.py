@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from .config import get_settings
 from .rate_limit import limiter
 from .routers import admin, auth, blueprint, crawl, credits, debug_pipeline, downloads, generation, preview, projects
 
@@ -14,7 +15,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    # Local dev origin always allowed; the deployed frontend comes from
+    # REDOWEBS_FRONTEND_URL (trailing slash stripped -- browsers send Origin
+    # without one, and CORS matches exactly).
+    allow_origins=sorted({"http://localhost:4200", get_settings().frontend_url.rstrip("/")}),
     allow_credentials=True,  # required so the refresh-token httpOnly cookie is sent cross-origin
     allow_methods=["*"],
     allow_headers=["*"],

@@ -9,6 +9,7 @@ AI-powered website modernization platform. A user submits a URL to a small stati
 - **[docs/PROGRESS.md](docs/PROGRESS.md)** — current build status against the milestones in the implementation plan. Check this before assuming anything is or isn't built yet, and update it as milestones complete.
 - **[docs/INSTALLATION.md](docs/INSTALLATION.md)** — how to actually get `standalone/` (Postgres + Redis), the backend (FastAPI + Celery), and the frontend running locally, with exact commands. Read this before trying to run anything.
 - **[docs/DOCKER.md](docs/DOCKER.md)** — dockerizing the backend (API + queue worker): `backend/Dockerfile` plus `standalone/docker-compose.backend.local.yml` (local, connects to the existing shared host Postgres) and `standalone/docker-compose.backend.yml` (generic cloud/VPS, bundles its own Postgres). Added 2026-09-24; frontend is not containerized yet.
+- **[docs/RAILWAY.md](docs/RAILWAY.md)** — deploying to Railway (added 2026-10-03): Postgres + one backend service running API **and** queue worker together via `backend/start.sh` (Railway volumes can't be shared between services) + frontend service. Also lists every file changed for this deployment.
 - **[rule.md](rule.md)** — mandates the top-level repo layout: `frontend/`, `backend/`, `docs/`, `standalone/` (Docker Compose files).
 
 ## Settled decisions — do not re-litigate without the user's explicit sign-off
