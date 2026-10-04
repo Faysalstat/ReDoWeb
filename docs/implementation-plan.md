@@ -12,7 +12,7 @@ See [PRD.md](PRD.md) for the product-level framing (problem, users, scope, requi
 
 ## Tech Stack (confirmed)
 
-- **Backend**: Python, FastAPI, SQLAlchemy 2.0 + Alembic, Celery + Redis (background jobs), SQLAdmin (admin panel), OpenRouter (LLM access, GPT-4o-mini for dev/test phase)
+- **Backend**: Python, FastAPI, SQLAlchemy 2.0 + Alembic, Postgres-backed job queue for background jobs (originally planned as Celery + Redis; switched 2026-09-06 since Redis had no other use in the app — see the "Job Orchestration" section below), SQLAdmin (admin panel), OpenRouter (LLM access, GPT-4o-mini for dev/test phase)
 - **Frontend**: Angular (standalone components, functional route guards)
 - **DB**: PostgreSQL
 - **Payments**: Stripe (one-time checkout, no subscriptions)
@@ -47,7 +47,7 @@ ReDoWebs/
 │       ├── crawler/            # discover.py, robots.py, fetch.py, errors.py
 │       ├── ai/                 # openrouter_client.py, blueprint_extractor.py, prompt_templates.py, site_generator.py
 │       ├── storage/             # base.py (StorageBackend protocol), local_disk.py
-│       ├── workers/              # celery_app.py, tasks_crawl.py, tasks_blueprint.py, tasks_generate.py
+│       ├── workers/              # queue.py, queue_worker.py, tasks_crawl.py, tasks_blueprint.py, tasks_generate.py (Postgres-backed queue, not Celery -- see "Job Orchestration")
 │       ├── admin/                # sqladmin_views.py
 │       ├── core/                # security.py (JWT/hashing), rate_limit.py, logging.py (structlog)
 │       └── deps.py
@@ -57,7 +57,7 @@ ReDoWebs/
     └── .env.example
 ```
 
-Routers stay thin (parse → call service → return schema) so Celery tasks and SQLAdmin custom actions can reuse the same service functions instead of duplicating logic behind HTTP.
+Routers stay thin (parse → call service → return schema) so queue-worker task handlers and SQLAdmin custom actions can reuse the same service functions instead of duplicating logic behind HTTP.
 
 ## Database Schema (Postgres, UUID PKs)
 
@@ -73,7 +73,7 @@ Routers stay thin (parse → call service → return schema) so Celery tasks and
 - **blueprints**: project_id, version (monotonic per project), source enum(`ai_extracted`,`user_edited`), design_md_storage_path, denormalized frontmatter fields (site_name, colors, logo_path, fonts) for quick querying, is_current flag — versions are immutable, never overwritten
 - **tiers** (changed from a fixed enum to a dynamic, admin-manageable table): id, key (slug, e.g. `basic`/`premium`/`pro`), label, is_active (admin on/off toggle — disabled tiers are skipped entirely during generation, not just hidden), sort_order, download_credit_cost — admin can add, rename, reorder, price, and enable/disable tiers here without a code change. Replaces the old `admin_config.download_cost_basic/premium/pro` keys, which are removed now that cost lives on the tier row itself. **Current test phase: only the `pro` tier row is active** — `basic`/`premium` exist but are disabled until their own prompt templates are ready.
 - **design_strategy_templates**: tier_id FK → tiers, prompt_text, is_active, weight — admin-managed via SQLAdmin. Weighted-random selection only ever considers `is_active=true` templates whose parent tier is also `is_active=true`.
-- **generation_jobs**: project_id, blueprint_id, celery_task_id, stage enum (drives progress UI; stage values are generated dynamically per enabled tier rather than hardcoded to 3), overall_status, failure_reason, credit_transaction_id
+- **generation_jobs**: project_id, blueprint_id, stage enum (drives progress UI; stage values are generated dynamically per enabled tier rather than hardcoded to 3), overall_status, failure_reason, credit_transaction_id
 - **generation_outputs** (one row per enabled tier per job): job_id, tier_id FK, template_id FK (records which template was used), output_storage_path, preview_url_path
 - **purchases**: user_id, stripe_checkout_session_id unique, stripe_event_id unique (webhook idempotency), credit_pack_credits, amount_usd_cents, status
 - **admin_config**: key/value (typed columns), seeded with `usd_per_credit=<default>` — per-tier download cost moved to `tiers.download_credit_cost` (see above); this table now only holds cost/pricing config that isn't tier-specific
@@ -81,7 +81,7 @@ Routers stay thin (parse → call service → return schema) so Celery tasks and
 
 **Race-condition-safe credit spend** (the one place this logic lives — `wallet_service.spend()`): `SELECT balance FROM credit_wallets WHERE user_id = :uid FOR UPDATE` inside a transaction, check balance, insert ledger row, update balance, commit. The row-level lock serializes concurrent spend attempts so two simultaneous download requests against an insufficient balance can't both succeed. Every credit-consuming path (generation, regeneration, download) calls this one function — no ad hoc balance checks elsewhere.
 
-**Credit-charge timing for "no charge on failure"**: `POST /projects` does a fast synchronous pre-check (robots.txt + homepage fetch + nav-link discovery/page-count) and returns a rejection immediately with zero credit spend if it fails. Only after this passes does the endpoint debit 1 credit and enqueue the full crawl→blueprint→generate Celery chain. If the full crawl still hard-fails despite the pre-check (rare), the failure handler issues an automatic refund transaction (`reason=system_reversal`) — a safety net, not the primary mechanism.
+**Credit-charge timing for "no charge on failure"**: `POST /projects` does a fast synchronous pre-check (robots.txt + homepage fetch + nav-link discovery/page-count) and returns a rejection immediately with zero credit spend if it fails. Only after this passes does the endpoint debit 1 credit and enqueue the full crawl→blueprint→generate pipeline (a Postgres-backed queue chain, not Celery — see "Job Orchestration"). If the full crawl still hard-fails despite the pre-check (rare), the failure handler issues an automatic refund transaction (`reason=system_reversal`) — a safety net, not the primary mechanism.
 
 ## API Surface (`/api/v1`, JWT bearer except where noted)
 
@@ -94,11 +94,13 @@ Routers stay thin (parse → call service → return schema) so Celery tasks and
 - **Downloads**: `POST /projects/{id}/download` (tier-cost credit spend via wallet_service, assembles/serves folder)
 - **Admin**: mounted separately via SQLAdmin at `/admin`, gated by `is_admin`, reusing the same auth session (not a parallel login system)
 
-## Celery Task Chain
+## Job Orchestration (originally planned as Celery, since 2026-09-06 a Postgres-backed queue)
 
-`crawl_site` → `extract_blueprint` → `group(generate_tier(t) for t in get_enabled_tiers())` → `finalize_job`. The group is built dynamically from whichever tiers are currently active (today, just `pro`) rather than a hardcoded 3-way group. Regeneration path starts at the `group(...)` step directly (edited `design.md` IS the new blueprint, no re-crawl).
+**Superseded (2026-09-06) — see CLAUDE.md and docs/PROGRESS.md for what's actually built**: Celery+Redis was removed since Redis had no other use in the app (rate limiting is in-memory slowapi, auth is JWT). The pipeline now runs on a `queued_jobs` Postgres table polled by `app/workers/queue_worker.py` (`SELECT ... FOR UPDATE SKIP LOCKED` to claim a row), with each stage enqueueing the next on its own success path instead of a Celery `chain()`/`group()`. **No auto-retry was ever actually implemented** (a deliberate decision, unlike the retry policy originally planned below) — any exception, transient or definitive, immediately marks the project `failed`/`rejected`.
 
-Retry policy: transient errors (timeouts, 429/5xx) auto-retry 2-3x with exponential backoff; definitive errors (`SiteInaccessible`, `CrawlRejected` for >3 pages, robots.txt disallow, login-wall heuristics) fail immediately, no retry, no credit charged (or refunded per the system_reversal path above).
+**Original plan (kept for context on what changed)**: `crawl_site` → `extract_blueprint` → `group(generate_tier(t) for t in get_enabled_tiers())` → `finalize_job`, as Celery tasks. The group would be built dynamically from whichever tiers are currently active (today, just `pro`) rather than a hardcoded 3-way group — this part is still true today, just implemented as sequential `remaining_tiers` chaining rather than a parallel `group`, since only one tier is enabled so far. Regeneration path starts at the tier-generation step directly (edited `design.md` IS the new blueprint, no re-crawl) — not yet built (Milestone 3/5).
+
+Originally planned retry policy (not implemented): transient errors (timeouts, 429/5xx) auto-retry 2-3x with exponential backoff; definitive errors (`SiteInaccessible`, `CrawlRejected` for >3 pages, robots.txt disallow, login-wall heuristics) fail immediately, no retry, no credit charged (or refunded per the system_reversal path above).
 
 ## Crawler
 
@@ -106,7 +108,7 @@ No headless browser in v1 — plain `httpx` fetch + BeautifulSoup/selectolax par
 
 ## Blueprint Extraction & Generation Pipeline
 
-Extraction aggregates crawled content/nav/headings into markdown prose, then calls a vision-capable OpenRouter model with the logo/hero images to confirm site name, color palette, fonts, and tone — filling the required YAML frontmatter of `design.md`.
+Extraction aggregates crawled content/nav/headings into markdown prose, then fires two independent OpenRouter review calls concurrently (via a small `ThreadPoolExecutor`, since the task handler is synchronous) from `blueprint_extractor.py`: a **brand review** call (vision-capable, only runs if a logo image was found) that confirms site name, fonts, and tone — filling the required YAML frontmatter of `design.md` — and a **content-gap review** call (text-only, always runs) that checks a compact digest of the scraped content against four standard sections (About/Value Proposition, Services/Features summary, Call To Action, FAQ) and drafts a short, tone-matched replacement for any that are genuinely missing, using only facts already present in the scraped content. Drafted sections are appended to the homepage's markdown body, each marked with an `<!-- ai-drafted -->` comment for traceability. The content-gap prompt carries an absolute rule never to draft or imply testimonials, statistics/numeric claims, pricing, credentials/awards, or contact details — those are left out entirely if the source site doesn't have them, never fabricated. Splitting into two calls (rather than one combined call) is a deliberate robustness/accuracy choice: a JSON-parse failure or off-format response in the creative content-gap half no longer takes down the well-established brand-fields half, and each prompt stays narrowly scoped to one job. The two calls' token usage is summed into a single `blueprint_extraction` row in `token_usage_logs`. If the content-gap call fails, extraction degrades gracefully (no sections added) rather than failing the project; a brand-review failure still fails the task, unchanged from before.
 
 **Token usage is now recorded for every AI call (implemented 2026-08-03)**: both `tasks_blueprint.py` (vision call, `purpose="blueprint_extraction"`) and `tasks_generate.py` (agentic loop, `purpose="generation"`) call `token_usage_service.record_usage()` to write a `token_usage_logs` row (see Database Schema) tied to `user_id` and `model_name`. Previously the blueprint-extraction vision call's usage was silently discarded (`_usage` variable, unused) — only the generation step's `prompt_tokens`/`completion_tokens` were captured, on `generation_outputs`, with no link to a user or model name.
 
@@ -138,11 +140,11 @@ Unit tests: `wallet_service` (spend success/failure, **concurrent-spend race tes
 
 ## Observability & Rate Limiting
 
-Structured JSON logging (structlog/loguru) across backend + Celery workers; Sentry for exception capture and failed-job alerting. `slowapi` (Redis-backed) rate limits on: crawl submission (`POST /projects`), login, register, password-reset request.
+Structured JSON logging (structlog/loguru) across backend + the queue worker; Sentry for exception capture and failed-job alerting. `slowapi` rate limits (in-memory today, not Redis-backed — see "Job Orchestration") on: crawl submission (`POST /projects`), login, register, password-reset request.
 
 ## Docker Compose (`standalone/`)
 
-Services: `postgres`, `redis`, `backend` (uvicorn, runs `alembic upgrade head` on startup), `celery-worker`, `celery-beat` (optional, cheap to include for future scheduled housekeeping), `frontend` (Angular dev server), `mailhog` (dev SMTP catcher for verification/reset emails). A shared `storage_data` volume mounts into both `backend` and `celery-worker` at the same path — the one place local-disk storage needs care, since the API serves downloads while the worker writes generated output.
+Services: `postgres`, `backend` (uvicorn, runs `alembic upgrade head` on startup), `queue-worker` (`python -m app.workers.queue_worker`, no Redis/broker container needed — see "Job Orchestration"), `frontend` (Angular dev server), `mailhog` (dev SMTP catcher for verification/reset emails). A shared `storage_data` volume mounts into both `backend` and `queue-worker` at the same path — the one place local-disk storage needs care, since the API serves downloads while the worker writes generated output.
 
 ## Build Order / Milestones
 

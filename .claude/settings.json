@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(env)",
+      "Bash(powershell -NoProfile -Command \"[Environment]::GetEnvironmentVariable\\('REDOWEBS_JWT_SECRET_KEY','User'\\); [Environment]::GetEnvironmentVariable\\('REDOWEBS_JWT_SECRET_KEY','Machine'\\); [Environment]::GetEnvironmentVariable\\('REDOWEBS_JWT_SECRET_KEY','Process'\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+<div>
+  <a routerLink="/admin/users" class="label">&larr; All users</a>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+  } @else if (detail(); as d) {
+    <h1 class="display display--sm" style="margin-top: var(--space-2)">{{ d.email }}</h1>
+    <p class="sub">Joined {{ d.created_at | date: 'medium' }}{{ d.is_admin ? ' · Admin' : '' }}</p>
+
+    <div class="cells cells--2" style="border: 2px solid var(--color-divider); margin-top: calc(1.2 * var(--leading))">
+      <app-stat-tile label="Wallet balance" [value]="d.wallet_balance" />
+      <app-stat-tile label="Projects" [value]="d.projects.length" />
+    </div>
+
+    <div style="margin-top: calc(1.5 * var(--leading))">
+      <h2 class="display" style="font-size: 20px">Issue credit adjustment</h2>
+      <p class="sub">Grant (positive) or claw back (negative) credits, e.g. to make good on a failed generation.</p>
+
+      <div class="row" style="gap: var(--space-3); align-items: flex-end; margin-top: var(--space-3); flex-wrap: wrap">
+        <div class="field" style="width: 140px">
+          <label for="adj-amount">Amount</label>
+          <input
+            id="adj-amount"
+            class="input"
+            type="number"
+            placeholder="e.g. 5 or -2"
+            [ngModel]="adjustmentAmount()"
+            (ngModelChange)="adjustmentAmount.set($event)"
+          />
+        </div>
+        <div class="field" style="flex: 1; min-width: 240px">
+          <label for="adj-note">Note (required)</label>
+          <input
+            id="adj-note"
+            class="input"
+            type="text"
+            placeholder="Reason for this adjustment"
+            [ngModel]="adjustmentNote()"
+            (ngModelChange)="adjustmentNote.set($event)"
+          />
+        </div>
+        <button type="button" appButton variant="primary" [disabled]="adjustmentSubmitting()" (click)="submitAdjustment()">
+          {{ adjustmentSubmitting() ? 'Applying…' : 'Apply adjustment' }}
+        </button>
+      </div>
+      @if (adjustmentError()) {
+        <p style="color: var(--color-danger); margin-top: var(--space-2); font-size: 13px">{{ adjustmentError() }}</p>
+      }
+      @if (adjustmentSuccess()) {
+        <p style="color: var(--color-accent); margin-top: var(--space-2); font-size: 13px">{{ adjustmentSuccess() }}</p>
+      }
+    </div>
+
+    <div style="margin-top: calc(1.5 * var(--leading))">
+      <h2 class="display" style="font-size: 20px">Credit ledger</h2>
+      <table class="table" style="margin-top: var(--space-3)">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Reason</th>
+            <th>Related project</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of d.ledger; track entry.id) {
+            <tr>
+              <td>{{ entry.created_at | date: 'medium' }}</td>
+              <td [style.color]="entry.amount < 0 ? 'var(--color-danger)' : 'var(--color-accent)'">
+                {{ entry.amount > 0 ? '+' : '' }}{{ entry.amount }}
+              </td>
+              <td>{{ entry.reason }}</td>
+              <td>
+                @if (entry.related_project_id) {
+                  <a [routerLink]="['/admin/projects', entry.related_project_id]">View</a>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4">No ledger entries yet.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: calc(1.5 * var(--leading))">
+      <h2 class="display" style="font-size: 20px">Projects</h2>
+      <table class="table" style="margin-top: var(--space-3)">
+        <thead>
+          <tr>
+            <th>Site</th>
+            <th>Tier</th>
+            <th>Status</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (project of d.projects; track project.project_id) {
+            <tr>
+              <td><a [routerLink]="['/admin/projects', project.project_id]" [title]="project.source_url">{{ project.source_url }}</a></td>
+              <td>
+                @if (project.tier) {
+                  <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
+                }
+              </td>
+              <td>{{ project.status }}</td>
+              <td>{{ project.created_at | date: 'medium' }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4">No projects yet.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

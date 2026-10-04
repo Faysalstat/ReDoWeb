@@ -9,7 +9,6 @@ import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 import { BadgeComponent, BadgeVariant } from '../../shared/ui/badge/badge.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
-import { CardComponent } from '../../shared/ui/card/card.component';
 import { ProgressBarComponent } from '../../shared/ui/progress-bar/progress-bar.component';
 
 const TIER_BADGE_VARIANT: Record<string, BadgeVariant> = {
@@ -21,8 +20,9 @@ const TIER_BADGE_VARIANT: Record<string, BadgeVariant> = {
 @Component({
   selector: 'app-history',
   standalone: true,
-  imports: [RouterLink, DatePipe, AppHeaderComponent, BadgeComponent, ButtonComponent, CardComponent, ProgressBarComponent],
+  imports: [RouterLink, DatePipe, AppHeaderComponent, BadgeComponent, ButtonComponent, ProgressBarComponent],
   templateUrl: './history.component.html',
+  styleUrl: './history.component.css',
 })
 export class HistoryComponent implements OnInit {
   readonly projects = signal<ProjectListItem[]>([]);

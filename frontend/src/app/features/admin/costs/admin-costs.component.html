@@ -1,0 +1,124 @@
+<div>
+  <div class="row row--between">
+    <div>
+      <h1 class="display display--sm">Token &amp; AI cost</h1>
+      <p class="sub">Cost breakdowns by model, user, and project, plus per-model pricing.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Date range">
+      @for (days of rangePresets; track days) {
+        <label class="seg-opt">
+          <input type="radio" name="range" [checked]="selectedDays() === days" (change)="selectRange(days)" />
+          {{ days }}d
+        </label>
+      }
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-4)">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else {
+    <div class="seg" role="group" aria-label="Breakdown" style="margin-top: calc(1.2 * var(--leading))">
+      <label class="seg-opt">
+        <input type="radio" name="tab" [checked]="activeTab() === 'model'" (change)="selectTab('model')" /> By model
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="tab" [checked]="activeTab() === 'user'" (change)="selectTab('user')" /> By user
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="tab" [checked]="activeTab() === 'project'" (change)="selectTab('project')" /> By project
+      </label>
+    </div>
+
+    @if (activeTab() === 'model') {
+      <table class="table" style="margin-top: var(--space-4)">
+        <thead>
+          <tr><th>Model</th><th>Prompt tokens</th><th>Completion tokens</th><th>Cost</th><th>Calls</th></tr>
+        </thead>
+        <tbody>
+          @for (row of byModel(); track row.model_name) {
+            <tr>
+              <td>{{ row.model_name }}</td>
+              <td>{{ row.prompt_tokens }}</td>
+              <td>{{ row.completion_tokens }}</td>
+              <td>{{ formatUsd(row.cost_usd) }}</td>
+              <td>{{ row.call_count }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">No AI calls in this range.</td></tr>
+          }
+        </tbody>
+      </table>
+    } @else if (activeTab() === 'user') {
+      <table class="table" style="margin-top: var(--space-4)">
+        <thead><tr><th>User</th><th>Cost</th><th>Calls</th></tr></thead>
+        <tbody>
+          @for (row of byUser(); track row.user_id) {
+            <tr><td>{{ row.email }}</td><td>{{ formatUsd(row.cost_usd) }}</td><td>{{ row.call_count }}</td></tr>
+          } @empty {
+            <tr><td colspan="3">No AI calls in this range.</td></tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <table class="table" style="margin-top: var(--space-4)">
+        <thead><tr><th>Project</th><th>Cost</th><th>Calls</th></tr></thead>
+        <tbody>
+          @for (row of byProject(); track row.project_id) {
+            <tr><td [title]="row.source_url">{{ row.source_url }}</td><td>{{ formatUsd(row.cost_usd) }}</td><td>{{ row.call_count }}</td></tr>
+          } @empty {
+            <tr><td colspan="3">No AI calls in this range.</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">Model pricing (USD per 1M tokens)</h2>
+    <table class="table" style="margin-top: var(--space-3)">
+      <thead><tr><th>Model</th><th>Prompt price</th><th>Completion price</th><th></th></tr></thead>
+      <tbody>
+        @for (row of pricing(); track row.model_name) {
+          <tr>
+            <td>{{ row.model_name }}</td>
+            <td>
+              <input
+                class="input"
+                type="number"
+                step="0.01"
+                style="width: 110px"
+                [ngModel]="draftFor(row.model_name).prompt"
+                (ngModelChange)="setDraft(row.model_name, 'prompt', $event)"
+              />
+            </td>
+            <td>
+              <input
+                class="input"
+                type="number"
+                step="0.01"
+                style="width: 110px"
+                [ngModel]="draftFor(row.model_name).completion"
+                (ngModelChange)="setDraft(row.model_name, 'completion', $event)"
+              />
+            </td>
+            <td>
+              <button type="button" appButton variant="secondary" [disabled]="savingModel() === row.model_name" (click)="savePricing(row.model_name)">
+                {{ savingModel() === row.model_name ? 'Saving…' : 'Save' }}
+              </button>
+            </td>
+          </tr>
+        }
+        <tr>
+          <td><input class="input" type="text" placeholder="vendor/model-id" [ngModel]="newModelName()" (ngModelChange)="newModelName.set($event)" /></td>
+          <td><input class="input" type="number" step="0.01" style="width: 110px" [ngModel]="newModelPromptPrice()" (ngModelChange)="newModelPromptPrice.set($event)" /></td>
+          <td><input class="input" type="number" step="0.01" style="width: 110px" [ngModel]="newModelCompletionPrice()" (ngModelChange)="newModelCompletionPrice.set($event)" /></td>
+          <td><button type="button" appButton variant="primary" (click)="addNewModelPricing()">Add</button></td>
+        </tr>
+      </tbody>
+    </table>
+  }
+</div>

@@ -1,0 +1,75 @@
+<nav class="nav">
+  <a class="nav-brand" routerLink="/">ReDoWebs</a>
+  <span class="label">Step 2 of 2 — Payment</span>
+</nav>
+
+<div class="checkout">
+  <form class="checkout__form" (ngSubmit)="pay()">
+    <h1 class="display display--sm">Download the {{ tier.name }} tier</h1>
+    @if (requestedCredits) {
+      <p class="sub" style="margin-top: var(--space-2)">
+        You'll need at least {{ requestedCredits }} credit{{ requestedCredits === 1 ? '' : 's' }} to continue the
+        generation waiting on approval.
+      </p>
+    }
+
+    <div class="checkout__fields">
+      <div class="field">
+        <label for="ck-email">Email</label>
+        <input class="input" id="ck-email" name="email" type="email" [(ngModel)]="form.email" placeholder="you@yourbusiness.com" />
+      </div>
+      <div class="field">
+        <label for="ck-card">Card number</label>
+        <input class="input" id="ck-card" name="card" inputmode="numeric" [(ngModel)]="form.card" placeholder="0000 0000 0000 0000" />
+      </div>
+      <div class="checkout__pair">
+        <div class="field">
+          <label for="ck-exp">Expiry</label>
+          <input class="input" id="ck-exp" name="expiry" [(ngModel)]="form.expiry" placeholder="MM / YY" />
+        </div>
+        <div class="field">
+          <label for="ck-cvc">CVC</label>
+          <input class="input" id="ck-cvc" name="cvc" [(ngModel)]="form.cvc" placeholder="123" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="ck-name">Name on card</label>
+        <input class="input" id="ck-name" name="name" [(ngModel)]="form.name" placeholder="A. Brightwood" />
+      </div>
+      <div class="field">
+        <label for="ck-country">Billing country</label>
+        <select class="input" id="ck-country" name="country" [(ngModel)]="form.country">
+          @for (c of countries; track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+      </div>
+
+      <hr class="hr" />
+
+      <button class="btn btn-primary btn-block checkout__cta" type="submit">Pay {{ tier.price }} and download</button>
+      <p style="font-size: 13px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
+        This is a preview of the checkout flow — payment isn't live yet. Downloads will unlock once
+        billing is wired up.
+      </p>
+    </div>
+  </form>
+
+  <aside class="checkout__summary">
+    <span class="label">Order</span>
+    <div style="margin-top: var(--space-6); border-top: 2px solid var(--color-divider)">
+      <div class="summary__row"><span style="font-weight: 600">{{ tier.name }} tier</span><span class="tnum">{{ tier.price }}</span></div>
+      <div class="summary__row"><span>{{ tier.tagline }}</span></div>
+      <div class="summary__total"><b>Due today</b><span>{{ tier.price }}</span></div>
+    </div>
+    <div class="panel" style="padding: var(--space-4)">
+      <span class="label">Included</span>
+      <ul style="font-size: 14.5px; line-height: 24px; margin: var(--space-3) 0; padding-left: 18px">
+        @for (feature of tier.features; track feature) {
+          <li>{{ feature }}</li>
+        }
+      </ul>
+      <a routerLink="/pricing" style="font-size: 14.5px; font-weight: 600">Back to pricing</a>
+    </div>
+  </aside>
+</div>

@@ -1,0 +1,55 @@
+<app-app-nav [context]="scan()?.url ?? ''" />
+
+<div class="wrap">
+  @if (scan(); as s) {
+    <section class="scan">
+      <div>
+        <span class="kicker">Phase {{ s.phaseIndex + 1 }} of {{ s.phases.length }} — {{ s.phases[s.phaseIndex].name }}</span>
+        <p class="pct">{{ s.percent }}<span>%</span></p>
+
+        <div class="meter" style="margin-top: var(--space-8)">
+          <div class="meter__fill" [style.width.%]="s.percent"></div>
+        </div>
+        <p class="sub" style="max-width: 44ch">
+          Roughly {{ s.etaMinutes }} min left. You can close this tab — we will email you the preview
+          link when it is ready.
+        </p>
+        <div class="row" style="margin-top: var(--space-6)">
+          <a class="btn btn-primary" [routerLink]="['/preview', s.id]">Open preview when ready</a>
+          <button class="btn btn-ghost" type="button">Cancel scan</button>
+        </div>
+
+        <div class="rows" style="margin-top: calc(1.5 * var(--leading))">
+          @for (p of s.phases; track p.name) {
+            <div class="phase">
+              <span class="phase__dot" [style.background]="mark(p.state)"></span>
+              <span style="font-size: 15.5px; font-weight: 500"
+                    [style.color]="p.state === 'running' ? 'var(--color-text)' : 'var(--color-neutral-700)'">{{ p.name }}</span>
+              <span class="label">{{ stateLabel(p.state, p.detail) }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel__head">
+          <span class="label">Findings so far</span>
+          <span class="tag tag-accent">{{ s.findings.length }} issues</span>
+        </div>
+        @for (f of s.findings; track f.title) {
+          <div class="finding">
+            <div class="finding__head">
+              <p class="finding__title">{{ f.title }}</p>
+              <span class="tag tag-neutral">{{ f.severity }}</span>
+            </div>
+            <p class="finding__fix">{{ f.fix }}</p>
+          </div>
+        }
+        <p class="row" style="padding: var(--space-4); font-size: 13px; color: var(--color-neutral-700); gap: var(--space-2)">
+          <span style="width: 8px; height: 8px; background: var(--color-accent)"></span>
+          Still reading /services, /team, /contact
+        </p>
+      </aside>
+    </section>
+  }
+</div>

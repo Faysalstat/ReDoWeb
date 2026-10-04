@@ -18,6 +18,11 @@ class GenerationJob(Base):
         PGUUID(as_uuid=True), ForeignKey("blueprints.id"), nullable=False
     )
     tier: Mapped[str] = mapped_column(String(32), nullable=False)
+    # "preview" (the initial home-page-only tiered generation, every job
+    # before 2026-09-17) or "full_site" (the lazy, cached, purchase-triggered
+    # multi-page build -- see workers/tasks_full_site.py). downloads.py uses
+    # this to tell the two kinds of job apart for the same (project, tier).
+    scope: Mapped[str] = mapped_column(String(16), nullable=False, default="preview")
     overall_status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -47,6 +52,7 @@ class GenerationOutput(Base):
     contrast_warnings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     alt_text_added: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     og_tags_added: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    reveal_visibility_fixes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     sitemap_written: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -1,0 +1,71 @@
+<app-app-nav />
+
+<div class="shell">
+  <aside class="shell__aside">
+    <span class="label">Workspace</span>
+    <a class="active" routerLink="/dashboard">My sites</a>
+    <a routerLink="/scan/demo">Scans</a>
+    <a routerLink="/preview/demo">Previews</a>
+    <a routerLink="/settings/billing">Billing</a>
+    <a routerLink="/auth">Team</a>
+    <hr class="hr" />
+    <span class="label">Plan</span>
+    <p style="font-size: 15px; margin: 0">Pro — 4 of 10 regenerations used this month</p>
+  </aside>
+
+  <section class="shell__main">
+    <div class="row row--between">
+      <h1 class="display display--sm">My sites</h1>
+      <div class="row">
+        <input class="input" style="width: 220px" placeholder="Filter by domain"
+               aria-label="Filter by domain" name="filter" [(ngModel)]="filter" />
+        <div class="seg" role="group" aria-label="Row density">
+          <label class="seg-opt">
+            <input type="radio" name="density" [checked]="density() === 'roomy'" (change)="density.set('roomy')" />
+            Roomy
+          </label>
+          <label class="seg-opt">
+            <input type="radio" name="density" [checked]="density() === 'dense'" (change)="density.set('dense')" />
+            Dense
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="cells cells--4" style="border: 2px solid var(--color-divider); margin-top: calc(1.2 * var(--leading))">
+      @for (s of summary; track s.label) {
+        <div class="cell" style="padding: var(--space-4)">
+          <p class="metric__num" [class.metric__num--accent]="s.accent">{{ s.value }}</p>
+          <p class="metric__label">{{ s.label }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="sites" [class.sites--dense]="density() === 'dense'">
+      <div class="sites__head">
+        <span class="label">Domain</span>
+        <span class="label">Status</span>
+        <span class="label">Plan</span>
+        <span class="label">Last rebuild</span>
+        <span></span>
+      </div>
+      @for (site of sites(); track site.id) {
+        <div class="sites__row">
+          <div>
+            <p class="sites__domain">{{ site.domain }}</p>
+            <p class="sites__note">{{ site.note }}</p>
+          </div>
+          <span [class]="'tag ' + tag(site.status)" style="justify-self: start">{{ site.status }}</span>
+          <span style="font-size: 14.5px">{{ site.plan }}</span>
+          <span class="tnum" style="font-size: 14.5px; color: var(--color-neutral-700)">{{ site.lastRebuild }}</span>
+          <div class="sites__actions">
+            <a class="btn btn-ghost" [routerLink]="['/preview', site.id]">Preview</a>
+            <button class="btn btn-secondary" type="button">{{ site.action }}</button>
+          </div>
+        </div>
+      } @empty {
+        <p style="padding: var(--space-6) 0; color: var(--color-neutral-700)">No site matches that filter.</p>
+      }
+    </div>
+  </section>
+</div>

@@ -1,24 +1,31 @@
-<div class="relative min-h-screen text-ink">
-  <app-header />
+<app-header />
 
-  <section class="mx-auto max-w-[1120px] px-6 py-16">
-    <a routerLink="/app" class="text-sm text-ink-muted transition-colors duration-200 hover:text-ink">
-      ← Back to Dashboard
-    </a>
+<div class="wrap--narrow">
+  <section class="band--tight">
+    <a routerLink="/" class="gp-back">← Back to Dashboard</a>
 
     @if (status(); as s) {
-      <p class="mt-3 truncate text-sm text-ink-muted">{{ s.source_url }}</p>
+      <p class="gp-source">{{ s.source_url }}</p>
     }
 
     <!-- In-progress -->
     @if (isBusy) {
-      <app-card class="mx-auto mt-8 max-w-2xl">
-        <div class="flex flex-col items-center text-center">
-          <ol class="flex w-full items-start">
+      <section class="scan">
+        <div>
+          <span class="kicker">{{ statusLabelFor(stage()) }}</span>
+          <p class="pct">{{ progressPercent }}<span>%</span></p>
+
+          <div class="meter" style="margin-top: var(--space-6)">
+            <div class="meter__fill" [style.width.%]="progressPercent"></div>
+          </div>
+          <p class="sub">{{ subStatus() || 'Working on it…' }}</p>
+          <p class="text-muted" style="font-size: 13px">This usually takes 15–30 minutes · {{ formattedElapsed }} elapsed</p>
+
+          <ol class="scan__steps">
             <li
               appStepItem
               [index]="1"
-              label="Crawling your site"
+              label="Crawling"
               description="Reading pages, content, and brand assets"
               orientation="horizontal"
               [subStatus]="subStatus()"
@@ -27,7 +34,7 @@
             <li
               appStepItem
               [index]="2"
-              label="Extracting your blueprint"
+              label="Extracting"
               description="Identifying your logo, colors, fonts, and tone"
               orientation="horizontal"
               [subStatus]="subStatus()"
@@ -36,7 +43,7 @@
             <li
               appStepItem
               [index]="3"
-              label="Generating your design"
+              label="Generating"
               description="Writing HTML, CSS, and JS for your site"
               orientation="horizontal"
               [last]="true"
@@ -44,151 +51,384 @@
               [status]="stepStatus('generating')"
             ></li>
           </ol>
-
-          <app-progress-bar class="mt-10 w-full" [percent]="progressPercent" />
-
-          <p class="mt-6 text-sm font-semibold text-ink">{{ subStatus() || 'Working on it…' }}</p>
-          <p class="mt-1 text-xs text-ink-muted">This takes about 30–60 seconds • {{ formattedElapsed }} elapsed</p>
         </div>
-      </app-card>
+
+        <aside class="panel">
+          <div class="panel__head">
+            <span class="label">What's happening</span>
+          </div>
+          <div class="panel__body chat">
+            <div class="chat__msg">
+              <div class="chat__avatar">
+                <app-icon-sparkles [size]="13" />
+              </div>
+              <div class="chat__bubble">
+                <p class="chat__text">
+                  We never touch your live site during this — we're only reading it to build the
+                  replacement. You can close this tab; find this project anytime from your
+                  <a routerLink="/history">History</a> page.
+                  <span class="chat__cursor"></span>
+                </p>
+              </div>
+            </div>
+
+            <div class="chat__msg chat__msg--status">
+              <div class="chat__avatar chat__avatar--live">
+                <span class="chat__live-dot"></span>
+              </div>
+              <div class="chat__bubble chat__bubble--status">
+                <p class="chat__text">
+                  Working on <strong>{{ status()?.source_url }}</strong>
+                </p>
+                <span class="chat__typing" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
     }
 
     <!-- Failed / rejected -->
     @if (stage() === 'error') {
-      <app-card variant="danger" class="mx-auto mt-8 max-w-2xl">
-        <div class="flex flex-col items-center text-center">
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-error/30 bg-error/10 text-error"
-          >
-            <app-icon-x [size]="24" />
-          </div>
-          <h2 class="mt-4 text-xl font-bold text-ink">Something went wrong</h2>
-          <p class="mt-2 max-w-sm text-sm text-ink-muted">{{ errorMessage() }}</p>
-          <button appButton shape="pill" variant="primary" class="mt-6" (click)="tryAgain()">Try Again</button>
+      <div class="gp-error">
+        <div class="gp-error__icon">
+          <app-icon-x [size]="24" />
         </div>
-      </app-card>
+        <h2 style="margin-top: var(--space-4)">{{ errorHeading() }}</h2>
+        <p class="sub" style="margin: var(--space-2) auto 0">{{ errorMessage() }}</p>
+
+        @if (status()?.tier_failures?.length) {
+          <app-card style="margin: var(--space-6) auto 0; max-width: 480px; text-align: left">
+            <p class="gp-cta__kicker">Retry a single tier</p>
+            <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+              Your site was already crawled and analysed — retrying reuses that work, so there's no
+              re-crawl and no extra credits.
+            </p>
+            @for (failure of status()!.tier_failures; track failure.tier) {
+              <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-divider)">
+                <div class="row row--between" style="gap: var(--space-2); flex-wrap: wrap">
+                  <strong>{{ tierLabel(failure.tier) }}</strong>
+                  <button
+                    appButton
+                    variant="secondary"
+                    [disabled]="isRetrying(failure.tier)"
+                    (click)="retryTier(failure.tier)"
+                  >
+                    {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                  </button>
+                </div>
+                @if (failure.failure_reason) {
+                  <p class="sub" style="margin-top: var(--space-2); font-size: 12px; max-width: none">
+                    {{ failure.failure_reason }}
+                  </p>
+                }
+              </div>
+            }
+            @if (retryError()) {
+              <p class="sub" style="margin-top: var(--space-3); font-size: 12px; color: var(--color-danger)">
+                {{ retryError() }}
+              </p>
+            }
+          </app-card>
+        }
+
+        <button appButton variant="secondary" style="margin-top: var(--space-6)" (click)="tryAgain()">
+          Start over with a new site
+        </button>
+      </div>
+    }
+
+    <!-- Awaiting cost approval -->
+    @if (stage() === 'awaiting_approval') {
+      @if (status()?.cost_gate; as gate) {
+        <div class="gp-error">
+          <div class="gp-error__icon">
+            <app-icon-alert-triangle [size]="24" />
+          </div>
+          <h2 style="margin-top: var(--space-4)">This page is bigger than usual</h2>
+          <p class="sub" style="margin: var(--space-2) auto 0; max-width: 480px">
+            Generating every enabled tier for this page is estimated to cost about
+            ${{ gate.estimated_cost_usd.toFixed(2) }} — more than usual for a single page. We pause here so
+            you can confirm before we spend it.
+          </p>
+
+          <app-card style="margin: var(--space-6) auto 0; max-width: 420px; text-align: left">
+            <div class="gp-stat-grid">
+              <div class="gp-stat">
+                <p class="gp-stat__value gp-stat__value--accent">${{ gate.estimated_cost_usd.toFixed(2) }}</p>
+                <p class="gp-stat__label">Estimated cost</p>
+              </div>
+              <div class="gp-stat">
+                <p class="gp-stat__value">{{ gate.required_credits }}</p>
+                <p class="gp-stat__label">Credits required</p>
+              </div>
+              <div class="gp-stat">
+                <p class="gp-stat__value">{{ gate.current_balance }}</p>
+                <p class="gp-stat__label">Your balance</p>
+              </div>
+            </div>
+          </app-card>
+
+          @if (gate.shortfall_credits > 0) {
+            <p class="sub" style="margin-top: var(--space-4); color: var(--color-danger)">
+              You need {{ gate.shortfall_credits }} more credit{{ gate.shortfall_credits === 1 ? '' : 's' }} to
+              continue.
+            </p>
+            <button appButton variant="primary" style="margin-top: var(--space-4)" (click)="goToTopUp()">
+              Top Up Credits
+            </button>
+          } @else {
+            <button
+              appButton
+              variant="primary"
+              style="margin-top: var(--space-6)"
+              [disabled]="approving()"
+              (click)="approveGeneration()"
+            >
+              {{ approving() ? 'Starting…' : 'Continue — spend credits and generate' }}
+            </button>
+          }
+
+          @if (approveError()) {
+            <p class="sub" style="margin-top: var(--space-3); color: var(--color-danger)">{{ approveError() }}</p>
+          }
+
+          <p class="text-muted" style="font-size: 12px; margin-top: var(--space-4)">
+            <a routerLink="/">Cancel and go back</a>
+          </p>
+        </div>
+      }
     }
 
     <!-- Ready -->
     @if (stage() === 'ready') {
       @if (status(); as s) {
-        @if (s.generation; as gen) {
-          <div class="mt-8">
-            <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
-                >
-                  <app-icon-check [size]="18" />
+        @if (activeGeneration(); as gen) {
+          <div class="gp-topbar">
+            <a routerLink="/" class="gp-topbar__back" aria-label="Back to dashboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+
+            <div class="gp-topbar__id">
+              <div class="gp-topbar__title-row">
+                <h1>{{ s.blueprint?.site_name || 'Your modernized site' }}</h1>
+                <span class="gp-status-pill">
+                  <span class="gp-status-dot"></span>
+                  Redesign complete
+                </span>
+              </div>
+              <p class="gp-topbar__sub">{{ tierLabel(gen.tier) }} tier · generated in {{ formattedElapsed }}</p>
+            </div>
+
+            <div class="gp-topbar__actions">
+              <button appButton variant="secondary" (click)="tryAgain()">Start over</button>
+              <button
+                appButton
+                variant="primary"
+                [disabled]="downloadStatus()[gen.tier] === 'starting' || downloadStatus()[gen.tier] === 'building'"
+                (click)="download(gen.tier)"
+              >
+                @switch (downloadStatus()[gen.tier]) {
+                  @case ('starting') { Starting… }
+                  @case ('building') { Preparing full site… }
+                  @default { Download ZIP }
+                }
+              </button>
+            </div>
+          </div>
+          @if (downloadStatus()[gen.tier] === 'failed') {
+            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2); color: var(--color-danger)">
+              Something went wrong preparing your download — try again.
+            </p>
+          }
+
+          <div class="gp-ready__layout">
+            <div class="panel" style="border-width: 0 0 2px">
+              <div class="toolbar">
+                <div class="row" style="gap: var(--space-4)">
+                  @if (s.generations.length > 1) {
+                    <div class="gp-pill-tabs" role="group" aria-label="Tier">
+                      @for (item of s.generations; track item.tier) {
+                        <label class="gp-pill-tab" [class.is-active]="selectedTier() === item.tier">
+                          <input type="radio" name="tier" [checked]="selectedTier() === item.tier" (change)="selectTier(item.tier)" />
+                          {{ tierLabel(item.tier) }}
+                        </label>
+                      }
+                    </div>
+                  }
+                  <a class="label" [href]="s.source_url" target="_blank" rel="noopener">View original site ↗</a>
                 </div>
-                <div>
-                  <h2 class="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                    {{ s.blueprint?.site_name || 'Your modernized site' }} is ready ✨
-                  </h2>
-                  <p class="mt-0.5 text-sm text-ink-muted">
-                    Modern, responsive, and built to impress — take a look, then make it yours.
-                  </p>
+                <div class="gp-pill-tabs" role="group" aria-label="Device">
+                  <label class="gp-pill-tab" [class.is-active]="device() === 'desktop'">
+                    <input type="radio" name="device" [checked]="device() === 'desktop'" (change)="device.set('desktop')" />
+                    Desktop
+                  </label>
+                  <label class="gp-pill-tab" [class.is-active]="device() === 'phone'">
+                    <input type="radio" name="device" [checked]="device() === 'phone'" (change)="device.set('phone')" />
+                    Phone
+                  </label>
                 </div>
               </div>
-              <app-badge variant="accent">{{ gen.tier }} tier</app-badge>
+
+              <div class="gp-preview-stage">
+                <div [style.maxWidth.px]="frameWidth" style="width: 100%; margin: 0 auto">
+                  <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()">
+                    <button appButton toolbar-actions variant="secondary" title="Full page preview" (click)="toggleFullscreenPreview()">
+                      <app-icon-maximize2 [size]="14" />
+                    </button>
+                    <button appButton toolbar-actions variant="secondary" title="Open in new tab" (click)="openPreviewInNewTab()">
+                      <app-icon-external-link [size]="14" />
+                    </button>
+                  </app-browser-frame>
+                </div>
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
-              <app-browser-frame [url]="previewUrl()" [previewUrl]="safePreviewUrl()">
-                <button
-                  appButton
-                  toolbar-actions
-                  variant="secondary"
-                  title="Full page preview"
-                  class="!px-2.5 !py-1 text-xs"
-                  (click)="toggleFullscreenPreview()"
-                >
-                  <app-icon-maximize2 [size]="14" />
-                  Full preview
-                </button>
-                <button
-                  appButton
-                  toolbar-actions
-                  variant="secondary"
-                  title="Open in new tab"
-                  class="!px-2.5 !py-1 text-xs"
-                  (click)="openPreviewInNewTab()"
-                >
-                  <app-icon-external-link [size]="14" />
-                </button>
-              </app-browser-frame>
-
-              <!-- Sidebar -->
-              <aside class="space-y-4 self-start">
-                <!-- Primary conversion CTA -->
-                <app-card variant="gradient" [spotlight]="true">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-accent-bright">Like what you see?</p>
-                  <h3 class="mt-1.5 text-lg font-bold leading-snug text-ink">Unlock the full download</h3>
-                  <p class="mt-2 text-sm leading-relaxed text-ink-muted">
-                    Get the complete HTML/CSS source, ready to host anywhere — one payment, yours to keep.
-                  </p>
-                  <button
-                    appButton
-                    shape="pill"
-                    variant="primary"
-                    disabled
-                    title="Coming soon"
-                    class="mt-5 w-full !py-3 text-base"
-                  >
-                    Download ZIP
-                  </button>
-                  <p class="mt-2.5 text-center text-xs font-medium text-accent-bright">Coming soon</p>
-                  <div class="my-4 border-t border-white/10"></div>
-                  <button appButton shape="pill" variant="ghost" disabled title="Coming soon" class="w-full">
-                    Try a different tier
-                  </button>
-                  <p class="mt-3 text-center text-xs text-ink-muted">
-                    Previews are always free — payment only unlocks the download.
-                  </p>
-                </app-card>
-
-                <app-card>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Template</p>
-                  <p class="mt-1 text-sm font-medium text-ink">{{ gen.template_used }}</p>
-                </app-card>
-
-                @if (gen.contrast_warnings.length > 0) {
-                  <app-card>
-                    <p class="flex items-center gap-1.5 text-sm font-semibold text-amber-300">
-                      <app-icon-alert-triangle [size]="16" />
-                      Accessibility note
+            <aside class="gp-ready__aside">
+              <app-card>
+                <p class="gp-cta__kicker">Generation details</p>
+                <div class="gp-stat-grid">
+                  <div class="gp-stat">
+                    <p class="gp-stat__value gp-stat__value--accent">{{ tierLabel(gen.tier) }}</p>
+                    <p class="gp-stat__label">Tier</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p class="gp-stat__value gp-stat__value--text" [title]="gen.template_used">{{ templateName(gen.template_used) }}</p>
+                    <p class="gp-stat__label">Template</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p
+                      class="gp-stat__value"
+                      [class.gp-stat__value--danger]="gen.contrast_warnings.length > 0"
+                      [class.gp-stat__value--success]="gen.contrast_warnings.length === 0"
+                    >
+                      {{ gen.contrast_warnings.length }}
                     </p>
-                    <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-200/80">
-                      @for (warning of gen.contrast_warnings; track warning) {
-                        <li>{{ warning }}</li>
+                    <p class="gp-stat__label">Accessibility notes</p>
+                  </div>
+                  <div class="gp-stat">
+                    <p class="gp-stat__value">1</p>
+                    <p class="gp-stat__label">Page rebuilt</p>
+                  </div>
+                </div>
+              </app-card>
+
+              @if (s.tier_failures.length > 0) {
+                <app-card>
+                  <p class="gp-cta__kicker">Tiers that didn't finish</p>
+                  <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                    Everything above generated fine. These didn't — retrying rebuilds only that tier from
+                    the blueprint we already have, and costs no extra credits.
+                  </p>
+                  @for (failure of s.tier_failures; track failure.tier) {
+                    <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-divider)">
+                      <div class="row row--between" style="gap: var(--space-2); flex-wrap: wrap">
+                        <span class="row" style="gap: var(--space-2); align-items: center">
+                          <app-icon-alert-triangle [size]="15" class="gp-changelist__icon gp-changelist__icon--warning" />
+                          <strong>{{ tierLabel(failure.tier) }}</strong>
+                        </span>
+                        <button
+                          appButton
+                          variant="secondary"
+                          [disabled]="isRetrying(failure.tier)"
+                          (click)="retryTier(failure.tier)"
+                        >
+                          {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                        </button>
+                      </div>
+                      @if (failure.failure_reason) {
+                        <p class="sub" style="margin-top: var(--space-2); font-size: 12px; max-width: none">
+                          {{ failure.failure_reason }}
+                        </p>
                       }
-                    </ul>
-                  </app-card>
-                }
-              </aside>
-            </div>
+                    </div>
+                  }
+                  @if (retryError()) {
+                    <p class="sub" style="margin-top: var(--space-3); font-size: 12px; color: var(--color-danger)">
+                      {{ retryError() }}
+                    </p>
+                  }
+                </app-card>
+              }
+
+              <app-card>
+                <p class="gp-cta__kicker">What changed</p>
+                <ul class="gp-changelist">
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Rebuilt with a responsive layout for desktop and mobile
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Meta tags and Open Graph data added for search &amp; social
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Alt text added to any images that were missing it
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Sitemap generated for search engines
+                  </li>
+                  <li>
+                    @if (gen.contrast_warnings.length === 0) {
+                      <app-icon-check [size]="15" class="gp-changelist__icon" />
+                      No color-contrast issues found
+                    } @else {
+                      <app-icon-alert-triangle [size]="15" class="gp-changelist__icon gp-changelist__icon--warning" />
+                      {{ gen.contrast_warnings.length }} contrast issue{{ gen.contrast_warnings.length === 1 ? '' : 's' }} flagged below
+                    }
+                  </li>
+                  <li>
+                    <app-icon-check [size]="15" class="gp-changelist__icon" />
+                    Your original copy and contact details, kept as-is
+                  </li>
+                </ul>
+              </app-card>
+
+              @if (gen.contrast_warnings.length > 0) {
+                <app-card>
+                  <p style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; margin: 0">
+                    <app-icon-alert-triangle [size]="16" />
+                    Accessibility note
+                  </p>
+                  <ul style="margin: var(--space-2) 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--color-neutral-700)">
+                    @for (warning of gen.contrast_warnings; track warning) {
+                      <li>{{ warning }}</li>
+                    }
+                  </ul>
+                </app-card>
+              }
+
+              <app-card variant="gradient">
+                <p class="gp-cta__kicker">Nothing downloaded yet</p>
+                <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                  Downloading the full HTML/CSS source spends credits from your wallet — the exact
+                  cost depends on your plan.
+                </p>
+              </app-card>
+            </aside>
           </div>
         }
       }
     }
   </section>
-
-  <!-- Fullscreen preview overlay -->
-  @if (isFullscreenPreview()) {
-    <app-browser-frame
-      [url]="previewUrl()"
-      [previewUrl]="safePreviewUrl()"
-      [fullscreen]="true"
-      iframeTitle="Full page website preview"
-    >
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="openPreviewInNewTab()">
-        <app-icon-external-link [size]="14" />
-        Open in new tab
-      </button>
-      <button appButton toolbar-actions variant="secondary" class="!px-3 !py-1.5 text-xs" (click)="toggleFullscreenPreview()">
-        <app-icon-x [size]="14" />
-        Close
-      </button>
-    </app-browser-frame>
-  }
 </div>
+
+<!-- Fullscreen preview overlay -->
+@if (isFullscreenPreview()) {
+  <app-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
+    <button appButton toolbar-actions variant="secondary" (click)="openPreviewInNewTab()">
+      <app-icon-external-link [size]="14" />
+      Open in new tab
+    </button>
+    <button appButton toolbar-actions variant="secondary" (click)="toggleFullscreenPreview()">
+      <app-icon-x [size]="14" />
+      Close
+    </button>
+  </app-browser-frame>
+}

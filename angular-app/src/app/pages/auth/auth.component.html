@@ -1,0 +1,51 @@
+<div class="auth">
+  <section class="auth__form">
+    <a class="nav-brand" routerLink="/">REFIT</a>
+    <h1 class="display display--sm" style="margin-top: var(--space-8)">{{ title() }}</h1>
+    <p class="sub" style="max-width: 44ch">{{ note() }}</p>
+
+    <div class="seg" role="group" aria-label="Account mode" style="margin-top: var(--space-6)">
+      <label class="seg-opt">
+        <input type="radio" name="authmode" [checked]="!isSignUp()" (change)="mode.set('in')" />
+        Sign in
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="authmode" [checked]="isSignUp()" (change)="mode.set('up')" />
+        Create account
+      </label>
+    </div>
+
+    <form class="auth__fields" (ngSubmit)="submit()">
+      <div class="field">
+        <label for="au-email">Email</label>
+        <input class="input" id="au-email" name="email" type="email" [(ngModel)]="form.email" placeholder="you@yourbusiness.com" />
+      </div>
+      <div class="field">
+        <label for="au-pass">Password</label>
+        <input class="input" id="au-pass" name="password" type="password" [(ngModel)]="form.password" placeholder="••••••••" />
+      </div>
+      @if (isSignUp()) {
+        <div class="field">
+          <label for="au-site">Your website</label>
+          <input class="input" id="au-site" name="site" [(ngModel)]="form.site" placeholder="yourbusiness.com" />
+        </div>
+      }
+      <button class="btn btn-primary btn-block" type="submit">{{ cta() }}</button>
+      <button class="btn btn-secondary btn-block" type="button">Continue with Google</button>
+      <p style="font-size: 13.5px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
+        Your scan of <strong>brightwood-dental.com</strong> is 44% done and will attach to this account.
+      </p>
+    </form>
+  </section>
+
+  <aside class="auth__poster">
+    <h2>Nothing published<br />without your word.</h2>
+    <div class="auth__foot">
+      <p>
+        Accounts exist so your preview survives a closed tab. We do not need DNS access, hosting
+        logins, or your card until you publish.
+      </p>
+      <p class="label" style="color: var(--color-bg)">31,904 sites refit · 0 overwritten by accident</p>
+    </div>
+  </aside>
+</div>

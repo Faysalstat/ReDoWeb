@@ -1,27 +1,13 @@
 from pydantic import BaseModel
 
-
-class ColorPalette(BaseModel):
-    primary: str
-    secondary: str
-    accent: str
-
-
-class Fonts(BaseModel):
-    heading: str
-    body: str
-
-
-class Frontmatter(BaseModel):
-    site_name: str
-    colors: ColorPalette
-    logo: str | None = None
-    fonts: Fonts
-    tone: str | None = None
+from ..ai.blueprint_schema import BlueprintDocument
 
 
 class BlueprintResponse(BaseModel):
     project_id: str
+    version: int
+    scraped_json_path: str
+    blueprint_json_path: str
     design_md_path: str
-    frontmatter: Frontmatter
-    design_md: str
+    blueprint: BlueprintDocument
+    usage: dict

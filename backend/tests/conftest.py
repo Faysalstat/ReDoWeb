@@ -4,7 +4,17 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.base import Base
-from app.models import AuthIdentity, CreditTransaction, CreditWallet, User
+from app.models import (
+    AIModelSetting,
+    AuthIdentity,
+    CostSetting,
+    CreditTransaction,
+    CreditWallet,
+    Purchase,
+    PromptTemplate,
+    Tier,
+    User,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +45,11 @@ def db_session():
             AuthIdentity.__table__,
             CreditWallet.__table__,
             CreditTransaction.__table__,
+            Purchase.__table__,
+            Tier.__table__,
+            AIModelSetting.__table__,
+            PromptTemplate.__table__,
+            CostSetting.__table__,
         ],
     )
     session = Session(bind=engine)

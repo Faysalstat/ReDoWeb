@@ -9,14 +9,13 @@ import { AuthService } from '../../core/auth.service';
 @Component({
   selector: 'app-auth-callback',
   standalone: true,
+  host: { style: 'display: flex; min-height: 100vh; align-items: center; justify-content: center' },
   template: `
-    <div class="flex min-h-screen items-center justify-center text-ink">
-      @if (error()) {
-        <p class="text-sm text-red-300">{{ error() }}</p>
-      } @else {
-        <p class="text-sm text-ink-muted">Signing you in...</p>
-      }
-    </div>
+    @if (error()) {
+      <p style="color: var(--color-danger); font-size: 14px">{{ error() }}</p>
+    } @else {
+      <p class="text-muted" style="font-size: 14px">Signing you in...</p>
+    }
   `,
 })
 export class AuthCallbackComponent implements OnInit {
@@ -45,7 +44,7 @@ export class AuthCallbackComponent implements OnInit {
     }
 
     this.auth.completeLogin(token).subscribe({
-      next: () => this.router.navigate(['/app']),
+      next: () => this.router.navigate(['/']),
       error: () => {
         this.error.set('Google sign-in failed. Please try again.');
         setTimeout(() => this.router.navigate(['/']), 2000);

@@ -1,0 +1,76 @@
+# Local Docker testing for the backend (api + queue worker), per the user's
+# choice to keep using the existing shared Postgres container on this
+# machine (G:\Standalone Services\postgres, published on host port 5432 --
+# see backend/app/config.py's `database_url` default) rather than running a
+# second Postgres in this stack. `standalone/docker-compose.yml` (the
+# deprecated per-project Postgres file) is unrelated to this one.
+#
+# Usage (see docs/DOCKER.md for the full walkthrough):
+#   cd "G:\Current Works\ReDoWebs"
+#   docker compose -f standalone/docker-compose.backend.local.yml up --build
+#
+# Requires backend/.env to already exist (see docs/INSTALLATION.md section
+# 2.2) -- REDOWEBS_DATABASE_URL is overridden below regardless of what's in
+# that file, since "localhost" inside a container never means the host.
+name: redowebs-backend-local
+
+services:
+  migrate:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: redowebs-backend:local
+    env_file:
+      - ../backend/.env
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://redowebs:redowebs@host.docker.internal:5432/redowebs
+    command: ["alembic", "upgrade", "head"]
+    extra_hosts:
+      # No-op on Docker Desktop (Windows/Mac already resolve this); required
+      # for host.docker.internal to work on native Linux docker engine.
+      - "host.docker.internal:host-gateway"
+
+  api:
+    image: redowebs-backend:local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ../backend/.env
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://redowebs:redowebs@host.docker.internal:5432/redowebs
+    ports:
+      - "8123:8123"
+    volumes:
+      - backend_storage:/app/storage_data
+      - backend_prompts:/app/prompts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8123/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: redowebs-backend:local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ../backend/.env
+    environment:
+      REDOWEBS_DATABASE_URL: postgresql+psycopg://redowebs:redowebs@host.docker.internal:5432/redowebs
+    command: ["python", "-m", "app.workers.queue_worker"]
+    volumes:
+      - backend_storage:/app/storage_data
+      - backend_prompts:/app/prompts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Run more than one worker (safe -- claim_next_job() uses SELECT ... FOR
+    # UPDATE SKIP LOCKED, see CLAUDE.md): add `--scale worker=2` to the `up`
+    # command instead of hardcoding replicas here.
+
+volumes:
+  backend_storage:
+  backend_prompts:

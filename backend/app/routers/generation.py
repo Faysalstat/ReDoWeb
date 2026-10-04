@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,7 @@ from ..config import get_settings
 from ..db.session import get_db
 from ..models import Blueprint, GenerationJob, GenerationOutput, Project
 from ..schemas.generation import GenerationResponse
+from ..services.preview_service import build_preview_url_path
 
 router = APIRouter(prefix="/api/v1", tags=["generation"])
 
@@ -49,6 +51,7 @@ def create_generation(project_id: str, tier: str = "pro", db: Session = Depends(
     except GenerationError as exc:
         job.overall_status = "failed"
         job.failure_reason = str(exc)
+        job.finished_at = datetime.now(timezone.utc)
         project.status = "failed"
         db.commit()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -59,7 +62,7 @@ def create_generation(project_id: str, tier: str = "pro", db: Session = Depends(
             job_id=job.id,
             template_used=result["template_used"],
             output_storage_path=result["output_dir"],
-            preview_url_path=f"/preview/{project_id}/{result['output_dir']}/index.html",
+            preview_url_path=build_preview_url_path(project_id, result["output_dir"]),
             summary=result["summary"],
             prompt_tokens=result["usage"]["prompt_tokens"],
             completion_tokens=result["usage"]["completion_tokens"],
@@ -71,6 +74,7 @@ def create_generation(project_id: str, tier: str = "pro", db: Session = Depends(
         )
     )
     job.overall_status = "succeeded"
+    job.finished_at = datetime.now(timezone.utc)
     project.status = "ready"
     db.commit()
 

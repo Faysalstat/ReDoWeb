@@ -1,8 +1,10 @@
 import base64
+import concurrent.futures
 import io
 import itertools
 import json
 import mimetypes
+import time
 from pathlib import Path
 
 import httpx
@@ -12,6 +14,94 @@ from ..config import get_settings
 from .errors import OpenRouterError
 
 _call_counter = itertools.count(1)
+
+# httpx's own `timeout=` bounds the time between individual reads, not the
+# request's total duration -- a connection that never goes fully silent for
+# a full timeout window (a slow trickle, a stalled-but-alive proxy/provider
+# connection) can hang indefinitely past it with no exception ever raised.
+# Seen for real: a generation call to moonshotai/kimi-k2.6 hung for 30+
+# minutes with the queue worker process alive but stuck -- never timing
+# out, never erroring -- leaving the DB job stuck in "running" forever
+# (2026-09-16). This margin is added on top of the network-level timeout to
+# give httpx's own timeout a chance to fire first (a more specific error),
+# while guaranteeing an absolute upper bound either way.
+_HARD_TIMEOUT_MARGIN_SECONDS = 30.0
+
+
+def _post_with_hard_deadline(url: str, headers: dict, json_payload: dict, soft_timeout: float) -> httpx.Response:
+    """Runs httpx.post in a worker thread and enforces a hard wall-clock
+    deadline via Future.result(timeout=...) that httpx's own `timeout=`
+    can't provide (see module comment above). On expiry the abandoned
+    thread is NOT forcibly killed -- Python can't do that -- it keeps
+    running in the background until httpx's own `soft_timeout` eventually
+    resolves it; the caller gets its OpenRouterError back immediately
+    regardless, which is what actually matters (the retry/failure-counting
+    loop above this can act on it instead of hanging forever)."""
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(httpx.post, url, headers=headers, json=json_payload, timeout=soft_timeout)
+    hard_deadline = soft_timeout + _HARD_TIMEOUT_MARGIN_SECONDS
+    try:
+        return future.result(timeout=hard_deadline)
+    except concurrent.futures.TimeoutError as exc:
+        raise OpenRouterError(
+            f"OpenRouter request exceeded the hard {hard_deadline:.0f}s deadline with no "
+            f"response -- the network layer's own {soft_timeout:.0f}s timeout never fired "
+            "(a stalled-but-technically-alive connection), so this deadline exists as a "
+            "backstop. The abandoned request may still be running in the background."
+        ) from exc
+    finally:
+        executor.shutdown(wait=False)
+
+
+# Transient-error retry, layered on top of _post_with_hard_deadline -- this
+# is HTTP-call-attempt-level resilience, not the task-level auto-retry
+# CLAUDE.md deliberately excludes (an exhausted retry here still raises
+# OpenRouterError exactly as before, so a failed task still fails
+# immediately with no re-queue). Retrying makes a single call attempt more
+# resilient to the transient 429/5xx errors that become more likely once
+# multiple projects generate concurrently (see docs/concurrency-scaling-plan.md).
+_RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
+_MAX_ATTEMPTS = 3
+_BACKOFF_SECONDS = (2.0, 4.0, 8.0)
+
+
+def _post_with_retry(url: str, headers: dict, json_payload: dict, soft_timeout: float) -> httpx.Response:
+    """Wraps _post_with_hard_deadline with retry/backoff for transient
+    errors only. Deliberately does NOT retry the hard-deadline
+    OpenRouterError (a stuck connection shouldn't be retried -- risks
+    stacking hangs) or non-429 4xx (non-transient, e.g. bad request/auth) --
+    those propagate on the first attempt exactly as before this existed."""
+    for attempt in range(_MAX_ATTEMPTS):
+        is_last_attempt = attempt == _MAX_ATTEMPTS - 1
+        try:
+            response = _post_with_hard_deadline(url, headers, json_payload, soft_timeout)
+            response.raise_for_status()
+            return response
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in _RETRYABLE_STATUS_CODES or is_last_attempt:
+                raise
+            delay = _BACKOFF_SECONDS[attempt]
+            retry_after = exc.response.headers.get("Retry-After")
+            if retry_after is not None:
+                try:
+                    delay = max(delay, float(retry_after))
+                except ValueError:
+                    pass
+            print(
+                f"    [retry] OpenRouter {exc.response.status_code} on attempt "
+                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
+            )
+            time.sleep(delay)
+        except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+            if is_last_attempt:
+                raise
+            delay = _BACKOFF_SECONDS[attempt]
+            print(
+                f"    [retry] OpenRouter {type(exc).__name__} on attempt "
+                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
+            )
+            time.sleep(delay)
+    raise AssertionError("unreachable -- loop always returns or raises")  # pragma: no cover
 
 
 def _content_preview(content, limit: int = 300) -> str:
@@ -75,7 +165,7 @@ def _image_to_data_url(path: Path, max_dimension: int | None = None) -> str:
 
 
 def vision_json_chat(
-    system_prompt: str, user_text: str, image_paths: list[Path]
+    system_prompt: str, user_text: str, image_paths: list[Path], model: str | None = None
 ) -> tuple[dict, dict]:
     """Calls the configured OpenRouter vision-capable model with a text
     prompt plus one or more local images, expecting a strict JSON object
@@ -83,6 +173,12 @@ def vision_json_chat(
 
     Images are inlined as base64 data URLs since they live on local disk,
     not at a publicly reachable URL.
+
+    `model` lets a caller override which model id is used (real callers
+    resolve this from the DB-backed model_config_service.get_vision_model()
+    once, up front, and thread it down -- see blueprint_pipeline.py); this
+    function stays DB-free and falls back to config.py's static
+    vision_model default when omitted.
     """
     settings = get_settings()
     if not settings.openrouter_api_key:
@@ -95,8 +191,9 @@ def vision_json_chat(
         url = _image_to_data_url(path, max_dimension=settings.vision_max_image_dimension)
         content.append({"type": "image_url", "image_url": {"url": url}})
 
+    vision_model = model or settings.vision_model
     payload = {
-        "model": settings.vision_model,
+        "model": vision_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": content},
@@ -107,32 +204,49 @@ def vision_json_chat(
 
     call_num = next(_call_counter)
     print(
-        f"\n[AI CALL #{call_num}] vision_json_chat -> model={settings.vision_model} "
+        f"\n[AI CALL #{call_num}] vision_json_chat -> model={vision_model} "
         f"| images={len(image_paths)}"
     )
     print(f"    system: {_content_preview(system_prompt, 200)}")
     print(f"    user:   {_content_preview(user_text, 300)}")
 
     try:
-        response = httpx.post(
+        response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
                 "HTTP-Referer": settings.openrouter_app_url,
                 "X-Title": settings.openrouter_app_name,
             },
-            json=payload,
-            timeout=60.0,
+            json_payload=payload,
+            soft_timeout=60.0,
         )
-        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise OpenRouterError(
+            f"OpenRouter request failed: {exc} | body: {exc.response.text}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
     data = response.json()
     try:
-        message_content = data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        message_content = choice["message"]["content"]
     except (KeyError, IndexError) as exc:
         raise OpenRouterError(f"Unexpected OpenRouter response shape: {data}") from exc
+
+    if not isinstance(message_content, str) or not message_content:
+        # Some models return content=None (or an empty string) instead of
+        # JSON text -- e.g. a refusal, a content filter, or a
+        # reasoning-heavy model that put its actual output in a different
+        # field and left `content` empty. json.loads(None) raises
+        # TypeError, not JSONDecodeError, so this needs its own check
+        # rather than falling through to the except below. Surfacing
+        # finish_reason is diagnostic here the same way it already is for
+        # the generation loop (see site_generator.py's truncation handling).
+        raise OpenRouterError(
+            f"Model returned no content (finish_reason={choice.get('finish_reason')!r}): {data}"
+        )
 
     try:
         parsed = json.loads(message_content)
@@ -169,17 +283,20 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
         print(f"    latest: {_message_preview(latest_message, 300)}")
 
     try:
-        response = httpx.post(
+        response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
                 "HTTP-Referer": settings.openrouter_app_url,
                 "X-Title": settings.openrouter_app_name,
             },
-            json=payload,
-            timeout=timeout,
+            json_payload=payload,
+            soft_timeout=timeout,
         )
-        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise OpenRouterError(
+            f"OpenRouter request failed: {exc} | body: {exc.response.text}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 

@@ -1,0 +1,221 @@
+INFO:     Started server process [18132]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8200 (Press CTRL+C to quit)
+INFO:     127.0.0.1:7065 - "GET /docs HTTP/1.1" 200 OK
+
+[AI CALL #1] vision_json_chat -> model=openai/gpt-5 | images=0
+    system: You are a design director translating a small business's real brand data into a concrete design-system specification for a static marketing homepage. You will be shown the business's real, already-ext...
+    user:   Real brand data: - site_name: Doggy Duty - tagline: Now serving all of Central Florida - tone: playful and friendly - colors: primary=#0274be, secondary=#fa6709, accent=#38b6ff - fonts (site's original, low-priority signal): heading=Baloo 2, body=Nunito - content sections present: hero, services_fea...
+INFO:     127.0.0.1:7073 - "POST /api/v1/debug/design-system/287f7778-e0d1-43dc-b8d1-87d8eb7c4c9f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7097 - "POST /api/v1/debug/design-md/287f7778-e0d1-43dc-b8d1-87d8eb7c4c9f HTTP/1.1" 200 OK
+
+[AI CALL #2] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=2 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Doggy Duty colors: primary: '#0274be' secondary: '#fa6709' accent: '#38b6ff' logo: snapshot/image/894d5317-sdvsvsvvv-1024x310.png fonts: heading: Baloo 2 body: Nunito tone: playf...
+
+[AI CALL #3] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=4 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (user) Your last response was cut off before producing any tool call or final message (hit the output token limit with no progress). Start immediately with a write_file call for the first page -- do not spend the response on planning or reasoning text first.
+
+[AI CALL #4] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=6 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 24767 characters to style.css
+INFO:     127.0.0.1:7102 - "POST /api/v1/debug/generate?project_id=287f7778-e0d1-43dc-b8d1-87d8eb7c4c9f&tier=pro HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_transports\default.py", line 127, in __iter__
+    for part in self._httpcore_stream:
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 407, in __iter__
+    raise exc from None
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 403, in __iter__
+    for part in self._stream:
+                ^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\http11.py", line 342, in __iter__
+    raise exc
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\http11.py", line 334, in __iter__
+    for chunk in self._connection._receive_response_body(**kwargs):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\http11.py", line 203, in _receive_response_body
+    event = self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_sync\http11.py", line 213, in _receive_event
+    with map_exceptions({h11.RemoteProtocolError: RemoteProtocolError}):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Faysal\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "G:\Current Works\ReDoWebs\backend\app\ai\openrouter_client.py", line 186, in chat_completion
+    response = httpx.post(
+               ^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_api.py", line 304, in post
+    return request(
+           ^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_api.py", line 109, in request
+    return client.request(
+           ^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_client.py", line 928, in send
+    raise exc
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_client.py", line 922, in send
+    response.read()
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_models.py", line 881, in read
+    self._content = b"".join(self.iter_bytes())
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_models.py", line 897, in iter_bytes
+    for raw_bytes in self.iter_raw():
+                     ^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_models.py", line 951, in iter_raw
+    for raw_stream_bytes in self.stream:
+                            ^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_client.py", line 153, in __iter__
+    for chunk in self._stream:
+                 ^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_transports\default.py", line 126, in __iter__
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Faysal\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 2734, in app
+    await route.handle(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 1780, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 2789, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 1800, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 1279, in handle
+    await app(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 158, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 144, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 706, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\fastapi\routing.py", line 354, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\starlette\concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\anyio\to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2641, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1033, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\app\routers\debug_pipeline.py", line 212, in debug_generate
+    result = generate_site(project_root, tier)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\app\ai\site_generator.py", line 266, in generate_site
+    summary_text, total_usage, iterations_used = _run_agent_loop(
+                                                 ^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\app\ai\site_generator.py", line 423, in _run_agent_loop
+    data = chat_completion(payload, timeout=180.0)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\Current Works\ReDoWebs\backend\app\ai\openrouter_client.py", line 198, in chat_completion
+    raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
+app.ai.errors.OpenRouterError: OpenRouter request failed: peer closed connection without sending complete message body (incomplete chunked read)
+
+[AI CALL #5] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=2 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Doggy Duty colors: primary: '#0274be' secondary: '#fa6709' accent: '#38b6ff' logo: snapshot/image/894d5317-sdvsvsvvv-1024x310.png fonts: heading: Baloo 2 body: Nunito tone: playf...
+
+[AI CALL #6] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=4 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (user) Your last response was cut off before producing any tool call or final message (hit the output token limit with no progress). Start immediately with a write_file call for the first page -- do not spend the response on planning or reasoning text first.
+
+[AI CALL #7] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=6 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 15978 characters to style.css
+
+[AI CALL #8] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=8 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 15755 characters to index.html
+
+[AI CALL #9] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=10 | tools=3
+    system: You are a senior web design engineer. The Design Decisions block below is this project's brand spec -- follow it, not a generic default. Avoid these defaults UNLESS the Design Decisions block below sp...
+    latest: (tool) Wrote 1078 characters to script.js
+INFO:     127.0.0.1:12886 - "POST /api/v1/debug/generate?project_id=287f7778-e0d1-43dc-b8d1-87d8eb7c4c9f&tier=pro HTTP/1.1" 200 OK
+
+[AI CALL #10] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=2 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (user) Here is the business content and brand blueprint to build the site from (YAML frontmatter + page content): --- site_name: Doggy Duty colors: primary: '#0274be' secondary: '#fa6709' accent: '#38b6ff' logo: snapshot/image/894d5317-sdvsvsvvv-1024x310.png fonts: heading: Baloo 2 body: Nunito tone: playf...
+
+[AI CALL #11] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=4 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) (compacted -- 1534 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #12] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=6 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 21889 characters to style.css
+
+[AI CALL #13] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=8 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 31422 characters to index.html
+
+[AI CALL #14] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=10 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 2008 characters to script.js
+
+[AI CALL #15] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=12 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) (compacted -- 21889 chars previously returned here; call the tool again if you need the current content)
+
+[AI CALL #16] chat_completion -> model=moonshotai/kimi-k3 | messages_in_context=14 | tools=3
+    system: <role> You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a brand-new static website from scratch that fully embodies the desig...
+    latest: (tool) Wrote 21818 characters to style.css
+INFO:     127.0.0.1:13583 - "POST /api/v1/debug/generate?project_id=287f7778-e0d1-43dc-b8d1-87d8eb7c4c9f&tier=premium HTTP/1.1" 200 OK

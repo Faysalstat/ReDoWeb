@@ -35,7 +35,7 @@ def run_crawl(project_id: uuid.UUID, url: str) -> dict:
         headers={"User-Agent": settings.crawler_user_agent},
         timeout=settings.request_timeout_seconds,
     ) as client:
-        check_robots_allowed(url, settings.crawler_user_agent)
+        check_robots_allowed(client, url, settings.crawler_user_agent)
         pages = discover_pages(client, url, settings.max_pages)
 
         all_assets: list[dict] = []

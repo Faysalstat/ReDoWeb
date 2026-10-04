@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import INET
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +17,14 @@ class Project(Base):
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set together when tasks_blueprint.py's cost-estimate gate pauses the
+    # pipeline (status == "awaiting_cost_approval") instead of fanning out
+    # generate_tier jobs -- see docs/generation-cost-gate-plan.md.
+    # pending_tier_keys snapshots the enabled tiers *at gate time*, so
+    # POST /projects/{id}/approve-generation enqueues exactly what was
+    # quoted even if an admin disables a tier while the project waits.
+    estimated_generation_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pending_tier_keys: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     tos_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     submitted_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

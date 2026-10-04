@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+storage_data/
+.env
+!.env.example
+*.log
+tests/
+scripts/
+standalone_agents/
+.pytest_cache/

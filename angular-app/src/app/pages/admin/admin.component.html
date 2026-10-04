@@ -1,0 +1,90 @@
+<nav class="nav">
+  <a class="nav-brand" routerLink="/admin">REFIT <span class="label" style="display: inline; color: var(--color-accent-700)">ADMIN</span></a>
+  <a routerLink="/admin" aria-current="page">Jobs</a>
+  <a routerLink="/admin">Users</a>
+  <a routerLink="/admin">Revenue</a>
+  <a routerLink="/admin">Tickets</a>
+  <span class="label">on call · s.mehta</span>
+</nav>
+
+@if (data(); as d) {
+  <div class="cells cells--5" style="border-bottom: 2px solid var(--color-divider)">
+    <div class="cell"><p class="metric__num">{{ d.mrr }}</p><p class="metric__label">MRR · {{ d.mrrDelta }}</p></div>
+    <div class="cell"><p class="metric__num">{{ d.payingAccounts }}</p><p class="metric__label">Paying accounts</p></div>
+    <div class="cell"><p class="metric__num">{{ d.costPerJob }}</p><p class="metric__label">Model cost per job</p></div>
+    <div class="cell"><p class="metric__num metric__num--accent">{{ d.failed24h }}</p><p class="metric__label">Failed jobs, 24h</p></div>
+    <div class="cell"><p class="metric__num">{{ d.openTickets }}</p><p class="metric__label">Open tickets</p></div>
+  </div>
+
+  <div class="admin">
+    <section class="admin__main">
+      <div class="row row--between">
+        <h1 class="display display--sm">Jobs queue</h1>
+        <div class="row">
+          <span class="tag tag-outline">Queue depth {{ d.queueDepth }}</span>
+          <span class="tag tag-outline">Median {{ d.medianJob }}</span>
+          <button class="btn btn-secondary" type="button">Pause intake</button>
+        </div>
+      </div>
+
+      <table class="table" style="margin-top: var(--space-6)">
+        <thead>
+          <tr><th>Job</th><th>Domain</th><th>Phase</th><th>Cost</th><th>Age</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          @for (j of d.jobs; track j.id) {
+            <tr>
+              <td class="tnum">{{ j.id }}</td>
+              <td>{{ j.domain }}</td>
+              <td>{{ j.phase }}</td>
+              <td class="tnum">${{ j.cost.toFixed(2) }}</td>
+              <td class="tnum">{{ j.age }}</td>
+              <td><span [class]="jobTag(j.state)">{{ j.state }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <h2 style="font-size: 20px; margin: calc(1.3 * var(--leading)) 0 var(--space-4)">Failures, last 24 hours</h2>
+      <div class="rows">
+        @for (f of d.failures; track f.title) {
+          <div class="failure">
+            <p class="failure__title">{{ f.title }}</p>
+            <span [class]="f.owner === 'Ours' ? 'tag tag-accent' : 'tag tag-neutral'" style="align-self: start">{{ f.owner }}</span>
+            <p class="failure__detail">{{ f.detail }}</p>
+          </div>
+        }
+      </div>
+    </section>
+
+    <aside class="admin__aside">
+      <h2 style="font-size: 20px; margin: 0">Accounts</h2>
+      <div class="rows" style="margin-top: var(--space-4)">
+        @for (s of d.accountStats; track s.label) {
+          <div class="stat-line">
+            <span>{{ s.label }}</span>
+            <span style="font-weight: 600" [style.color]="s.accent ? 'var(--color-accent-700)' : 'inherit'">{{ s.value }}</span>
+          </div>
+        }
+      </div>
+
+      <h2 style="font-size: 20px; margin: calc(1.3 * var(--leading)) 0 0">Revenue, six months</h2>
+      <div class="chart">
+        @for (r of d.revenueSeries; track r.month; let last = $last) {
+          <div class="chart__bar" [class.chart__bar--last]="last" [style.height.%]="barHeight(r.value)" [attr.title]="r.month"></div>
+        }
+      </div>
+      <p class="metric__label">Mar → Aug · $112k to {{ d.mrr }}</p>
+
+      <h2 style="font-size: 20px; margin: calc(1.3 * var(--leading)) 0 var(--space-4)">Tickets</h2>
+      <div class="stack" style="gap: var(--space-3)">
+        @for (t of d.tickets; track t.ref) {
+          <div class="ticket">
+            <p style="font-size: 15px; font-weight: 600">{{ t.subject }}</p>
+            <p class="ticket__meta">{{ t.ref }} · {{ t.domain }} · {{ t.age }}</p>
+          </div>
+        }
+      </div>
+    </aside>
+  </div>
+}

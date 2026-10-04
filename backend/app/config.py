@@ -5,7 +5,17 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     storage_root: str = "./storage_data"
-    max_pages: int = 3
+    # Rejects new work outright rather than silently running out of disk
+    # mid-generation -- see storage_capacity_service.check_free_disk_space().
+    min_free_disk_gb: float = 2.0
+    # Raised 5 -> 20, 2026-09-17, at the user's explicit request (CLAUDE.md's
+    # "settled decisions" previously said 3 while this was already 5 -- both
+    # now reconciled to 20). Sites over this are still rejected outright, not
+    # truncated -- see crawler/discover.py. Blueprint AI-review and initial
+    # generation still only ever consider the home page; the rest of a
+    # multi-page crawl is reviewed/built lazily on first download/purchase
+    # (see workers/tasks_full_site.py).
+    max_pages: int = 20
     crawler_user_agent: str = "ReDoWebsBot/0.1 (+https://redowebs.example/bot)"
     request_timeout_seconds: float = 15.0
 
@@ -13,21 +23,42 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_app_url: str = "https://redowebs.local"
     openrouter_app_name: str = "ReDoWebs"
-    vision_model: str = "anthropic/claude-opus-5"
+    vision_model: str = "deepseek/deepseek-v4-flash-vision-exp"
 
-    generation_model: str = "anthropic/claude-opus-5"
+    generation_model: str = "deepseek/deepseek-v4.1-flash"
     generation_max_tokens: int = 16000
     generation_max_iterations: int = 24
     generation_max_consecutive_failures: int = 5
     generation_prompt_caching_enabled: bool = True
+    # Per-call (one loop iteration, not total generation time) OpenRouter
+    # request budget. 6 minutes covers a legitimately slow full-page
+    # completion at max_tokens with room to spare, while still bounding how
+    # long one stalled call can block the single-threaded queue worker (see
+    # openrouter_client._post_with_hard_deadline's extra +30s backstop on
+    # top of this). Raised 2026-09-16 from 180s after two real
+    # moonshotai/kimi-k2.6 stalls -- both were genuinely dead connections
+    # (zero further response, ever), not slow-but-progressing calls, so
+    # this bump is about not cutting off a legitimately slow model
+    # mid-response, not about "rescuing" a stalled one.
+    generation_call_timeout_seconds: float = 360.0
 
     vision_max_image_dimension: int = 1024
-    vision_max_tokens: int = 1024
+    vision_max_tokens: int = 2048
 
-    database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:15432/redowebs"
-
-    celery_broker_url: str = "redis://localhost:6380/0"
-    celery_result_backend: str = "redis://localhost:6380/0"
+    # Shared Postgres instance (G:\Standalone Services\postgres, port 5432)
+    # used by every project on this machine -- see init/01-init-databases.sh
+    # there for the `redowebs` role/database provisioning. This project's
+    # own standalone/docker-compose.yml Postgres container is deprecated.
+    database_url: str = "postgresql+psycopg://redowebs:redowebs@localhost:5432/redowebs"
+    # Shared instance's max_connections is Postgres's default 100, split
+    # across 4 other unrelated apps too -- this process's budget is sized so
+    # 1 web process + up to 4 queue workers (see queue_worker.py) stays at
+    # roughly pool_size+max_overflow=10 each, ~50 total, well under 100. A
+    # short pool_timeout makes pool starvation fail fast and visibly rather
+    # than silently stalling a request for the SQLAlchemy default 30s.
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    db_pool_timeout: int = 10
 
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -37,8 +68,25 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
 
+    # See logging_config.py. "json" emits one JSON object per line, which
+    # Railway parses into searchable level/message fields and which keeps a
+    # multi-line traceback in a single log entry; "text" is for local dev.
+    log_level: str = "INFO"
+    log_format: str = "text"
+
     rate_limit_auth: str = "10/minute"
     rate_limit_submit: str = "5/minute"
+
+    # Cold-start defaults for the cost_settings table (see
+    # docs/generation-cost-gate-plan.md) -- a missing row falls back to
+    # these; an admin-set row (services/cost_settings_service.py) wins.
+    # generation_cost_alert_usd: above this estimated total (all enabled
+    # tiers combined), tasks_blueprint.py pauses the pipeline for approval
+    # instead of fanning out generate_tier jobs. usd_per_credit: converts
+    # that USD estimate into a required wallet-credit balance -- no such
+    # rate existed anywhere in this codebase before this feature.
+    generation_cost_alert_usd_default: float = 1.00
+    usd_per_credit_default: float = 1.00
 
     class Config:
         env_prefix = "REDOWEBS_"

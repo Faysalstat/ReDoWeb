@@ -1,19 +1,19 @@
 import uuid
 
-from ..crawler.errors import CrawlRejected
+from ..crawler.errors import CrawlError, CrawlRejected
 from ..db.session import SessionLocal
 from ..models import Asset, CrawlPage, CrawlSnapshot, Project
 from ..services.crawl_service import run_crawl
-from .celery_app import celery_app
+from ..services.storage_capacity_service import InsufficientDiskSpaceError, check_free_disk_space
+from .queue import enqueue
 
 
-@celery_app.task(bind=True)
-def run_crawl_task(self, project_id: str, url: str) -> str:
-    """First link in the submission chain. On any failure the project is
+def run_crawl_task(project_id: str, url: str, tier_keys: list[str]) -> str:
+    """First stage in the submission pipeline. On any failure the project is
     left in a terminal ('rejected' or 'failed') DB state and the exception
-    is re-raised so the chain halts here -- Celery chains don't proceed to
-    the next task once one fails, which is exactly the "don't charge/don't
-    continue on a definitive failure" behavior we want.
+    is re-raised so queue_worker.py halts the pipeline here -- nothing
+    further gets enqueued once a stage fails, which is exactly the "don't
+    charge/don't continue on a definitive failure" behavior we want.
 
     No auto-retry in this pass (see docs/PROGRESS.md) -- a bare exception
     always resolves to a visible terminal state rather than a half-built
@@ -22,6 +22,18 @@ def run_crawl_task(self, project_id: str, url: str) -> str:
     db = SessionLocal()
     try:
         project = db.get(Project, uuid.UUID(project_id))
+
+        # Defensive re-check -- submission already checked this, but other
+        # concurrent projects may have consumed space since then (see
+        # docs/concurrency-scaling-plan.md).
+        try:
+            check_free_disk_space()
+        except InsufficientDiskSpaceError as exc:
+            project.status = "failed"
+            project.rejection_reason = str(exc)
+            db.commit()
+            raise
+
         project.status = "crawling"
         db.commit()
 
@@ -32,9 +44,22 @@ def run_crawl_task(self, project_id: str, url: str) -> str:
             project.rejection_reason = exc.message
             db.commit()
             raise
-        except Exception as exc:
+        except CrawlError as exc:
+            # SiteInaccessible and any other definitive, already-friendly
+            # crawl failure (bad HTTP status, network error, login wall,
+            # robots.txt disallow -- see crawler/fetch.py) -- exc.message
+            # is already written to be shown to the end user as-is.
             project.status = "failed"
-            project.rejection_reason = getattr(exc, "message", str(exc))
+            project.rejection_reason = exc.message
+            db.commit()
+            raise
+        except Exception as exc:
+            # Truly unexpected (a bug, not a handled failure mode) -- don't
+            # leak a raw Python/library exception string to the user.
+            # queue_worker.py separately records str(exc) on the
+            # queued_jobs row, so the real error isn't lost for debugging.
+            project.status = "failed"
+            project.rejection_reason = "Something went wrong while crawling this site. Please try again."
             db.commit()
             raise
 
@@ -64,6 +89,7 @@ def run_crawl_task(self, project_id: str, url: str) -> str:
             )
 
         project.status = "crawled"
+        enqueue(db, "extract_blueprint", {"project_id": project_id, "tier_keys": tier_keys})
         db.commit()
         return project_id
     finally:

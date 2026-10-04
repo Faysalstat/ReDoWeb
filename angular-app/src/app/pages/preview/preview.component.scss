@@ -1,0 +1,25 @@
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 2px solid var(--color-divider);
+}
+.toolbar__actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.toolbar .input { width: 180px; }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--color-divider); }
+.split__side { background: var(--color-bg); }
+.split__head { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 2px solid var(--color-divider); }
+.split__stage { padding: var(--space-6); display: flex; justify-content: center; }
+.split__stage > * { width: 100%; }
+
+.wipe { padding: var(--space-6); background: var(--color-bg); }
+.wipe__frame { position: relative; max-width: 900px; margin: 0 auto; border: 2px solid var(--color-text); overflow: hidden; }
+.wipe__after { position: absolute; inset: 0; }
+.wipe__handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--color-accent); }
+.wipe__control { max-width: 900px; margin: var(--space-4) auto 0; display: flex; align-items: center; gap: var(--space-4); }
+.wipe__control input[type='range'] { flex: 1; accent-color: var(--color-accent); }
+
+@media (max-width: 880px) {
+  .split { grid-template-columns: 1fr; }
+  .toolbar__actions { margin-left: 0; width: 100%; }
+}

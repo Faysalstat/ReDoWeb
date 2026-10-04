@@ -1,43 +1,140 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
-import { BadgeComponent } from '../badge/badge.component';
 import { ButtonComponent } from '../button/button.component';
-import { CardComponent } from '../card/card.component';
-import { IconCheck } from '../icons/icons';
+
+export type PricingTierTone = 'accent-2';
 
 @Component({
   selector: 'app-pricing-tier',
   standalone: true,
-  imports: [CardComponent, BadgeComponent, ButtonComponent, IconCheck],
-  host: { class: 'block h-full' },
+  imports: [ButtonComponent],
+  host: { style: 'display: block; height: 100%' },
   template: `
-    <app-card [variant]="highlighted() ? 'gradient' : 'default'">
+    <div class="plan" [style.background]="cardBackground()" [style.borderColor]="cardBorderColor()" [style.boxShadow]="cardShadow()">
       @if (highlighted()) {
-        <app-badge variant="accent" class="mb-4 inline-flex w-fit">Most popular</app-badge>
+        <span class="plan__ribbon">Most popular</span>
       }
-      <h3 class="text-lg font-semibold text-ink">{{ name() }}</h3>
-      <p class="mt-3 flex items-baseline gap-1">
-        <span class="text-4xl font-bold tracking-tight text-ink">{{ price() }}</span>
+
+      <div>
+        <h3 class="plan__name">{{ name() }}</h3>
+        <p class="plan__blurb">{{ tagline() }}</p>
+      </div>
+
+      <p class="plan__price" [style.color]="priceColor()">
+        {{ price() }}
         @if (period()) {
-          <span class="text-sm text-ink-muted">{{ period() }}</span>
+          <small>{{ period() }}</small>
         }
       </p>
-      <p class="mt-2 text-sm text-ink-muted">{{ tagline() }}</p>
 
-      <ul class="mt-6 flex-1 space-y-3 text-sm text-ink-muted">
-        @for (feature of features(); track feature) {
-          <li class="flex items-start gap-2">
-            <app-icon-check [size]="16" class="mt-0.5 shrink-0 text-accent-bright" />
-            <span>{{ feature }}</span>
-          </li>
-        }
-      </ul>
-
-      <a appButton [variant]="highlighted() ? 'primary' : 'secondary'" href="#submit" class="mt-8 w-full justify-center">
+      <a
+        appButton
+        variant="secondary"
+        href="#submit"
+        class="btn-block plan__cta"
+        [style.background]="ctaBackground()"
+        [style.borderColor]="ctaBorderColor()"
+        [style.color]="ctaColor()"
+      >
         {{ ctaLabel() }}
       </a>
-    </app-card>
+
+      <div class="plan__features">
+        @for (feature of features(); track feature; let i = $index) {
+          <div class="plan__feature">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" [style.marginTop.px]="3">
+              <path
+                d="M5 13l4 4L19 7"
+                [attr.stroke]="checkColor(i)"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>{{ feature }}</span>
+          </div>
+        }
+      </div>
+    </div>
   `,
+  styles: [
+    `
+      .plan {
+        position: relative;
+        height: 100%;
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        border: 1px solid var(--color-divider);
+        border-radius: 18px;
+      }
+      .plan__ribbon {
+        position: absolute;
+        top: -12px;
+        left: 30px;
+        background: var(--color-accent);
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 5px 12px;
+        border-radius: 999px;
+      }
+      .plan__name {
+        font-size: 19px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .plan__blurb {
+        font-size: 13.5px;
+        line-height: 21px;
+        color: var(--color-neutral-700);
+        margin: 8px 0 0;
+      }
+      .plan__price {
+        font-family: var(--font-heading);
+        font-weight: var(--font-heading-weight);
+        font-size: 36px;
+        line-height: 1;
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-feature-settings: 'tnum' 1;
+      }
+      .plan__price small {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-neutral-600);
+      }
+      .plan__cta {
+        height: 46px;
+        border-radius: 10px;
+        font-size: 14px;
+        justify-content: center;
+      }
+      .plan__features {
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+        border-top: 1px solid var(--color-divider);
+        padding-top: 6px;
+      }
+      .plan__feature {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+        font-size: 13.5px;
+        line-height: 22px;
+        color: var(--color-neutral-700);
+      }
+      .plan__feature svg {
+        flex: none;
+      }
+    `,
+  ],
 })
 export class PricingTierComponent {
   readonly name = input.required<string>();
@@ -47,4 +144,67 @@ export class PricingTierComponent {
   readonly features = input<string[]>([]);
   readonly highlighted = input(false);
   readonly ctaLabel = input('Get Started');
+  readonly tone = input<PricingTierTone | undefined>(undefined);
+
+  protected readonly cardBackground = computed(() =>
+    this.highlighted()
+      ? 'linear-gradient(165deg, color-mix(in srgb, var(--color-accent) 16%, var(--color-surface)), var(--color-surface) 75%)'
+      : 'var(--color-surface)'
+  );
+
+  protected readonly cardBorderColor = computed(() => {
+    if (this.highlighted()) {
+      return 'color-mix(in srgb, var(--color-accent) 40%, transparent)';
+    }
+    if (this.tone() === 'accent-2') {
+      return 'color-mix(in srgb, var(--color-accent-2) 40%, transparent)';
+    }
+    return 'var(--color-divider)';
+  });
+
+  protected readonly cardShadow = computed(() =>
+    this.highlighted() ? '0 20px 50px color-mix(in srgb, var(--color-accent) 16%, transparent)' : 'none'
+  );
+
+  protected readonly priceColor = computed(() => (this.tone() === 'accent-2' ? 'var(--color-accent-2)' : null));
+
+  protected readonly ctaBackground = computed(() => {
+    if (this.highlighted()) {
+      return 'var(--color-accent)';
+    }
+    if (this.tone() === 'accent-2') {
+      return 'color-mix(in srgb, var(--color-accent-2) 14%, transparent)';
+    }
+    return 'var(--color-neutral-200)';
+  });
+
+  protected readonly ctaBorderColor = computed(() => {
+    if (this.highlighted()) {
+      return 'transparent';
+    }
+    if (this.tone() === 'accent-2') {
+      return 'color-mix(in srgb, var(--color-accent-2) 40%, transparent)';
+    }
+    return 'var(--color-divider-strong)';
+  });
+
+  protected readonly ctaColor = computed(() => {
+    if (this.highlighted()) {
+      return 'var(--color-bg)';
+    }
+    if (this.tone() === 'accent-2') {
+      return 'var(--color-accent-2)';
+    }
+    return 'var(--color-text)';
+  });
+
+  protected checkColor(index: number): string {
+    if (this.highlighted()) {
+      return 'var(--color-success)';
+    }
+    if (this.tone() === 'accent-2' && index === 0) {
+      return 'var(--color-accent-2)';
+    }
+    return '#5b6072';
+  }
 }

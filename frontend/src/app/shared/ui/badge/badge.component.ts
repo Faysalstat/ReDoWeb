@@ -6,20 +6,31 @@ export type BadgeVariant = 'accent' | 'muted' | 'warning' | 'success' | 'danger'
   selector: 'app-badge',
   standalone: true,
   template: `<span [class]="classes()"><ng-content /></span>`,
+  styles: [
+    `
+      .tag-danger {
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
+        letter-spacing: 0.02em;
+        padding: 3px 10px;
+        background: var(--color-danger);
+        color: var(--color-bg);
+      }
+    `,
+  ],
 })
 export class BadgeComponent {
   readonly variant = input<BadgeVariant>('accent');
 
   protected readonly classes = computed(() => {
-    const base =
-      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide';
     const variants: Record<BadgeVariant, string> = {
-      accent: 'border-accent/30 bg-accent/10 text-accent-bright',
-      muted: 'border-white/10 bg-white/5 text-ink-muted normal-case tracking-normal',
-      warning: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-      success: 'border-success/30 bg-success/10 text-success',
-      danger: 'border-error/30 bg-error/10 text-red-300',
+      accent: 'tag tag-accent',
+      muted: 'tag tag-neutral',
+      warning: 'tag tag-accent-2',
+      success: 'tag tag-outline',
+      danger: 'tag tag-danger',
     };
-    return `${base} ${variants[this.variant()]}`;
+    return variants[this.variant()];
   });
 }

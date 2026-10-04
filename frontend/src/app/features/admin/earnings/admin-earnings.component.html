@@ -1,0 +1,36 @@
+<div>
+  <div class="row row--between">
+    <div>
+      <h1 class="display display--sm">Earnings</h1>
+      <p class="sub">Revenue from credit purchases, Stripe and manual adjustments alike.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Date range">
+      @for (days of rangePresets; track days) {
+        <label class="seg-opt">
+          <input type="radio" name="range" [checked]="selectedDays() === days" (change)="selectRange(days)" />
+          {{ days }}d
+        </label>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <app-card variant="danger" style="margin-top: var(--space-6)">
+      <p style="font-size: 14px; margin: 0">{{ errorMessage() }}</p>
+    </app-card>
+  } @else if (revenue(); as r) {
+    <div class="cells cells--3" style="border: 2px solid var(--color-divider); margin-top: calc(1.2 * var(--leading))">
+      <app-stat-tile label="Revenue (in range)" [value]="formatUsd(r.revenue_usd_in_range)" [note]="'all-time ' + formatUsd(r.revenue_usd_all_time)" variant="accent" />
+      <app-stat-tile label="Stripe revenue (in range)" [value]="formatUsd(r.stripe_revenue_usd_in_range)" />
+      <app-stat-tile label="Manual revenue (in range)" [value]="formatUsd(r.manual_revenue_usd_in_range)" />
+      <app-stat-tile label="Purchases (in range)" [value]="r.purchase_count_in_range" />
+    </div>
+    @if (r.revenue_usd_all_time === 0) {
+      <p class="sub" style="margin-top: var(--space-4)">No revenue yet — Stripe billing (Milestone 7) isn't wired up, and no manual credit purchases have been recorded.</p>
+    }
+  }
+</div>
