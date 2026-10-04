@@ -80,6 +80,15 @@ REDOWEBS_LOG_FORMAT=json
 Check: `https://<backend-domain>/health` → `{"status":"ok"}`.
 
 ### 4. Frontend service
+
+> **Current setup (2026-10-04):** the frontend is **not** on Railway. It's
+> built locally (`npm run build`) and the contents of
+> `frontend/dist/frontend/browser/` are uploaded to cPanel at
+> https://www.test.pundraengineeringplc.com. `frontend/public/.htaccess`
+> (copied into the build) handles SPA deep links on Apache. The backend's
+> `REDOWEBS_FRONTEND_URL` points there. The Railway steps below are kept for
+> reference. Full CLI guide: [railway-deployment-guide.md](railway-deployment-guide.md).
+
 1. **Before deploying**, set `DEPLOYED_API_BASE_URL` in
    `frontend/src/app/core/api-config.ts` to the backend domain from step 2, commit, push.
 2. **+ Create → GitHub Repo** (same repo).
