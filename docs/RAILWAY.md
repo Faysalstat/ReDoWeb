@@ -51,6 +51,11 @@ generated output that the API serves via `/preview` (and both read
 - **Deploy → Custom Start Command:** `bash start.sh`
 - **Networking → Generate Domain** (port: Railway injects `$PORT`; `start.sh` binds to it, falling back to 8123)
 - Right-click service → **Attach Volume**, mount path `/app/storage_data`
+- **Deploy → Healthcheck Path:** `/health`
+- Settings edits are only **staged** until you click **Deploy** on the
+  "changes" banner at the top of the project canvas — until then the service
+  keeps building with the old settings (seen 2026-10-04: build failed with
+  `"/start.sh": not found` because Root Directory was still unset).
 
 ### 3. Backend variables (Variables → Raw Editor)
 ```
@@ -64,7 +69,9 @@ REDOWEBS_GOOGLE_OAUTH_REDIRECT_URI=https://<backend-domain>/api/v1/auth/google/c
 REDOWEBS_FRONTEND_URL=https://<frontend-domain>
 REDOWEBS_JWT_SECRET_KEY=<python -c "import secrets; print(secrets.token_hex(32))">
 RAILWAY_RUN_UID=0
+REDOWEBS_LOG_FORMAT=json
 ```
+- `REDOWEBS_LOG_FORMAT=json`: one JSON object per log line (`level`, `logger`, `message`, plus `traceback` on errors), so Railway's log view can filter by level (`@level:error`) and a traceback stays a single entry. Local dev keeps the default `text`. `REDOWEBS_LOG_LEVEL` (default `INFO`) is also available.
 - The `postgresql+psycopg://` prefix is required — Railway's own `DATABASE_URL` uses `postgresql://`, which picks the wrong SQLAlchemy driver.
 - `REDOWEBS_MIN_FREE_DISK_GB`: the default (2.0) exceeds a Trial volume and would reject every submission. On Hobby (5 GB) raise to ~1.
 - `RAILWAY_RUN_UID=0`: the Dockerfile runs as non-root `appuser`, which can't write to Railway volumes otherwise.
@@ -114,5 +121,7 @@ logs are interleaved there).
 | `backend/Dockerfile` | `COPY start.sh .` — default `CMD` (uvicorn only) unchanged, so both compose files behave as before. |
 | `backend/app/main.py` | CORS allows `http://localhost:4200` **plus** `settings.frontend_url` (was hardcoded localhost only). |
 | `frontend/src/app/core/api-config.ts` | Uses `http://localhost:8123` on localhost/127.0.0.1, otherwise `DEPLOYED_API_BASE_URL` (placeholder — must be filled in). |
+| `backend/app/logging_config.py` (new, 2026-10-04) | Shared logging setup for API + worker: everything to stdout (Railway marks stderr as error), uvicorn's loggers routed through it, `text`/`json` format via `REDOWEBS_LOG_FORMAT`. Called from `main.py` and `queue_worker.py`. |
+| `backend/app/workers/queue_worker.py` (2026-10-04) | `print` → logger; failed jobs now log the full traceback (`queued_jobs.error` still stores only `str(exc)`). Logging only, no behavior change. |
 | `.gitignore` (new, repo root) | Ignores `clients/` (Google OAuth client-secret downloads). |
 | `clients/client_secret_…json` | Untracked via `git rm --cached` (file kept on disk). It was previously committed and pushed — **rotate the client secret in Google Cloud Console** if the repo was ever public. |

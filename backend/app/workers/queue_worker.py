@@ -8,12 +8,14 @@ other regardless of worker count: stage N+1's queue row doesn't exist until
 stage N's task creates it, so running more of this process only adds
 parallelism *across* projects/tiers, never within one."""
 
+import logging
 import os
 import time
 import uuid
 from datetime import datetime, timezone
 
 from ..db.session import SessionLocal
+from ..logging_config import configure_logging
 from ..models import QueuedJob
 from .queue import claim_next_job
 from .tasks_blueprint import extract_blueprint_task
@@ -35,9 +37,11 @@ TASK_HANDLERS = {
 # start_workers.ps1 (which sets this per launched process).
 WORKER_ID = os.environ.get("REDOWEBS_WORKER_ID") or uuid.uuid4().hex[:6]
 
+logger = logging.getLogger(f"queue_worker[{WORKER_ID}]")
+
 
 def run_worker_loop() -> None:
-    print(f"queue_worker[{WORKER_ID}]: started, polling queued_jobs every {POLL_INTERVAL_SECONDS}s")
+    logger.info("started, polling queued_jobs every %ss", POLL_INTERVAL_SECONDS)
     while True:
         db = SessionLocal()
         try:
@@ -56,7 +60,7 @@ def run_worker_loop() -> None:
             time.sleep(POLL_INTERVAL_SECONDS)
             continue
 
-        print(f"queue_worker[{WORKER_ID}]: running {task_name} ({job_id})")
+        logger.info("running %s (%s)", task_name, job_id)
 
         handler = TASK_HANDLERS[task_name]
         try:
@@ -76,7 +80,10 @@ def run_worker_loop() -> None:
                 db.commit()
             finally:
                 db.close()
-            print(f"queue_worker[{WORKER_ID}]: {task_name} ({job_id}) failed: {exc}")
+            # Every task re-raises after marking its own rows failed, so this
+            # is the one place the original traceback is still available --
+            # str(exc) alone (what queued_jobs.error stores) loses it.
+            logger.exception("%s (%s) failed: %s", task_name, job_id, exc)
             continue
 
         db = SessionLocal()
@@ -87,8 +94,9 @@ def run_worker_loop() -> None:
             db.commit()
         finally:
             db.close()
-        print(f"queue_worker[{WORKER_ID}]: {task_name} ({job_id}) succeeded")
+        logger.info("%s (%s) succeeded", task_name, job_id)
 
 
 if __name__ == "__main__":
+    configure_logging()
     run_worker_loop()

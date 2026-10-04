@@ -5,8 +5,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from .config import get_settings
+from .logging_config import configure_logging
 from .rate_limit import limiter
 from .routers import admin, auth, blueprint, crawl, credits, debug_pipeline, downloads, generation, preview, projects
+
+configure_logging()
 
 app = FastAPI(title="ReDoWebs API", version="0.1.0")
 

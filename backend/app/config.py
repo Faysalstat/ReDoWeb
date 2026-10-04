@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
 
+    # See logging_config.py. "json" emits one JSON object per line, which
+    # Railway parses into searchable level/message fields and which keeps a
+    # multi-line traceback in a single log entry; "text" is for local dev.
+    log_level: str = "INFO"
+    log_format: str = "text"
+
     rate_limit_auth: str = "10/minute"
     rate_limit_submit: str = "5/minute"
 
