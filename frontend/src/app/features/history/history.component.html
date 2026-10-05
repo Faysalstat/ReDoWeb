@@ -45,21 +45,12 @@
                   <app-badge [variant]="tierBadgeVariant(project.tier)">{{ tierLabel(project.tier) }}</app-badge>
                 }
                 <app-badge [variant]="statusBadgeVariant(project.status)">{{ statusLabel(project.status) }}</app-badge>
-                @for (tier of project.purchased_tiers; track tier) {
-                  <app-badge variant="success">Purchased · {{ tierLabel(tier) }}</app-badge>
+                @if (project.purchased_tiers.length > 0) {
+                  <app-badge variant="success" [title]="'Paid for — re-downloading is free'">
+                    Paid{{ project.purchased_tiers.length > 1 ? ' · ' + paidLabels(project.purchased_tiers) : '' }}
+                  </app-badge>
                 }
               </div>
-              @if (project.purchased_tiers.length > 0) {
-                <div class="sites__downloads">
-                  @for (tier of project.purchased_tiers; track tier) {
-                    <a
-                      [routerLink]="['/projects', project.project_id]"
-                      [queryParams]="{ download: tier }"
-                      title="Free re-download"
-                    >Download {{ tierLabel(tier) }} ZIP</a>
-                  }
-                </div>
-              }
               @if (!isTerminal(project.status)) {
                 <div class="sites__progress">
                   <app-progress-bar [percent]="stagePercent(project.status)" />
@@ -68,9 +59,22 @@
               }
             </div>
             <span class="sites__note">{{ project.created_at | date: 'medium' }}</span>
-            <a appButton variant="secondary" [routerLink]="['/projects', project.project_id]">
-              {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
-            </a>
+            <div class="sites__actions">
+              @for (tier of project.purchased_tiers; track tier) {
+                <a
+                  appButton
+                  variant="primary"
+                  [routerLink]="['/projects', project.project_id]"
+                  [queryParams]="{ download: tier }"
+                  [title]="'Download the ' + tierLabel(tier) + ' ZIP again — free'"
+                >
+                  Download{{ project.purchased_tiers.length > 1 ? ' ' + tierLabel(tier) : '' }}
+                </a>
+              }
+              <a appButton variant="secondary" [routerLink]="['/projects', project.project_id]">
+                {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
+              </a>
+            </div>
           </div>
         }
       </div>

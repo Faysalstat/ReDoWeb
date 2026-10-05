@@ -5,7 +5,7 @@
 .sites__head,
 .sites__row {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) 170px 140px auto;
+  grid-template-columns: minmax(0, 3fr) minmax(190px, 1.2fr) 150px auto;
   gap: var(--space-4);
   align-items: center;
   border-bottom: 2px solid var(--color-divider);
@@ -31,7 +31,17 @@
 }
 .sites__badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-2);
+}
+.sites__badges app-badge {
+  white-space: nowrap;
+}
+.sites__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
 }
 .sites__progress {
@@ -54,13 +64,8 @@
     grid-template-columns: 1fr;
     gap: var(--space-2);
   }
+  .sites__actions {
+    justify-content: flex-start;
+  }
 }
 
-.sites__downloads {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-  font-size: 13px;
-  font-weight: 600;
-}

@@ -37,6 +37,11 @@ export class HistoryComponent implements OnInit {
 
   constructor(private readonly api: RedoWebsApiService) {}
 
+  /** "Premium, Pro" -- only shown when more than one tier is paid for. */
+  paidLabels(tiers: string[]): string {
+    return tiers.map(tierLabel).join(', ');
+  }
+
   tierBadgeVariant(tier: string): BadgeVariant {
     return TIER_BADGE_VARIANT[tier] ?? 'muted';
   }
