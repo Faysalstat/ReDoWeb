@@ -121,6 +121,7 @@ def list_projects(
     latest_tier_by_project: dict[uuid.UUID, str] = {}
     for job in jobs:
         latest_tier_by_project.setdefault(job.project_id, job.tier)
+    purchased = wallet_service.purchased_download_tiers(db, current_user.id, [p.id for p in projects])
 
     return [
         ProjectListItem(
@@ -129,6 +130,7 @@ def list_projects(
             status=p.status,
             created_at=p.created_at,
             tier=latest_tier_by_project.get(p.id),
+            purchased_tiers=purchased.get(p.id, []),
         )
         for p in projects
     ]
@@ -230,6 +232,9 @@ def get_project_status(
         current_tiers=current_tiers,
         tier_failures=tier_failures,
         cost_gate=cost_gate,
+        purchased_tiers=wallet_service.purchased_download_tiers(db, current_user.id, [project.id]).get(
+            project.id, []
+        ),
     )
 
 

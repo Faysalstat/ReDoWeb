@@ -1,37 +1,59 @@
-import { Component } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { PurchaseHistoryItem } from '../../core/redowebs-api.models';
+import { RedoWebsApiService } from '../../core/redowebs-api.service';
+import { WalletService } from '../../core/wallet.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 
-interface Invoice {
-  date: string;
-  description: string;
-  amount: number;
-  status: 'Paid' | 'Refunded' | 'Failed';
-}
+const STATUS_LABELS: Record<string, string> = {
+  completed: 'Paid',
+  pending: 'Processing',
+  failed: 'Failed',
+  refunded: 'Refunded',
+};
 
-// Placeholder invoice history -- this page isn't wired to a real billing
-// backend yet. See docs/PROGRESS.md.
-const INVOICES: Invoice[] = [
-  { date: '12 Aug 2026', description: 'Pro tier download', amount: 79, status: 'Paid' },
-  { date: '02 Aug 2026', description: 'Premium tier download', amount: 39, status: 'Paid' },
-  { date: '18 Jul 2026', description: 'Basic tier download', amount: 19, status: 'Refunded' },
-];
-
-/** Standalone billing/settings page. Not wired to a real subscription or
- * payment-method backend yet -- credits are the real spend model
- * (see CLAUDE.md); this page previews what a billing-history view could
- * look like once that's built out. */
+/** Credit balance + real purchase history (PayPal packs and any credits an
+ * admin granted), from GET /billing/purchases. */
 @Component({
   selector: 'app-billing-settings',
   standalone: true,
-  imports: [FormsModule, RouterLink, AppHeaderComponent],
+  imports: [RouterLink, DatePipe, CurrencyPipe, AppHeaderComponent],
   templateUrl: './billing-settings.component.html',
   styleUrl: './billing-settings.component.css',
 })
-export class BillingSettingsComponent {
-  readonly invoices = INVOICES;
+export class BillingSettingsComponent implements OnInit {
+  readonly purchases = signal<PurchaseHistoryItem[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal(false);
 
-  billing = { company: '', vat: '' };
+  constructor(
+    private readonly api: RedoWebsApiService,
+    readonly wallet: WalletService
+  ) {}
+
+  ngOnInit(): void {
+    this.wallet.refresh();
+    this.api.listPurchases().subscribe({
+      next: (res) => {
+        this.purchases.set(res.items);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set(true);
+        this.loading.set(false);
+      },
+    });
+  }
+
+  statusLabel(status: string): string {
+    return STATUS_LABELS[status] ?? status;
+  }
+
+  description(item: PurchaseHistoryItem): string {
+    if (item.source === 'manual_admin') return `${item.credits} credits (granted by support)`;
+    if (item.source === 'mock') return `${item.credits} credits (test payment)`;
+    return `${item.credits} credits`;
+  }
 }

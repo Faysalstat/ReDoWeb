@@ -1,6 +1,6 @@
 <div>
   <h1 class="display display--sm">Model config</h1>
-  <p class="sub">Change which OpenRouter model each tier uses for generation, and the shared vision/review model.</p>
+  <p class="sub">Change which OpenRouter model each tier uses for generation, and the shared vision/review model. Tier names, order, on/off and prices are on Tiers &amp; pricing.</p>
 
   @if (loading()) {
     <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
@@ -42,9 +42,6 @@
               />
               <button type="button" appButton variant="secondary" [disabled]="savingKey() === tier.key" (click)="saveTierModel(tier.key)">
                 {{ savingKey() === tier.key ? 'Saving…' : 'Save' }}
-              </button>
-              <button type="button" appButton variant="ghost" [disabled]="togglingKey() === tier.key" (click)="toggleTierActive(tier)">
-                {{ togglingKey() === tier.key ? 'Updating…' : tier.is_active ? 'Disable' : 'Enable' }}
               </button>
             </div>
           </div>

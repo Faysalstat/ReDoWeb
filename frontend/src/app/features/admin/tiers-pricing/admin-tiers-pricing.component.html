@@ -1,0 +1,72 @@
+<div>
+  <h1 class="display display--sm">Tiers &amp; pricing</h1>
+  <p class="sub">
+    What users see and pay: each tier's name, order and download cost, and the credit packs they buy credits with.
+    The AI model each tier uses is on Model config.
+  </p>
+
+  <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">Tiers</h2>
+  <p class="sub">
+    Download cost is charged the first time a user downloads a tier of a project. Changes apply to future downloads
+    only — tiers a user already paid for stay free to re-download. Disabled tiers aren't generated for new projects.
+  </p>
+
+  @if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-3)">{{ errorMessage() }}</p>
+  }
+  @if (savedMessage()) {
+    <p style="color: var(--color-accent); margin-top: var(--space-3)">{{ savedMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: var(--leading) 0"><app-spinner size="lg" /></div>
+  } @else {
+    <div class="rows" style="margin-top: var(--space-3)">
+      @for (tier of tiers(); track tier.key) {
+        @if (draft(tier.key); as d) {
+          <div class="rows__item">
+            <div class="row row--between" style="flex-wrap: wrap; gap: var(--space-3); align-items: flex-end">
+              <div class="row" style="gap: var(--space-3); flex-wrap: wrap; align-items: flex-end">
+                <div class="field">
+                  <label>Key</label>
+                  <span class="tag tag-neutral" style="font-family: ui-monospace, monospace" title="Used in storage paths — can't be changed">{{ tier.key }}</span>
+                </div>
+                <div class="field">
+                  <label [attr.for]="'label-' + tier.key">Label</label>
+                  <input class="input" [id]="'label-' + tier.key" style="width: 160px" maxlength="64"
+                    [ngModel]="d.label" (ngModelChange)="update(tier.key, 'label', $event)" />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'order-' + tier.key">Order</label>
+                  <input class="input" type="number" step="1" [id]="'order-' + tier.key" style="width: 80px"
+                    [ngModel]="d.sortOrder" (ngModelChange)="update(tier.key, 'sortOrder', $event)" />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'cost-' + tier.key">Download cost (credits)</label>
+                  <input class="input" type="number" min="1" step="1" [id]="'cost-' + tier.key" style="width: 110px"
+                    [ngModel]="d.cost" (ngModelChange)="update(tier.key, 'cost', $event)" />
+                </div>
+              </div>
+              <div class="row" style="gap: var(--space-2); align-items: center">
+                <app-badge [variant]="tier.is_active ? 'success' : 'muted'">{{ tier.is_active ? 'enabled' : 'disabled' }}</app-badge>
+                <button type="button" appButton variant="secondary" [disabled]="busyKey() === tier.key" (click)="save(tier)">Save</button>
+                <button type="button" appButton variant="ghost" [disabled]="busyKey() === tier.key" (click)="toggle(tier)">
+                  {{ tier.is_active ? 'Disable' : 'Enable' }}
+                </button>
+              </div>
+            </div>
+            @if (costWarning(tier.key)) {
+              <p style="margin: var(--space-2) 0 0; font-size: 13px; color: var(--color-warning, #b54708)">
+                Below 3 credits, the free signup credits are enough to download this tier.
+              </p>
+            }
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <div style="margin-top: calc(2 * var(--leading)); border-top: 2px solid var(--color-divider); padding-top: var(--leading)">
+    <app-admin-credit-packs />
+  </div>
+</div>

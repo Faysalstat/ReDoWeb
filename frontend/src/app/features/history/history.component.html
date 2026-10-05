@@ -42,10 +42,24 @@
             <div>
               <div class="sites__badges">
                 @if (project.tier) {
-                  <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
+                  <app-badge [variant]="tierBadgeVariant(project.tier)">{{ tierLabel(project.tier) }}</app-badge>
                 }
                 <app-badge [variant]="statusBadgeVariant(project.status)">{{ statusLabel(project.status) }}</app-badge>
+                @for (tier of project.purchased_tiers; track tier) {
+                  <app-badge variant="success">Purchased · {{ tierLabel(tier) }}</app-badge>
+                }
               </div>
+              @if (project.purchased_tiers.length > 0) {
+                <div class="sites__downloads">
+                  @for (tier of project.purchased_tiers; track tier) {
+                    <a
+                      [routerLink]="['/projects', project.project_id]"
+                      [queryParams]="{ download: tier }"
+                      title="Free re-download"
+                    >Download {{ tierLabel(tier) }} ZIP</a>
+                  }
+                </div>
+              }
               @if (!isTerminal(project.status)) {
                 <div class="sites__progress">
                   <app-progress-bar [percent]="stagePercent(project.status)" />

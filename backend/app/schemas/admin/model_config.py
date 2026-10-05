@@ -21,10 +21,6 @@ class AdminTierModelUpdateRequest(BaseModel):
     generation_model: str | None = None
 
 
-class AdminTierActiveUpdateRequest(BaseModel):
-    is_active: bool
-
-
 class AdminVisionModelResponse(BaseModel):
     model_name: str | None = None
     effective_model_name: str

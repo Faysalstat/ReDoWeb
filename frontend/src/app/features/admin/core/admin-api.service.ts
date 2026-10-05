@@ -5,10 +5,22 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api-config';
 import {
   AdminAdjustmentResponse,
+  AdminPaymentsStatusResponse,
+  AdminPurchaseActionResponse,
+  AdminPurchaseDetailResponse,
+  AdminPurchaseListResponse,
+  AdminTakeBackResponse,
+  AdminTierListResponse,
+  AdminTierRow,
+  AdminTierUpdateRequest,
   AdminCostByProjectResponse,
   AdminCostByUserResponse,
   AdminCostSettingResponse,
   AdminCostSettingUpdateRequest,
+  AdminCreditPackCreateRequest,
+  AdminCreditPackListResponse,
+  AdminCreditPackRow,
+  AdminCreditPackUpdateRequest,
   AdminIssueAdjustmentRequest,
   AdminModelCostResponse,
   AdminModelPricingResponse,
@@ -20,7 +32,6 @@ import {
   AdminPromptTemplateListResponse,
   AdminPromptTemplateRow,
   AdminRevenueResponse,
-  AdminTierActiveUpdateRequest,
   AdminTierModelListResponse,
   AdminTierModelRow,
   AdminTierModelUpdateRequest,
@@ -128,10 +139,6 @@ export class AdminApiService {
     return this.http.put<AdminTierModelRow>(`${ADMIN_BASE}/model-config/tiers/${key}`, body);
   }
 
-  setTierActive(key: string, body: AdminTierActiveUpdateRequest): Observable<AdminTierModelRow> {
-    return this.http.patch<AdminTierModelRow>(`${ADMIN_BASE}/model-config/tiers/${key}/active`, body);
-  }
-
   getVisionModel(): Observable<AdminVisionModelResponse> {
     return this.http.get<AdminVisionModelResponse>(`${ADMIN_BASE}/model-config/vision-model`);
   }
@@ -187,5 +194,78 @@ export class AdminApiService {
 
   getEarnings(days: number): Observable<AdminRevenueResponse> {
     return this.http.get<AdminRevenueResponse>(`${ADMIN_BASE}/earnings`, { params: { days } });
+  }
+
+  // -- Credit packs -----------------------------------------------------------
+
+  listCreditPacks(): Observable<AdminCreditPackListResponse> {
+    return this.http.get<AdminCreditPackListResponse>(`${ADMIN_BASE}/credit-packs`);
+  }
+
+  createCreditPack(body: AdminCreditPackCreateRequest): Observable<AdminCreditPackRow> {
+    return this.http.post<AdminCreditPackRow>(`${ADMIN_BASE}/credit-packs`, body);
+  }
+
+  updateCreditPack(id: string, body: AdminCreditPackUpdateRequest): Observable<AdminCreditPackRow> {
+    return this.http.put<AdminCreditPackRow>(`${ADMIN_BASE}/credit-packs/${id}`, body);
+  }
+
+  setCreditPackActive(id: string, isActive: boolean): Observable<AdminCreditPackRow> {
+    return this.http.patch<AdminCreditPackRow>(`${ADMIN_BASE}/credit-packs/${id}/active`, { is_active: isActive });
+  }
+
+  // -- Payments ---------------------------------------------------------------
+
+  getPaymentsStatus(): Observable<AdminPaymentsStatusResponse> {
+    return this.http.get<AdminPaymentsStatusResponse>(`${ADMIN_BASE}/payments/status`);
+  }
+
+  listPurchases(params: {
+    status?: string;
+    source?: string;
+    email?: string;
+    includeMock?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Observable<AdminPurchaseListResponse> {
+    const query: Record<string, string | number | boolean> = {
+      page: params.page ?? 1,
+      page_size: params.pageSize ?? 25,
+      include_mock: params.includeMock ?? false,
+    };
+    if (params.status) query['status'] = params.status;
+    if (params.source) query['source'] = params.source;
+    if (params.email) query['email'] = params.email;
+    return this.http.get<AdminPurchaseListResponse>(`${ADMIN_BASE}/purchases`, { params: query });
+  }
+
+  getPurchase(id: string): Observable<AdminPurchaseDetailResponse> {
+    return this.http.get<AdminPurchaseDetailResponse>(`${ADMIN_BASE}/purchases/${id}`);
+  }
+
+  recheckPurchase(id: string): Observable<AdminPurchaseActionResponse> {
+    return this.http.post<AdminPurchaseActionResponse>(`${ADMIN_BASE}/purchases/${id}/recheck`, {});
+  }
+
+  takeBackCredits(id: string, note: string): Observable<AdminTakeBackResponse> {
+    return this.http.post<AdminTakeBackResponse>(`${ADMIN_BASE}/purchases/${id}/take-back`, { note });
+  }
+
+  markPurchaseFailed(id: string, note: string): Observable<AdminPurchaseActionResponse> {
+    return this.http.post<AdminPurchaseActionResponse>(`${ADMIN_BASE}/purchases/${id}/mark-failed`, { note });
+  }
+
+  // -- Tiers & pricing ----------------------------------------------------------
+
+  listTiers(): Observable<AdminTierListResponse> {
+    return this.http.get<AdminTierListResponse>(`${ADMIN_BASE}/tiers`);
+  }
+
+  updateTier(key: string, body: AdminTierUpdateRequest): Observable<AdminTierRow> {
+    return this.http.put<AdminTierRow>(`${ADMIN_BASE}/tiers/${key}`, body);
+  }
+
+  setTierActive(key: string, isActive: boolean): Observable<AdminTierRow> {
+    return this.http.patch<AdminTierRow>(`${ADMIN_BASE}/tiers/${key}/active`, { is_active: isActive });
   }
 }

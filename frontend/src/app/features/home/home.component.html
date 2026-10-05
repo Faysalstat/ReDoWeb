@@ -56,8 +56,10 @@
 
       <p class="home-hero__note">
         Free preview · No credit card required
-        @if (balance(); as b) {
+        @if (wallet.balance(); as b) {
           · {{ b }} credit{{ b === 1 ? '' : 's' }} available
+        } @else if (wallet.balance() === 0) {
+          · 0 credits available
         }
       </p>
 
@@ -140,30 +142,14 @@
       <span class="home-band__kicker" style="color: var(--color-success)">Pricing</span>
       <h2 class="home-band__title">Simple, one-time pricing.</h2>
       <p class="home-band__sub">
-        Pay once per redesign, no subscriptions. Every tier includes a free live preview before
-        you pay for the download.
+        Buy a credit pack once, no subscriptions. Every tier includes a free live preview before
+        you spend credits on the download.
       </p>
     </div>
 
-    <div class="grid-3" style="margin-top: 40px; align-items: start">
-      @for (tier of pricingTiers; track tier.name) {
-        <app-pricing-tier
-          [name]="tier.name"
-          [price]="tier.price"
-          [period]="tier.period"
-          [tagline]="tier.tagline"
-          [features]="tier.features"
-          [highlighted]="tier.highlighted"
-          [tone]="tier.tone"
-          [ctaLabel]="tier.ctaLabel"
-        />
-      }
+    <div style="margin-top: 40px">
+      <app-credit-pack-grid />
     </div>
-
-    <p class="home-band__fineprint">
-      Placeholder pricing shown for preview — final pricing will be confirmed before launch. See
-      the <a routerLink="/pricing">full plan comparison</a>.
-    </p>
   </div>
 </section>
 

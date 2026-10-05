@@ -1,4 +1,5 @@
 import { Component, OnInit, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { CardComponent } from '../../../shared/ui/card/card.component';
 import { SpinnerComponent } from '../../../shared/ui/spinner/spinner.component';
@@ -8,15 +9,14 @@ import { StatTileComponent } from '../ui/stat-tile/stat-tile.component';
 
 const RANGE_PRESETS = [7, 30, 90] as const;
 
-/** Revenue is aggregated from the Purchase table, which already covers
- * both `source="stripe"` and `source="manual_admin"` rows -- Stripe
- * billing itself (Milestone 7) isn't built yet, so real revenue reads $0
- * here until that lands. This page is built now so it lights up
- * automatically once Stripe is wired, rather than being a later addition. */
+/** Revenue is aggregated from the Purchase table -- PayPal credit-pack
+ * purchases (`source="paypal"`) and manual admin adjustments
+ * (`source="manual_admin"`). Only `completed` purchases count as revenue;
+ * individual purchases (incl. pending/failed/refunded) are on Payments. */
 @Component({
   selector: 'app-admin-earnings',
   standalone: true,
-  imports: [CardComponent, StatTileComponent, SpinnerComponent],
+  imports: [CardComponent, StatTileComponent, SpinnerComponent, RouterLink],
   templateUrl: './admin-earnings.component.html',
 })
 export class AdminEarningsComponent implements OnInit {
@@ -25,7 +25,6 @@ export class AdminEarningsComponent implements OnInit {
   readonly revenue = signal<AdminRevenueResponse | null>(null);
   readonly loading = signal(true);
   readonly errorMessage = signal('');
-
   constructor(private readonly api: AdminApiService) {}
 
   ngOnInit(): void {

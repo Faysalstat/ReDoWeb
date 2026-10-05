@@ -31,7 +31,6 @@ ADMIN_ROUTES = [
     ("PUT", "/api/v1/admin/model-pricing/openai/gpt-4o-mini"),
     ("GET", "/api/v1/admin/model-config/tiers"),
     ("PUT", "/api/v1/admin/model-config/tiers/pro"),
-    ("PATCH", "/api/v1/admin/model-config/tiers/pro/active"),
     ("GET", "/api/v1/admin/model-config/vision-model"),
     ("PUT", "/api/v1/admin/model-config/vision-model"),
     ("GET", "/api/v1/admin/prompt-templates"),
@@ -44,6 +43,19 @@ ADMIN_ROUTES = [
     ("PUT", "/api/v1/admin/cost-gate/threshold"),
     ("GET", "/api/v1/admin/cost-gate/usd-per-credit"),
     ("PUT", "/api/v1/admin/cost-gate/usd-per-credit"),
+    ("GET", "/api/v1/admin/credit-packs"),
+    ("POST", "/api/v1/admin/credit-packs"),
+    ("PUT", "/api/v1/admin/credit-packs/11111111-1111-1111-1111-111111111111"),
+    ("PATCH", "/api/v1/admin/credit-packs/11111111-1111-1111-1111-111111111111/active"),
+    ("GET", "/api/v1/admin/purchases"),
+    ("GET", "/api/v1/admin/purchases/11111111-1111-1111-1111-111111111111"),
+    ("POST", "/api/v1/admin/purchases/11111111-1111-1111-1111-111111111111/recheck"),
+    ("POST", "/api/v1/admin/purchases/11111111-1111-1111-1111-111111111111/take-back"),
+    ("POST", "/api/v1/admin/purchases/11111111-1111-1111-1111-111111111111/mark-failed"),
+    ("GET", "/api/v1/admin/payments/status"),
+    ("GET", "/api/v1/admin/tiers"),
+    ("PUT", "/api/v1/admin/tiers/pro"),
+    ("PATCH", "/api/v1/admin/tiers/pro/active"),
 ]
 
 

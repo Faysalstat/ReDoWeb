@@ -1,82 +1,63 @@
 <app-header />
 
 <div class="wrap--narrow band">
-  <nav class="tabs">
-    <a class="active" routerLink="/settings/billing">Billing</a>
-    <a routerLink="/settings/billing">Account</a>
-    <a routerLink="/settings/billing">Notifications</a>
-  </nav>
-
-  <div class="billing">
-    <div>
-      <div class="billing__plan">
-        <div class="row row--between">
-          <div>
-            <span class="label">Credits</span>
-            <h2 style="font-size: 28px; margin: var(--space-3) 0 0">Pay-as-you-go</h2>
-            <p style="font-size: 14.5px; color: var(--color-neutral-700); margin: var(--space-2) 0 0">
-              Your credit balance is shown in the header. Downloads spend credits — top up any time.
-            </p>
-          </div>
-          <a class="btn btn-secondary" routerLink="/pricing">Buy credits</a>
-        </div>
-      </div>
-
-      <h3 style="font-size: 20px; margin: calc(1.3 * var(--leading)) 0 var(--space-4)">Download history</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (i of invoices; track i.date) {
-            <tr>
-              <td>{{ i.date }}</td>
-              <td>{{ i.description }}</td>
-              <td class="tnum">${{ i.amount }}.00</td>
-              <td><span [class]="i.status === 'Paid' ? 'tag tag-neutral' : 'tag tag-accent'">{{ i.status }}</span></td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="4" style="color: var(--color-neutral-700)">No downloads yet.</td>
-            </tr>
+  <div class="billing__plan">
+    <div class="row row--between">
+      <div>
+        <span class="label">Credits</span>
+        <h2 style="font-size: 28px; margin: var(--space-3) 0 0">
+          @if (wallet.balance() !== null) {
+            {{ wallet.balance() }} credit{{ wallet.balance() === 1 ? '' : 's' }}
+          } @else {
+            Pay-as-you-go
           }
-        </tbody>
-      </table>
-      <p class="text-muted" style="margin-top: var(--space-3); font-size: 12px">
-        Placeholder history shown for preview — this page isn't wired to real billing yet.
-      </p>
-    </div>
-
-    <aside class="billing__aside">
-      <div class="billing__card">
-        <span class="label">Payment method</span>
-        <p style="font-size: 14px; color: var(--color-neutral-700); margin: var(--space-3) 0 0">
-          No card on file yet — you'll be asked for one the first time you buy credits.
+        </h2>
+        <p style="font-size: 14.5px; color: var(--color-neutral-700); margin: var(--space-2) 0 0">
+          Each generation costs 1 credit and downloading a tier costs that tier's price in credits.
+          Previews are free; re-downloading a tier you've paid for is free.
         </p>
-        <div class="row" style="margin-top: var(--space-4)">
-          <button class="btn btn-secondary" type="button" disabled title="Coming soon">Add card</button>
-        </div>
       </div>
-
-      <div class="billing__card">
-        <span class="label">Billing details</span>
-        <div class="billing__fields">
-          <div class="field">
-            <label for="bd-company">Company</label>
-            <input class="input" id="bd-company" name="company" [(ngModel)]="billing.company" placeholder="Optional" />
-          </div>
-          <div class="field">
-            <label for="bd-vat">VAT number</label>
-            <input class="input" id="bd-vat" name="vat" [(ngModel)]="billing.vat" placeholder="Optional" />
-          </div>
-          <button class="btn btn-primary" type="button" disabled title="Coming soon">Save</button>
-        </div>
-      </div>
-    </aside>
+      <a class="btn btn-primary" routerLink="/checkout">Buy credits</a>
+    </div>
   </div>
+
+  <h3 style="font-size: 20px; margin: calc(1.3 * var(--leading)) 0 var(--space-4)">Purchase history</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Amount</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (loading()) {
+        <tr>
+          <td colspan="4" style="color: var(--color-neutral-700)">Loading…</td>
+        </tr>
+      } @else if (error()) {
+        <tr>
+          <td colspan="4" style="color: var(--color-danger)">Couldn't load your purchases. Please refresh.</td>
+        </tr>
+      } @else {
+        @for (p of purchases(); track p.id) {
+          <tr>
+            <td>{{ p.created_at | date: 'mediumDate' }}</td>
+            <td>{{ description(p) }}</td>
+            <td class="tnum">{{ p.amount_usd_cents / 100 | currency: 'USD' }}</td>
+            <td><span [class]="p.status === 'completed' ? 'tag tag-neutral' : 'tag tag-accent'">{{ statusLabel(p.status) }}</span></td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" style="color: var(--color-neutral-700)">No purchases yet.</td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+  <p class="text-muted" style="margin-top: var(--space-3); font-size: 12px">
+    Payments are processed by PayPal. A purchase showing "Processing" is waiting for PayPal to
+    confirm it — the credits are added automatically once it does.
+  </p>
 </div>

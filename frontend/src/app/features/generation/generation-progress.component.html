@@ -235,15 +235,37 @@
                 @switch (downloadStatus()[gen.tier]) {
                   @case ('starting') { Starting… }
                   @case ('building') { Preparing full site… }
-                  @default { Download ZIP }
+                  @default {
+                    @if (!isPurchased(gen.tier) && tierCost(gen.tier) !== null) {
+                      Download ZIP · {{ tierCost(gen.tier) }} credits
+                    } @else {
+                      Download ZIP
+                    }
+                  }
                 }
               </button>
             </div>
           </div>
+          @if (isPurchased(gen.tier)) {
+            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2)">
+              Purchased · re-downloading this tier is free
+            </p>
+          }
           @if (downloadStatus()[gen.tier] === 'failed') {
             <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2); color: var(--color-danger)">
               Something went wrong preparing your download — try again.
             </p>
+          }
+          @if (downloadStatus()[gen.tier] === 'needs-credits' && downloadShortfall()[gen.tier]; as short) {
+            <div class="gp-topup" role="alert">
+              <p>
+                Downloading the {{ tierLabel(gen.tier) }} tier needs <b>{{ short.required }} credits</b>; you
+                have {{ short.balance }}. Buy {{ short.shortfall }} more and your download will continue.
+              </p>
+              <button appButton variant="primary" (click)="topUpForDownload(gen.tier)">
+                Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
+              </button>
+            </div>
           }
 
           <div class="gp-ready__layout">
@@ -405,11 +427,27 @@
               }
 
               <app-card variant="gradient">
-                <p class="gp-cta__kicker">Nothing downloaded yet</p>
-                <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
-                  Downloading the full HTML/CSS source spends credits from your wallet — the exact
-                  cost depends on your plan.
-                </p>
+                @if (isPurchased(gen.tier)) {
+                  <p class="gp-cta__kicker">Purchased</p>
+                  <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                    You own this tier's source — download it again any time at no cost. It's also
+                    available from your History.
+                  </p>
+                } @else {
+                  <p class="gp-cta__kicker">Nothing downloaded yet</p>
+                  <p class="sub" style="margin-top: var(--space-2); max-width: none; font-size: 13px">
+                    Downloading the full HTML/CSS source
+                    @if (tierCost(gen.tier) !== null) {
+                      costs {{ tierCost(gen.tier) }} credits
+                    } @else {
+                      spends credits
+                    }
+                    @if (wallet.balance() !== null) {
+                      — you have {{ wallet.balance() }}.
+                    }
+                    Previews stay free. <a routerLink="/checkout">Buy credits</a>
+                  </p>
+                }
               </app-card>
             </aside>
           </div>

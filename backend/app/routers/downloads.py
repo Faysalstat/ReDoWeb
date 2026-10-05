@@ -113,10 +113,24 @@ def start_download(
             reason="download_spend",
             related_project_id=project.id,
             related_job_id=preview_job.id,
-            idempotency_key=f"download_spend:{project.id}:{tier}",
+            idempotency_key=wallet_service.download_spend_key(project.id, tier),
         )
     except InsufficientCreditsError as exc:
-        raise HTTPException(status_code=402, detail="Insufficient credits for this download") from exc
+        db.rollback()
+        balance = wallet_service.get_or_create_wallet(db, project.user_id).balance
+        db.commit()
+        required = tier_info.download_credit_cost
+        # Structured so the frontend can offer an exact top-up
+        # (/checkout?credits=<shortfall>) instead of a generic failure.
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "message": "Insufficient credits for this download",
+                "required": required,
+                "balance": balance,
+                "shortfall": max(required - balance, 0),
+            },
+        ) from exc
     db.commit()
 
     # Race guard: two near-simultaneous download clicks for the same

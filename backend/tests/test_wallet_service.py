@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from app.models import CreditTransaction, CreditWallet, User
@@ -233,3 +235,145 @@ def test_admin_adjust_creates_wallet_with_zero_balance_if_missing(db_session):
 
     assert wallet.balance == 3
     assert db_session.query(CreditWallet).filter(CreditWallet.user_id == user.id).count() == 1
+
+
+def test_grant_purchase_credits_adds_balance_and_writes_purchase_row(db_session):
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+    purchase_id = uuid.uuid4()
+
+    wallet = wallet_service.grant_purchase_credits(
+        db_session, user.id, 10, purchase_id=purchase_id, idempotency_key=f"purchase:{purchase_id}"
+    )
+    db_session.commit()
+
+    assert wallet.balance == wallet_service.SIGNUP_GRANT_CREDITS + 10
+    txn = db_session.query(CreditTransaction).filter(CreditTransaction.reason == "purchase").one()
+    assert txn.amount == 10
+    assert txn.related_purchase_id == purchase_id
+
+
+def test_grant_purchase_credits_is_idempotent_by_key(db_session):
+    """The browser capture and PayPal's webhook both fulfil the same
+    purchase -- the second call must be a no-op, not a double credit."""
+    user = _make_user(db_session)
+    purchase_id = uuid.uuid4()
+    key = f"purchase:{purchase_id}"
+
+    wallet_service.grant_purchase_credits(db_session, user.id, 10, purchase_id=purchase_id, idempotency_key=key)
+    db_session.commit()
+    wallet = wallet_service.grant_purchase_credits(
+        db_session, user.id, 10, purchase_id=purchase_id, idempotency_key=key
+    )
+    db_session.commit()
+
+    assert wallet.balance == 10
+    assert db_session.query(CreditTransaction).filter(CreditTransaction.reason == "purchase").count() == 1
+
+
+def test_grant_purchase_credits_creates_missing_wallet(db_session):
+    user = _make_user(db_session)
+    purchase_id = uuid.uuid4()
+
+    wallet = wallet_service.grant_purchase_credits(
+        db_session, user.id, 5, purchase_id=purchase_id, idempotency_key=f"purchase:{purchase_id}"
+    )
+    db_session.commit()
+
+    assert wallet.balance == 5
+
+
+@pytest.mark.parametrize("bad_amount", [0, -5])
+def test_grant_purchase_credits_rejects_non_positive_amount(db_session, bad_amount):
+    user = _make_user(db_session)
+
+    with pytest.raises(ValueError):
+        wallet_service.grant_purchase_credits(
+            db_session, user.id, bad_amount, purchase_id=uuid.uuid4(), idempotency_key="k"
+        )
+
+
+def test_grant_purchase_credits_locks_wallet_before_idempotency_check(db_session, monkeypatch):
+    """Same ordering guarantee as spend() -- see
+    test_spend_locks_wallet_before_idempotency_check."""
+    user = _make_user(db_session)
+    wallet_service.grant_signup_credits(db_session, user.id)
+    db_session.commit()
+
+    call_order = []
+    original_query = db_session.query
+
+    def tracking_query(model):
+        if model is CreditWallet:
+            call_order.append("wallet_lock")
+        elif model is CreditTransaction:
+            call_order.append("idempotency_check")
+        return original_query(model)
+
+    monkeypatch.setattr(db_session, "query", tracking_query)
+
+    wallet_service.grant_purchase_credits(
+        db_session, user.id, 10, purchase_id=uuid.uuid4(), idempotency_key="purchase:k1"
+    )
+
+    assert call_order[0] == "wallet_lock"
+    assert call_order.index("wallet_lock") < call_order.index("idempotency_check")
+
+
+def test_download_spend_key_round_trips():
+    project_id = uuid.uuid4()
+
+    key = wallet_service.download_spend_key(project_id, "pro")
+
+    assert key == f"download_spend:{project_id}:pro"
+    assert wallet_service.tier_from_download_key(key, project_id) == "pro"
+    assert wallet_service.tier_from_download_key(key, uuid.uuid4()) is None
+    assert wallet_service.tier_from_download_key(None, project_id) is None
+
+
+def test_purchased_download_tiers_reads_ledger_per_project(db_session):
+    user = _make_user(db_session)
+    other = _make_user(db_session, email="other@example.com")
+    project_a, project_b = uuid.uuid4(), uuid.uuid4()
+    wallet = CreditWallet(user_id=user.id, balance=100)
+    other_wallet = CreditWallet(user_id=other.id, balance=100)
+    db_session.add_all([wallet, other_wallet])
+    db_session.commit()
+    for tier in ("pro", "premium"):
+        wallet_service.spend(
+            db_session, user.id, 5, "download_spend", related_project_id=project_a,
+            idempotency_key=wallet_service.download_spend_key(project_a, tier),
+        )
+    # Another user's charge on the same project id must not leak in.
+    wallet_service.spend(
+        db_session, other.id, 5, "download_spend", related_project_id=project_b,
+        idempotency_key=wallet_service.download_spend_key(project_b, "pro"),
+    )
+    wallet_service.spend(db_session, user.id, 1, "generation_spend", related_project_id=project_b)
+    db_session.commit()
+
+    result = wallet_service.purchased_download_tiers(db_session, user.id, [project_a, project_b])
+
+    assert sorted(result[project_a]) == ["premium", "pro"]
+    assert project_b not in result
+    assert wallet_service.purchased_download_tiers(db_session, user.id, []) == {}
+
+
+def test_download_charges_for_project_lists_paid_tiers(db_session):
+    user = _make_user(db_session)
+    project_id, other_project = uuid.uuid4(), uuid.uuid4()
+    db_session.add(CreditWallet(user_id=user.id, balance=100))
+    db_session.commit()
+    wallet_service.spend(db_session, user.id, 10, "download_spend", related_project_id=project_id,
+                         idempotency_key=wallet_service.download_spend_key(project_id, "pro"))
+    wallet_service.spend(db_session, user.id, 5, "download_spend", related_project_id=project_id,
+                         idempotency_key=wallet_service.download_spend_key(project_id, "premium"))
+    wallet_service.spend(db_session, user.id, 1, "generation_spend", related_project_id=project_id)
+    wallet_service.spend(db_session, user.id, 7, "download_spend", related_project_id=other_project,
+                         idempotency_key=wallet_service.download_spend_key(other_project, "pro"))
+    db_session.commit()
+
+    charges = wallet_service.download_charges_for_project(db_session, project_id)
+
+    assert sorted((c.tier, c.credits) for c in charges) == [("premium", 5), ("pro", 10)]

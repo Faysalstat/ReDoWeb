@@ -1,6 +1,7 @@
 from .ai_model_setting import AIModelSetting
 from .blueprint import Blueprint
 from .cost_setting import CostSetting
+from .credit_pack import CreditPack
 from .job import GenerationJob, GenerationOutput
 from .job_queue import QueuedJob
 from .model_pricing import ModelPricing
@@ -33,4 +34,5 @@ __all__ = [
     "AIModelSetting",
     "PromptTemplate",
     "CostSetting",
+    "CreditPack",
 ]

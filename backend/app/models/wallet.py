@@ -30,10 +30,10 @@ class CreditWallet(Base):
 
 
 class CreditTransaction(Base):
-    """Ledger (ground truth). Only `signup_grant` is written today; the rest
-    of the reason values (purchase/generation_spend/regeneration_spend/
-    download_spend/admin_adjustment/system_reversal) are reserved per
-    implementation-plan.md for when spend logic (Milestone 4/5) is built."""
+    """Ledger (ground truth). `reason` values written today: signup_grant,
+    generation_spend, download_spend, admin_adjustment, purchase (a PayPal
+    credit-pack purchase, `related_purchase_id` set). regeneration_spend/
+    system_reversal are reserved per implementation-plan.md."""
 
     __tablename__ = "credit_transactions"
 

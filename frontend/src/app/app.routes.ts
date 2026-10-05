@@ -21,15 +21,15 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },
-  // Unwired preview-only routes -- no backend behind these yet (no tiers
-  // table pricing, no Stripe, no billing). Ported from the angular-app
-  // design so the UI exists ready for later wiring; see docs/PROGRESS.md.
+  // Billing (PayPal credit packs -- see docs/paypal-payments-plan.md).
+  // /pricing is public; buying credits and purchase history need a login.
   {
     path: 'pricing',
     loadComponent: () => import('./features/pricing/pricing.component').then((m) => m.PricingComponent),
   },
   {
     path: 'checkout',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/checkout/checkout.component').then((m) => m.CheckoutComponent),
   },
   {

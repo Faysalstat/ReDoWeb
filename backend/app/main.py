@@ -7,7 +7,20 @@ from slowapi.errors import RateLimitExceeded
 from .config import get_settings
 from .logging_config import configure_logging
 from .rate_limit import limiter
-from .routers import admin, auth, blueprint, crawl, credits, debug_pipeline, downloads, generation, preview, projects
+from .routers import (
+    admin,
+    auth,
+    billing,
+    blueprint,
+    crawl,
+    credits,
+    debug_pipeline,
+    downloads,
+    generation,
+    preview,
+    projects,
+    tiers,
+)
 
 configure_logging()
 
@@ -29,6 +42,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(credits.router)
+app.include_router(billing.router)
+app.include_router(tiers.router)
 app.include_router(crawl.router)
 app.include_router(blueprint.router)
 app.include_router(generation.router)

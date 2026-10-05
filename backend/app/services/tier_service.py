@@ -111,6 +111,48 @@ def set_generation_model(
             session.close()
 
 
+MIN_DOWNLOAD_CREDIT_COST = 1
+MAX_LABEL_LENGTH = 64
+
+
+def update_tier(
+    key: str,
+    *,
+    label: str,
+    sort_order: int,
+    download_credit_cost: int,
+    admin_id: uuid.UUID,
+    db: Session | None = None,
+) -> Tier:
+    """Admin write path for the Tiers & pricing page: display label, display
+    order and download cost in one save. `key` itself is never editable --
+    it's embedded in storage paths and generation_jobs.tier. Raises
+    LookupError for an unknown key, ValueError for an invalid value."""
+    cleaned = (label or "").strip()
+    if not cleaned or len(cleaned) > MAX_LABEL_LENGTH:
+        raise ValueError(f"label must be 1-{MAX_LABEL_LENGTH} characters")
+    if download_credit_cost < MIN_DOWNLOAD_CREDIT_COST:
+        raise ValueError(f"download cost must be at least {MIN_DOWNLOAD_CREDIT_COST}")
+    owns_session = db is None
+    session = db if db is not None else SessionLocal()
+    try:
+        row = session.scalar(select(TierORM).where(TierORM.key == key))
+        if row is None:
+            raise LookupError(f"no tier with key {key!r}")
+        row.label = cleaned
+        row.sort_order = sort_order
+        row.download_credit_cost = download_credit_cost
+        row.updated_by_admin_id = admin_id
+        session.flush()
+        result = _to_dataclass(row)
+        if owns_session:
+            session.commit()
+        return result
+    finally:
+        if owns_session:
+            session.close()
+
+
 def set_active(
     key: str, is_active: bool, admin_id: uuid.UUID, db: Session | None = None
 ) -> Tier:

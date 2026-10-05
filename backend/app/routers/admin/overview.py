@@ -17,4 +17,5 @@ def get_overview(
     _admin: User = Depends(require_admin),
 ) -> AdminOverviewResponse:
     stats = admin_analytics_service.get_overview(db, days)
-    return AdminOverviewResponse(**stats.__dict__)
+    payments = admin_analytics_service.payment_stats(db, days)
+    return AdminOverviewResponse(**stats.__dict__, **payments.__dict__)

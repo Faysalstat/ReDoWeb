@@ -60,7 +60,7 @@ def get_overview(db: Session, days: int) -> OverviewStats:
     revenue_in_range_cents = (
         db.scalar(
             select(func.coalesce(func.sum(Purchase.amount_usd_cents), 0)).where(
-                Purchase.status == "completed", Purchase.created_at >= since
+                Purchase.status == "completed", Purchase.source != "mock", Purchase.created_at >= since
             )
         )
         or 0
@@ -68,7 +68,7 @@ def get_overview(db: Session, days: int) -> OverviewStats:
     revenue_all_time_cents = (
         db.scalar(
             select(func.coalesce(func.sum(Purchase.amount_usd_cents), 0)).where(
-                Purchase.status == "completed"
+                Purchase.status == "completed", Purchase.source != "mock"
             )
         )
         or 0
@@ -362,7 +362,7 @@ def cost_by_project(db: Session, days: int, page: int = 1, page_size: int = 25) 
 class RevenueBreakdown:
     revenue_usd_in_range: float
     revenue_usd_all_time: float
-    stripe_revenue_usd_in_range: float
+    paypal_revenue_usd_in_range: float
     manual_revenue_usd_in_range: float
     purchase_count_in_range: int
 
@@ -371,8 +371,10 @@ def revenue_breakdown(db: Session, days: int) -> RevenueBreakdown:
     since = _since(days)
 
     def _sum_cents(*, source: str | None = None, since_filter: bool = True) -> int:
+        # source="mock" rows are local test payments (payments/mock_gateway.py)
+        # -- no money moved, so they never count as revenue.
         query = select(func.coalesce(func.sum(Purchase.amount_usd_cents), 0)).where(
-            Purchase.status == "completed"
+            Purchase.status == "completed", Purchase.source != "mock"
         )
         if since_filter:
             query = query.where(Purchase.created_at >= since)
@@ -383,7 +385,7 @@ def revenue_breakdown(db: Session, days: int) -> RevenueBreakdown:
     purchase_count_in_range = (
         db.scalar(
             select(func.count(Purchase.id)).where(
-                Purchase.status == "completed", Purchase.created_at >= since
+                Purchase.status == "completed", Purchase.source != "mock", Purchase.created_at >= since
             )
         )
         or 0
@@ -392,7 +394,7 @@ def revenue_breakdown(db: Session, days: int) -> RevenueBreakdown:
     return RevenueBreakdown(
         revenue_usd_in_range=_sum_cents() / 100,
         revenue_usd_all_time=_sum_cents(since_filter=False) / 100,
-        stripe_revenue_usd_in_range=_sum_cents(source="stripe") / 100,
+        paypal_revenue_usd_in_range=_sum_cents(source="paypal") / 100,
         manual_revenue_usd_in_range=_sum_cents(source="manual_admin") / 100,
         purchase_count_in_range=purchase_count_in_range,
     )
@@ -409,3 +411,33 @@ def _generation_success_rate_pct(db: Session, since: datetime) -> float | None:
     if total == 0:
         return None
     return round(counts.get("succeeded", 0) / total * 100, 1)
+
+
+@dataclass
+class PaymentStats:
+    purchases_in_range: int
+    pending_purchases: int
+    refunds_in_range: int
+    paying_users: int
+
+
+def payment_stats(db: Session, days: int) -> PaymentStats:
+    """Payment tiles for the admin overview. Gateway purchases only
+    (manual_admin adjustments aren't purchases a user made) and never
+    source="mock" test payments. Kept separate from get_overview because it
+    only touches Purchase rows, so it's unit-testable on SQLite."""
+    since = _since(days)
+    real = (Purchase.source == "paypal",)
+
+    def _count(*conditions) -> int:
+        return db.scalar(select(func.count(Purchase.id)).where(*real, *conditions)) or 0
+
+    return PaymentStats(
+        purchases_in_range=_count(Purchase.status == "completed", Purchase.created_at >= since),
+        pending_purchases=_count(Purchase.status == "pending"),
+        refunds_in_range=_count(Purchase.status == "refunded", Purchase.refunded_at >= since),
+        paying_users=db.scalar(
+            select(func.count(func.distinct(Purchase.user_id))).where(*real, Purchase.status == "completed")
+        )
+        or 0,
+    )

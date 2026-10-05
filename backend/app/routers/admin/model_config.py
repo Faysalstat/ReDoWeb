@@ -5,7 +5,6 @@ from ...auth.dependencies import require_admin
 from ...db.session import get_db
 from ...models import AIModelSetting, User
 from ...schemas.admin.model_config import (
-    AdminTierActiveUpdateRequest,
     AdminTierModelListResponse,
     AdminTierModelRow,
     AdminTierModelUpdateRequest,
@@ -17,20 +16,24 @@ from ...services import model_config_service, tier_service
 router = APIRouter()
 
 
+def _tier_row(tier: tier_service.Tier, db: Session) -> AdminTierModelRow:
+    return AdminTierModelRow(
+        key=tier.key,
+        label=tier.label,
+        is_active=tier.is_active,
+        generation_model=tier.generation_model,
+        effective_generation_model=model_config_service.get_generation_model(tier.key, db),
+        updated_at=tier.updated_at,
+        updated_by_admin_id=str(tier.updated_by_admin_id) if tier.updated_by_admin_id else None,
+    )
+
+
 @router.get("/model-config/tiers", response_model=AdminTierModelListResponse)
 def list_tier_models(db: Session = Depends(get_db)) -> AdminTierModelListResponse:
     tiers = tier_service.get_all_tiers(db)
     return AdminTierModelListResponse(
         items=[
-            AdminTierModelRow(
-                key=tier.key,
-                label=tier.label,
-                is_active=tier.is_active,
-                generation_model=tier.generation_model,
-                effective_generation_model=model_config_service.get_generation_model(tier.key, db),
-                updated_at=tier.updated_at,
-                updated_by_admin_id=str(tier.updated_by_admin_id) if tier.updated_by_admin_id else None,
-            )
+            _tier_row(tier, db)
             for tier in tiers
         ]
     )
@@ -49,39 +52,7 @@ def update_tier_model(
         raise HTTPException(status_code=404, detail=str(exc))
     db.commit()
 
-    return AdminTierModelRow(
-        key=tier.key,
-        label=tier.label,
-        is_active=tier.is_active,
-        generation_model=tier.generation_model,
-        effective_generation_model=model_config_service.get_generation_model(tier.key, db),
-        updated_at=tier.updated_at,
-        updated_by_admin_id=str(tier.updated_by_admin_id) if tier.updated_by_admin_id else None,
-    )
-
-
-@router.patch("/model-config/tiers/{key}/active", response_model=AdminTierModelRow)
-def update_tier_active(
-    key: str,
-    body: AdminTierActiveUpdateRequest,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
-) -> AdminTierModelRow:
-    try:
-        tier = tier_service.set_active(key, body.is_active, current_admin.id, db)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    db.commit()
-
-    return AdminTierModelRow(
-        key=tier.key,
-        label=tier.label,
-        is_active=tier.is_active,
-        generation_model=tier.generation_model,
-        effective_generation_model=model_config_service.get_generation_model(tier.key, db),
-        updated_at=tier.updated_at,
-        updated_by_admin_id=str(tier.updated_by_admin_id) if tier.updated_by_admin_id else None,
-    )
+    return _tier_row(tier, db)
 
 
 @router.get("/model-config/vision-model", response_model=AdminVisionModelResponse)

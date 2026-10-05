@@ -64,6 +64,16 @@ Then fill in `G:\Current Works\ReDoWebs\backend\.env`:
 | `REDOWEBS_GOOGLE_OAUTH_REDIRECT_URI` | Google sign-in | Defaults to `http://localhost:8123/api/v1/auth/google/callback` — must be registered under that OAuth client's "Authorized redirect URIs" in Google Cloud Console |
 | `REDOWEBS_FRONTEND_URL` | Google sign-in | Defaults to `http://localhost:4200` — where the backend redirects the browser after a successful/failed login |
 | `REDOWEBS_JWT_SECRET_KEY` | signing our own JWTs | A random secret **you generate** — never reuse the Google Client Secret or any other provider credential here. Generate with: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `REDOWEBS_PAYPAL_CLIENT_ID` | buying credits | Client ID of a REST app at developer.paypal.com (use a **sandbox** app locally). Public by design — the frontend reads it from `GET /api/v1/billing/config` |
+| `REDOWEBS_PAYPAL_CLIENT_SECRET` | buying credits | Secret of the same PayPal app. Never sent to the browser |
+| `REDOWEBS_PAYPAL_ENV` | buying credits | `sandbox` (default) or `live` — picks the PayPal API host |
+| `REDOWEBS_PAYPAL_WEBHOOK_ID` | PayPal webhook backup | Id PayPal shows after you register `https://<backend>/api/v1/billing/paypal/webhook` on the app. Optional locally (needs a public URL, e.g. ngrok) — without it webhooks are rejected, but buying credits still works through the browser capture |
+
+| `REDOWEBS_PAYMENTS_MODE` | local testing without PayPal | `paypal` (default) or `mock`. **`mock` makes every payment succeed instantly** — checkout shows a "Complete test payment" button instead of PayPal, and the credits are added through the same code path as a real purchase. Only honoured while `REDOWEBS_FRONTEND_URL` is `localhost`/`127.0.0.1`, so it can't hand out free credits on a deployment. Test purchases are stored with `source="mock"` and never count as revenue |
+
+Without the PayPal variables the checkout page says payments aren't available
+yet; everything else works. See `docs/paypal-payments-plan.md` for the PayPal
+business-account settings card payments need.
 
 Auth is Google SSO only right now (no password signup path) and uses a single
 JWT with no refresh token — see `docs/PROGRESS.md`'s Milestone 6 notes.

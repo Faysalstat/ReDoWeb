@@ -1,5 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 
+import { RouterLink } from '@angular/router';
+
 import { ButtonComponent } from '../button/button.component';
 
 export type PricingTierTone = 'accent-2';
@@ -7,7 +9,7 @@ export type PricingTierTone = 'accent-2';
 @Component({
   selector: 'app-pricing-tier',
   standalone: true,
-  imports: [ButtonComponent],
+  imports: [ButtonComponent, RouterLink],
   host: { style: 'display: block; height: 100%' },
   template: `
     <div class="plan" [style.background]="cardBackground()" [style.borderColor]="cardBorderColor()" [style.boxShadow]="cardShadow()">
@@ -30,7 +32,8 @@ export type PricingTierTone = 'accent-2';
       <a
         appButton
         variant="secondary"
-        href="#submit"
+        [routerLink]="ctaLink()"
+        [queryParams]="ctaQueryParams()"
         class="btn-block plan__cta"
         [style.background]="ctaBackground()"
         [style.borderColor]="ctaBorderColor()"
@@ -144,6 +147,9 @@ export class PricingTierComponent {
   readonly features = input<string[]>([]);
   readonly highlighted = input(false);
   readonly ctaLabel = input('Get Started');
+  /** Where the CTA goes -- e.g. /checkout with ?pack=<id>. */
+  readonly ctaLink = input<string>('/checkout');
+  readonly ctaQueryParams = input<Record<string, string> | null>(null);
   readonly tone = input<PricingTierTone | undefined>(undefined);
 
   protected readonly cardBackground = computed(() =>

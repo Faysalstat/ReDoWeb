@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 924" width="1000" height="924" role="img" aria-label="ReDoWebs system architecture: an Angular SPA calls a FastAPI API on Railway; Postgres holds app data and the job queue; queue workers crawl, build a blueprint, generate one redesign per enabled tier, and lazily build the full site on download, calling the target website and OpenRouter." font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#3b4252"/>
+    </marker>
+    <marker id="arr-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#f26b1d"/>
+    </marker>
+  </defs>
+
+  <!-- card -->
+  <rect x="0.5" y="0.5" width="999" height="923" rx="16" fill="#ffffff" stroke="#e3e6ec"/>
+
+  <!-- title -->
+  <text x="24" y="44" font-size="22" font-weight="700" fill="#1d2333">ReDoWebs · System architecture</text>
+  <text x="24" y="68" font-size="13" fill="#5b6275">Submit once, then poll: Postgres-backed jobs crawl the site, build a blueprint and generate one redesign per enabled tier.</text>
+
+  <!-- ===== top row: client + external ===== -->
+  <rect x="24" y="92" width="696" height="108" rx="12" fill="#f5f7fb" stroke="#dfe3ea"/>
+  <text x="44" y="112" font-size="11.5" font-weight="700" letter-spacing="1.2" fill="#5b6275">CLIENT</text>
+  <rect x="736" y="92" width="240" height="108" rx="12" fill="#f5f7fb" stroke="#dfe3ea"/>
+  <text x="756" y="112" font-size="11.5" font-weight="700" letter-spacing="1.2" fill="#5b6275">EXTERNAL</text>
+
+  <rect x="48" y="124" width="200" height="60" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="148" y="149" font-size="15" font-weight="700" fill="#1d2333" text-anchor="middle">Site owner / admin</text>
+  <text x="148" y="168" font-size="12.5" fill="#5b6275" text-anchor="middle">Web browser</text>
+
+  <rect x="296" y="124" width="400" height="60" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="496" y="149" font-size="15" font-weight="700" fill="#1d2333" text-anchor="middle">Angular 20 SPA · cPanel</text>
+  <text x="496" y="168" font-size="12.5" fill="#5b6275" text-anchor="middle">Submit · Live progress · Preview · History · Admin</text>
+
+  <rect x="756" y="124" width="200" height="60" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="856" y="149" font-size="15" font-weight="700" fill="#1d2333" text-anchor="middle">Google OAuth</text>
+  <text x="856" y="168" font-size="12.5" fill="#5b6275" text-anchor="middle">Sign-in identity provider</text>
+
+  <!-- ===== Railway zone ===== -->
+  <rect x="24" y="224" width="952" height="522" rx="12" fill="#fff8f2" stroke="#f6c7a6"/>
+  <text x="44" y="248" font-size="11.5" font-weight="700" letter-spacing="1.2" fill="#f26b1d">RAILWAY</text>
+  <text x="114" y="248" font-size="12" fill="#5b6275">one service runs the API + N queue workers (backend/start.sh) · managed Postgres · persistent volume</text>
+
+  <!-- API -->
+  <rect x="48" y="264" width="904" height="100" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="72" y="292" font-size="15" font-weight="700" fill="#1d2333">FastAPI API</text>
+  <g font-size="12" fill="#1d2333" text-anchor="middle">
+    <rect x="72" y="306" width="176" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="160" y="323">Auth · Google SSO + JWT</text>
+    <rect x="258" y="306" width="80" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="298" y="323">Projects</text>
+    <rect x="348" y="306" width="84" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="390" y="323">Downloads</text>
+    <rect x="442" y="306" width="124" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="504" y="323">Wallet &amp; ledger</text>
+    <rect x="576" y="306" width="84" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="618" y="323">Admin API</text>
+    <rect x="670" y="306" width="164" height="26" rx="13" fill="#f5f7fb" stroke="#dfe3ea"/><text x="752" y="323">/preview static mount</text>
+  </g>
+  <text x="72" y="352" font-size="12.5" fill="#5b6275">slowapi rate-limits submissions · require_admin gates /admin/* · each stage enqueues the next in the same DB transaction</text>
+
+  <!-- data row -->
+  <rect x="48" y="396" width="440" height="136" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <g fill="none" stroke="#0b6fc0" stroke-width="1.5">
+    <ellipse cx="82" cy="410" rx="10" ry="4"/>
+    <path d="M72 410V424A10 4 0 0 0 92 424V410"/>
+  </g>
+  <text x="102" y="421" font-size="15" font-weight="700" fill="#1d2333">PostgreSQL</text>
+  <g font-size="12.5" fill="#5b6275">
+    <text x="72" y="444">users · auth_identities</text>
+    <text x="72" y="462">projects · crawl_snapshots · blueprints · generation_jobs</text>
+    <text x="72" y="480">credit_transactions ledger + wallet balance cache</text>
+    <text x="72" y="498">tiers · model settings · model_pricing · prompt_templates</text>
+    <text x="72" y="516"><tspan fill="#1d2333" font-weight="600">queued_jobs</tspan> — claimed with FOR UPDATE SKIP LOCKED</text>
+  </g>
+
+  <rect x="512" y="396" width="440" height="136" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <g fill="none" stroke="#0b6fc0" stroke-width="1.5">
+    <path d="M536 405h7l3 3h10v16h-20z"/>
+  </g>
+  <text x="566" y="421" font-size="15" font-weight="700" fill="#1d2333">Storage volume</text>
+  <g font-size="12.5" fill="#5b6275">
+    <text x="536" y="444">metadata.json · scraped.json · blueprint.json</text>
+    <text x="536" y="462">design.md (derived input for the generator)</text>
+    <text x="536" y="480">generated/{tier}/ — live preview (home page)</text>
+    <text x="536" y="498">generated/{tier}/full/ — full site after download</text>
+    <text x="536" y="516">behind a StorageBackend interface (S3-ready)</text>
+  </g>
+
+  <!-- workers -->
+  <rect x="48" y="564" width="904" height="162" rx="8" fill="#ffffff" stroke="#f3c3a0"/>
+  <text x="68" y="587" font-size="11.5" font-weight="700" letter-spacing="1.2" fill="#f26b1d">QUEUE WORKERS × N</text>
+  <text x="212" y="587" font-size="12" fill="#5b6275">poll queued_jobs · dispatch by task_name · stages run in order per project, in parallel across projects</text>
+
+  <!-- arrows inside the row are drawn first so boxes sit on top -->
+  <g fill="none" stroke="#3b4252" stroke-width="1.4">
+    <path d="M260 650H290" marker-end="url(#arr)"/>
+    <path d="M484 650H514" marker-end="url(#arr)"/>
+  </g>
+  <path d="M722 650H738" fill="none" stroke="#f26b1d" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-o)"/>
+
+  <!-- 1 crawl -->
+  <rect x="68" y="602" width="192" height="96" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <circle cx="88" cy="622" r="10" fill="#f26b1d"/><text x="88" y="626" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="106" y="627" font-size="15" font-weight="700" fill="#1d2333">Crawl</text>
+  <text x="84" y="650" font-size="12" fill="#5b6275">≤ 20 pages, robots.txt</text>
+  <text x="84" y="668" font-size="12" fill="#5b6275">pages + assets to volume</text>
+
+  <!-- 2 blueprint -->
+  <rect x="292" y="602" width="192" height="96" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <circle cx="312" cy="622" r="10" fill="#f26b1d"/><text x="312" y="626" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="330" y="627" font-size="15" font-weight="700" fill="#1d2333">Blueprint</text>
+  <text x="308" y="650" font-size="12" fill="#5b6275">14-section JSON schema</text>
+  <text x="308" y="668" font-size="12" fill="#5b6275">AI review, no fabrication</text>
+
+  <!-- 3 generate (stacked = one job per tier) -->
+  <rect x="528" y="614" width="192" height="96" rx="8" fill="#ffffff" stroke="#f3c3a0"/>
+  <rect x="522" y="608" width="192" height="96" rx="8" fill="#ffffff" stroke="#f3c3a0"/>
+  <rect x="516" y="602" width="192" height="96" rx="8" fill="#fff3ea" stroke="#f26b1d" stroke-width="2"/>
+  <circle cx="536" cy="622" r="10" fill="#f26b1d"/><text x="536" y="626" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="554" y="627" font-size="15" font-weight="700" fill="#1d2333">Generate × tier</text>
+  <text x="532" y="650" font-size="12" fill="#5b6275">agent loop, sandboxed</text>
+  <text x="532" y="668" font-size="12" fill="#5b6275">write / read / list tools</text>
+  <text x="532" y="686" font-size="12" fill="#5b6275">+ SEO &amp; a11y post-pass</text>
+
+  <!-- 4 full site -->
+  <rect x="740" y="602" width="192" height="96" rx="8" fill="#ffffff" stroke="#f26b1d" stroke-dasharray="5 4"/>
+  <circle cx="760" cy="622" r="10" fill="#ffffff" stroke="#f26b1d" stroke-width="1.5"/><text x="760" y="626" font-size="12" font-weight="700" fill="#f26b1d" text-anchor="middle">4</text>
+  <text x="778" y="627" font-size="15" font-weight="700" fill="#1d2333">Full site (lazy)</text>
+  <text x="756" y="650" font-size="12" fill="#5b6275">on first download</text>
+  <text x="756" y="668" font-size="12" fill="#5b6275">remaining pages</text>
+  <text x="756" y="686" font-size="12" fill="#5b6275">home page + CSS locked</text>
+
+  <!-- ===== external services ===== -->
+  <rect x="24" y="770" width="952" height="100" rx="12" fill="#f5f7fb" stroke="#dfe3ea"/>
+  <text x="44" y="790" font-size="11.5" font-weight="700" letter-spacing="1.2" fill="#5b6275">EXTERNAL</text>
+
+  <rect x="68" y="802" width="192" height="56" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="164" y="826" font-size="15" font-weight="700" fill="#1d2333" text-anchor="middle">Target website</text>
+  <text x="164" y="845" font-size="12.5" fill="#5b6275" text-anchor="middle">public static site</text>
+
+  <rect x="292" y="802" width="640" height="56" rx="8" fill="#ffffff" stroke="#c9ced8"/>
+  <text x="612" y="826" font-size="15" font-weight="700" fill="#1d2333" text-anchor="middle">OpenRouter LLM gateway</text>
+  <text x="612" y="845" font-size="12.5" fill="#5b6275" text-anchor="middle">vision model · per-tier generation model (admin-configurable) · tool calling</text>
+
+  <!-- ===== connectors between zones ===== -->
+  <g fill="none" stroke="#3b4252" stroke-width="1.4">
+    <path d="M248 154H294" marker-end="url(#arr)"/>
+    <path d="M496 184V262" marker-end="url(#arr)"/>
+    <path d="M856 264V186" marker-end="url(#arr)"/>
+    <path d="M268 364V394" marker-end="url(#arr)"/>
+    <path d="M732 364V394" marker-end="url(#arr)"/>
+    <path d="M268 564V534" marker-end="url(#arr)"/>
+    <path d="M732 564V534" marker-end="url(#arr)"/>
+    <path d="M164 698V800" marker-end="url(#arr)"/>
+    <path d="M388 698V800" marker-end="url(#arr)"/>
+    <path d="M612 710V800" marker-end="url(#arr)"/>
+  </g>
+  <path d="M836 698V800" fill="none" stroke="#f26b1d" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-o)"/>
+
+  <g font-size="11.5" fill="#5b6275">
+    <text x="506" y="215">REST + JWT · polls job status every 3 s</text>
+    <text x="866" y="215">OAuth exchange</text>
+    <text x="278" y="384">read / write · enqueue</text>
+    <text x="742" y="384">serves /preview iframes</text>
+    <text x="278" y="553">claim job · update status</text>
+    <text x="742" y="553">write artifacts</text>
+    <text x="172" y="762">fetch HTML + assets</text>
+    <text x="396" y="762">vision + copy review</text>
+    <text x="620" y="762">tool calls</text>
+    <text x="844" y="762">tool calls</text>
+  </g>
+
+  <!-- legend -->
+  <g font-size="12" fill="#5b6275">
+    <path d="M48 900H80" stroke="#3b4252" stroke-width="1.4" marker-end="url(#arr)"/>
+    <text x="90" y="904">request / job flow</text>
+    <path d="M232 900H264" stroke="#f26b1d" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-o)"/>
+    <text x="274" y="904">runs on first download</text>
+    <rect x="446" y="893" width="18" height="12" rx="3" fill="#ffffff" stroke="#f3c3a0"/>
+    <rect x="442" y="890" width="18" height="12" rx="3" fill="#fff3ea" stroke="#f26b1d" stroke-width="1.5"/>
+    <text x="474" y="904">one job per enabled tier (fan-out)</text>
+    <circle cx="706" cy="900" r="8" fill="#f26b1d"/><text x="706" y="904" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+    <text x="722" y="904">pipeline order</text>
+  </g>
+</svg>

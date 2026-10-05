@@ -56,6 +56,35 @@
     </div>
 
     <div style="margin-top: calc(1.5 * var(--leading))">
+      <h2 class="display" style="font-size: 20px">Purchases</h2>
+      <table class="table" style="margin-top: var(--space-3)">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Credits</th>
+            <th>Amount</th>
+            <th>Source</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of d.purchases; track p.id) {
+            <tr>
+              <td>{{ p.created_at | date: 'medium' }}</td>
+              <td>{{ p.credits_granted > 0 ? '+' : '' }}{{ p.credits_granted }}</td>
+              <td>${{ (p.amount_usd_cents / 100).toFixed(2) }}</td>
+              <td>{{ p.source === 'manual_admin' ? 'manual adjustment' : p.source === 'mock' ? 'test payment' : p.source }}</td>
+              <td>{{ p.status }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">No purchases or adjustments.</td></tr>
+          }
+        </tbody>
+      </table>
+      <p class="sub" style="font-size: 12.5px">Resolve a stuck or refunded purchase on <a routerLink="/admin/payments">Payments</a>.</p>
+    </div>
+
+    <div style="margin-top: calc(1.5 * var(--leading))">
       <h2 class="display" style="font-size: 20px">Credit ledger</h2>
       <table class="table" style="margin-top: var(--space-3)">
         <thead>
@@ -63,7 +92,7 @@
             <th>Date</th>
             <th>Amount</th>
             <th>Reason</th>
-            <th>Related project</th>
+            <th>Related</th>
           </tr>
         </thead>
         <tbody>
@@ -76,7 +105,10 @@
               <td>{{ entry.reason }}</td>
               <td>
                 @if (entry.related_project_id) {
-                  <a [routerLink]="['/admin/projects', entry.related_project_id]">View</a>
+                  <a [routerLink]="['/admin/projects', entry.related_project_id]">Project</a>
+                }
+                @if (entry.related_purchase_id) {
+                  <a [routerLink]="['/admin/payments']" [queryParams]="{ email: d.email, mock: 1 }" style="margin-left: var(--space-2)">Purchase</a>
                 }
               </td>
             </tr>

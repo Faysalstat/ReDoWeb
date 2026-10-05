@@ -21,7 +21,7 @@ Small businesses and individuals often have an outdated static website (or a sim
 - Unlimited preview of all enabled tiers, for any project, at any time.
 - Manual editing of `design.md` (plain text) with regeneration.
 - A unified credit wallet: 3 free credits on signup; every generation or regeneration costs 1 credit (same pool, no special-casing); downloading costs tier-specific, admin-configurable credits (cost lives on each tier's own row, not a separate fixed mapping).
-- One-time Stripe purchases of credit packs (no subscriptions); admin-configurable $-per-credit rate.
+- One-time PayPal purchases (PayPal account or card) of admin-configurable credit packs, each with its own price (no subscriptions).
 - Download only after sufficient credits are spent, producing a uniquely-named folder: `design.md`, HTML pages, global CSS, global JS, an `images/` folder of locally-referenced downloaded assets, and a generated `sitemap.xml`.
 - Auth via email/password (with email verification and password reset) and Google SSO.
 - A mandatory ToS acknowledgment at submission ("I own or am authorized to redesign this site"), with every submission logged for abuse/DMCA response.
@@ -41,7 +41,7 @@ Small businesses and individuals often have an outdated static website (or a sim
 - A structured (non-markdown) blueprint editing UI.
 - Multi-LLM-per-tier generation (tiers differ by prompt strategy, not by underlying model).
 - Domain-ownership verification before crawling (mitigated instead by a ToS checkbox and logging).
-- Multi-currency support (USD/Stripe only).
+- Multi-currency support (USD/PayPal only).
 - Internationalization/localization.
 
 ## 4. Core User Journey
@@ -52,7 +52,7 @@ Small businesses and individuals often have an outdated static website (or a sim
 4. On success, 1 credit is spent; the site is crawled, a blueprint (`design.md`) is extracted, and a redesign is generated for each currently-enabled tier in the background. The user sees live progress ("Crawling → Extracting blueprint → Generating [enabled tiers] → Done").
 5. User previews all enabled tiers side by side, unlimited times.
 6. Optionally, the user edits `design.md` and regenerates (1 credit per regeneration), reviewing new versions.
-7. When satisfied, the user spends the tier-appropriate credits to unlock and download that tier's full source folder. If the wallet balance is insufficient, the user purchases a credit pack via Stripe.
+7. When satisfied, the user spends the tier-appropriate credits to unlock and download that tier's full source folder. If the wallet balance is insufficient, the user purchases a credit pack via PayPal (account or card).
 8. The project and all its downloaded/purchased tiers remain accessible from the user's account dashboard indefinitely.
 
 ## 5. Functional Requirements
@@ -64,7 +64,7 @@ Small businesses and individuals often have an outdated static website (or a sim
 - **FR5** — Allow unlimited preview of generated tiers without consuming credits.
 - **FR6** — Allow manual editing of `design.md` and regeneration, consuming 1 credit per regeneration and retaining full version history.
 - **FR7** — Maintain a per-user credit wallet with an auditable transaction ledger; grant 3 credits on signup; debit 1 credit per generation/regeneration; debit tier-specific, admin-configurable credits per download; prevent race conditions on concurrent spend attempts.
-- **FR8** — Sell credit packs via one-time Stripe checkout; process payment confirmation via webhook with signature verification and idempotent handling.
+- **FR8** — Sell admin-configurable credit packs via one-time PayPal checkout (PayPal account or card); credit the wallet on server-side capture, with a signature-verified webhook as a backup, crediting each purchase exactly once.
 - **FR9** — Block source-code download until sufficient credits have been spent for the selected tier; on success, produce a folder containing `design.md`, HTML pages, global CSS/JS, an `images/` folder with locally-referenced assets, and `sitemap.xml`.
 - **FR10** — Authenticate users via email/password (with verification and password reset) and Google SSO; require email verification before first submission or purchase.
 - **FR11** — Require ToS acknowledgment at submission time and log every submission (user, URL, IP, timestamp, acknowledgment) for abuse response.
@@ -77,9 +77,9 @@ Small businesses and individuals often have an outdated static website (or a sim
 
 - **Scale**: v1 targets tens to low-hundreds of active users and a handful of concurrent generation jobs — no auto-scaling or queue sharding required.
 - **Reliability**: transient job failures (timeouts, rate limits) auto-retry with backoff; definitive failures fail fast with no retry and no credit charge.
-- **Security**: password hashing (argon2), short-lived JWT access tokens with revocable refresh tokens, Stripe webhook signature verification, no plaintext secrets.
+- **Security**: password hashing (argon2), short-lived JWT access tokens with revocable refresh tokens, PayPal webhook signature verification, no plaintext secrets.
 - **Observability**: structured JSON logging across backend and workers; error tracking/alerting (e.g., Sentry) on unhandled exceptions and failed jobs.
-- **Testing bar**: automated unit tests for credit/wallet logic, tier pricing, Stripe webhook handling, and auth/permission checks; crawler accuracy and AI output quality verified manually.
+- **Testing bar**: automated unit tests for credit/wallet logic, tier pricing, PayPal capture/webhook handling, and auth/permission checks; crawler accuracy and AI output quality verified manually.
 - **Accessibility/SEO of generated output**: semantic HTML5, per-page meta title/description and Open Graph tags, AI-generated alt text, WCAG AA contrast, generated sitemap.
 - **Deployment**: fully reproducible via Docker Compose for local development; no production infrastructure assumptions locked in beyond a general AWS target.
 
@@ -95,7 +95,7 @@ Small businesses and individuals often have an outdated static website (or a sim
 - Vision-capable OpenRouter model calls (same provider as text generation) are sufficient for logo/color/font extraction in v1; no dedicated computer-vision service is used.
 - Credit pack sizes and the $-per-credit rate will need reasonable initial defaults at launch, refined post-launch via the admin panel.
 - Regeneration always creates a new blueprint version rather than overwriting, so history is preserved and comparable.
-- A single currency (USD) and Stripe as sole payment processor are sufficient for v1's audience.
+- A single currency (USD) and PayPal as sole payment processor are sufficient for v1's audience (changed from Stripe on 2026-10-05, before any Stripe code was built).
 
 ## 9. Open Risks
 

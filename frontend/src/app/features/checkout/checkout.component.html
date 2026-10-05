@@ -1,75 +1,130 @@
 <nav class="nav">
   <a class="nav-brand" routerLink="/">ReDoWebs</a>
-  <span class="label">Step 2 of 2 — Payment</span>
+  <span class="label">Buy credits</span>
 </nav>
 
 <div class="checkout">
-  <form class="checkout__form" (ngSubmit)="pay()">
-    <h1 class="display display--sm">Download the {{ tier.name }} tier</h1>
+  <section class="checkout__form">
+    <h1 class="display display--sm">Buy credits</h1>
     @if (requestedCredits) {
       <p class="sub" style="margin-top: var(--space-2)">
-        You'll need at least {{ requestedCredits }} credit{{ requestedCredits === 1 ? '' : 's' }} to continue the
-        generation waiting on approval.
+        You need {{ requestedCredits }} more credit{{ requestedCredits === 1 ? '' : 's' }} to continue.
       </p>
     }
 
-    <div class="checkout__fields">
-      <div class="field">
-        <label for="ck-email">Email</label>
-        <input class="input" id="ck-email" name="email" type="email" [(ngModel)]="form.email" placeholder="you@yourbusiness.com" />
-      </div>
-      <div class="field">
-        <label for="ck-card">Card number</label>
-        <input class="input" id="ck-card" name="card" inputmode="numeric" [(ngModel)]="form.card" placeholder="0000 0000 0000 0000" />
-      </div>
-      <div class="checkout__pair">
-        <div class="field">
-          <label for="ck-exp">Expiry</label>
-          <input class="input" id="ck-exp" name="expiry" [(ngModel)]="form.expiry" placeholder="MM / YY" />
+    @switch (state()) {
+      @case ('loading') {
+        <p class="sub checkout__note">Loading checkout…</p>
+      }
+      @case ('unavailable') {
+        <div class="checkout__notice">
+          <b>Payments aren't available right now.</b>
+          <p>Checkout hasn't been switched on yet. Please check back soon.</p>
         </div>
-        <div class="field">
-          <label for="ck-cvc">CVC</label>
-          <input class="input" id="ck-cvc" name="cvc" [(ngModel)]="form.cvc" placeholder="123" />
+      }
+      @case ('no-packs') {
+        <div class="checkout__notice">
+          <b>No credit packs are on sale yet.</b>
+          <p>Please check back soon. Previews stay free in the meantime.</p>
         </div>
-      </div>
-      <div class="field">
-        <label for="ck-name">Name on card</label>
-        <input class="input" id="ck-name" name="name" [(ngModel)]="form.name" placeholder="A. Brightwood" />
-      </div>
-      <div class="field">
-        <label for="ck-country">Billing country</label>
-        <select class="input" id="ck-country" name="country" [(ngModel)]="form.country">
-          @for (c of countries; track c) {
-            <option [value]="c">{{ c }}</option>
+      }
+      @case ('success') {
+        <div class="checkout__notice checkout__notice--success" role="status">
+          <b>Payment complete — {{ creditsAdded() }} credits added.</b>
+          <p>Your balance is now {{ wallet.balance() }} credits.</p>
+          <button class="btn btn-primary checkout__cta" type="button" (click)="continue()">Continue</button>
+        </div>
+      }
+      @case ('pending') {
+        <div class="checkout__notice" role="status">
+          <b>Payment received — confirming with PayPal.</b>
+          <p>{{ message() }} Your credits will appear automatically once PayPal confirms it; you don't need to pay again.</p>
+          <button class="btn btn-secondary checkout__cta" type="button" (click)="continue()">Continue</button>
+        </div>
+      }
+    }
+
+    @if (state() === 'ready' || state() === 'processing' || state() === 'error' || state() === 'cancelled') {
+      <fieldset class="checkout__packs" [disabled]="state() === 'processing'">
+        <legend class="label">Choose a pack</legend>
+        @for (pack of packs(); track pack.id) {
+          <label class="pack" [class.pack--selected]="pack.id === selectedPackId()">
+            <input
+              type="radio"
+              name="pack"
+              [value]="pack.id"
+              [checked]="pack.id === selectedPackId()"
+              (change)="select(pack.id)"
+            />
+            <span class="pack__main">
+              <span class="pack__name">{{ pack.name }}</span>
+              <span class="pack__meta">{{ pack.credits }} credits · {{ perCredit(pack) }} per credit</span>
+            </span>
+            <span class="pack__price tnum">{{ price(pack.price_usd_cents) }}</span>
+          </label>
+        }
+      </fieldset>
+
+      @if (message()) {
+        <p class="checkout__message" [class.checkout__message--error]="state() === 'error'" role="alert">
+          {{ message() }}
+          @if (state() === 'error') {
+            <button type="button" class="checkout__link" (click)="tryAgain()">Try again</button>
           }
-        </select>
+        </p>
+      }
+      @if (state() === 'processing') {
+        <p class="sub checkout__note" role="status">Processing payment… don't close this tab.</p>
+      }
+    }
+
+    @if (mockMode() && (state() === 'ready' || state() === 'error' || state() === 'cancelled')) {
+      <div class="checkout__mock">
+        <b>Test mode</b> — no real payment. Every purchase succeeds and the credits are added straight away.
+        <button class="btn btn-primary btn-block checkout__cta" type="button" (click)="payWithMock()">
+          Complete test payment
+          @if (selectedPack(); as pack) { · {{ price(pack.price_usd_cents) }} }
+        </button>
       </div>
+    }
 
-      <hr class="hr" />
+    <!-- Kept in the DOM (not inside @if) so PayPal's rendered buttons
+         survive state changes; hidden whenever paying isn't possible. -->
+    <div
+      #paypalButtons
+      class="checkout__buttons"
+      [hidden]="!(state() === 'ready' || state() === 'error' || state() === 'cancelled')"
+    ></div>
 
-      <button class="btn btn-primary btn-block checkout__cta" type="submit">Pay {{ tier.price }} and download</button>
-      <p style="font-size: 13px; line-height: 22px; color: var(--color-neutral-700); margin: 0">
-        This is a preview of the checkout flow — payment isn't live yet. Downloads will unlock once
-        billing is wired up.
-      </p>
-    </div>
-  </form>
+    <p class="checkout__fineprint">
+      Pay with your PayPal account or any debit/credit card — no PayPal account needed. Card
+      details are entered with PayPal; ReDoWebs never sees them. Credits are added to your account
+      as soon as the payment completes.
+    </p>
+  </section>
 
   <aside class="checkout__summary">
     <span class="label">Order</span>
-    <div style="margin-top: var(--space-6); border-top: 2px solid var(--color-divider)">
-      <div class="summary__row"><span style="font-weight: 600">{{ tier.name }} tier</span><span class="tnum">{{ tier.price }}</span></div>
-      <div class="summary__row"><span>{{ tier.tagline }}</span></div>
-      <div class="summary__total"><b>Due today</b><span>{{ tier.price }}</span></div>
-    </div>
-    <div class="panel" style="padding: var(--space-4)">
-      <span class="label">Included</span>
-      <ul style="font-size: 14.5px; line-height: 24px; margin: var(--space-3) 0; padding-left: 18px">
-        @for (feature of tier.features; track feature) {
-          <li>{{ feature }}</li>
+    @if (selectedPack(); as pack) {
+      <div style="margin-top: var(--space-6); border-top: 2px solid var(--color-divider)">
+        <div class="summary__row"><span style="font-weight: 600">{{ pack.name }}</span><span class="tnum">{{ pack.credits }} credits</span></div>
+        @if (wallet.balance() !== null) {
+          <div class="summary__row"><span>Current balance</span><span class="tnum">{{ wallet.balance() }}</span></div>
+          <div class="summary__row"><span>Balance after purchase</span><span class="tnum">{{ balanceAfter() }}</span></div>
         }
+        <div class="summary__total"><b>Due today</b><span>{{ price(pack.price_usd_cents) }}</span></div>
+      </div>
+    } @else {
+      <p class="sub" style="margin-top: var(--space-6)">Pick a pack to see your order.</p>
+    }
+    <div class="panel" style="padding: var(--space-4)">
+      <span class="label">Good to know</span>
+      <ul style="font-size: 14.5px; line-height: 24px; margin: var(--space-3) 0; padding-left: 18px">
+        <li>One-time payment, no subscription</li>
+        <li>Previews are always free</li>
+        <li>Re-downloading a tier you've paid for is free</li>
       </ul>
-      <a routerLink="/pricing" style="font-size: 14.5px; font-weight: 600">Back to pricing</a>
+      <a routerLink="/pricing" style="font-size: 14.5px; font-weight: 600">See pricing</a>
     </div>
   </aside>
 </div>

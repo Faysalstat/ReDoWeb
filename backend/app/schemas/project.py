@@ -14,6 +14,8 @@ class ProjectListItem(BaseModel):
     status: str
     created_at: datetime
     tier: str | None = None
+    # Tiers the user has already paid to download (free re-download).
+    purchased_tiers: list[str] = []
 
 
 class ProjectBlueprintSummary(BaseModel):
@@ -89,3 +91,6 @@ class ProjectStatusResponse(BaseModel):
     # Only set while status == "awaiting_cost_approval" -- see
     # docs/generation-cost-gate-plan.md.
     cost_gate: GenerationCostGateInfo | None = None
+    # Tiers the user has already paid to download -- re-downloading these
+    # is free (download_spend is idempotent per project+tier).
+    purchased_tiers: list[str] = []

@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+
 import { BadgeVariant } from '../shared/ui/badge/badge.component';
 
 /** Shared mapping from raw backend `Project.status` strings to the UI's
@@ -73,10 +75,24 @@ export function stagePercent(status: string): number {
   return idx < 0 ? 0 : Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
 }
 
-/** Display label for a tier key ("premium" -> "Premium"). Tier keys are
- * admin-managed free text in the `tiers` table, so this is a display-only
- * fallback, not a lookup against a fixed enum. */
+/** Admin-set display labels from the `tiers` table, keyed by tier key --
+ * filled once at startup by TierLabelService (GET /tiers). A signal, so any
+ * template calling tierLabel() re-renders when the labels arrive. */
+const tierLabels = signal<Record<string, string>>({});
+
+export function setTierLabels(labels: Record<string, string>): void {
+  tierLabels.set(labels);
+}
+
+/** Display label for a tier key: the admin-set label when known (an admin
+ * can rename tiers on Tiers & pricing), else the capitalised key ("premium"
+ * -> "Premium") -- e.g. before labels load, or for a tier that has since
+ * been disabled (GET /tiers only lists enabled ones). */
 export function tierLabel(key: string): string {
+  const label = tierLabels()[key];
+  if (label) {
+    return label;
+  }
   return key.length > 0 ? key.charAt(0).toUpperCase() + key.slice(1) : key;
 }
 

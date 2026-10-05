@@ -1,0 +1,204 @@
+<div>
+  <h1 class="display display--sm">Payments</h1>
+  <p class="sub">Every purchase, and tools to resolve the ones PayPal didn't finish. Refunds themselves are made in the PayPal dashboard.</p>
+
+  @if (paymentsStatus(); as ps) {
+    <div
+      class="pay-banner"
+      [class.pay-banner--test]="ps.mode === 'mock'"
+      [class.pay-banner--live]="ps.mode === 'paypal_live'"
+      role="status"
+    >
+      <strong>{{ modeLabel[ps.mode] }}</strong>
+      @if (ps.mode !== 'mock') {
+        <span>· PayPal keys {{ ps.paypal_configured ? '✓ set' : '✗ missing' }}</span>
+        <span>· Webhook {{ ps.webhook_configured ? '✓ set' : '✗ not set (stuck payments need Re-check)' }}</span>
+      }
+      <span class="pay-banner__hint">Set in the server's .env — not editable here.</span>
+      @if (ps.mock_requested_but_ignored) {
+        <p class="pay-banner__warn">
+          REDOWEBS_PAYMENTS_MODE=mock is set but ignored, because the frontend URL isn't localhost. Test mode only works
+          locally — remove the setting from this server.
+        </p>
+      }
+    </div>
+  }
+
+  <form class="row pay-filters" (ngSubmit)="applyFilters()">
+    <div class="field">
+      <label for="pf-email">Buyer email</label>
+      <input class="input" id="pf-email" name="email" placeholder="search" [(ngModel)]="email" />
+    </div>
+    <div class="field">
+      <label for="pf-status">Status</label>
+      <select class="input" id="pf-status" name="status" [(ngModel)]="status" (ngModelChange)="applyFilters()">
+        @for (s of statusFilters; track s) {
+          <option [value]="s">{{ s || 'any' }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="pf-source">Source</label>
+      <select class="input" id="pf-source" name="source" [(ngModel)]="source" (ngModelChange)="applyFilters()">
+        @for (s of sourceFilters; track s) {
+          <option [value]="s">{{ s ? sourceLabel(s) : 'any' }}</option>
+        }
+      </select>
+    </div>
+    <label class="row" style="gap: var(--space-2); align-items: center; font-size: 14px">
+      <input type="checkbox" name="includeMock" [(ngModel)]="includeMock" (ngModelChange)="applyFilters()" />
+      Show test purchases
+    </label>
+    <button type="submit" appButton variant="secondary">Search</button>
+  </form>
+
+  @if (errorMessage()) {
+    <p style="color: var(--color-danger)">{{ errorMessage() }}</p>
+  }
+
+  <div class="pay-layout" [class.pay-layout--open]="selected()">
+    <div style="min-width: 0">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Buyer</th>
+            <th>Pack</th>
+            <th>Credits</th>
+            <th>Amount</th>
+            <th>Source</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr><td colspan="7"><app-spinner /></td></tr>
+          } @else {
+            @for (row of rows(); track row.id) {
+              <tr class="pay-row" [class.pay-row--selected]="selected()?.purchase?.id === row.id" (click)="open(row)">
+                <td>{{ row.created_at | date: 'medium' }}</td>
+                <td>{{ row.user_email ?? row.user_id }}</td>
+                <td>{{ row.pack_name ?? '—' }}</td>
+                <td class="tnum">{{ row.credits_granted }}</td>
+                <td class="tnum">{{ usd(row.amount_usd_cents) }}</td>
+                <td>{{ sourceLabel(row.source) }}</td>
+                <td><app-badge [variant]="badge(row.status)">{{ row.status }}</app-badge></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="sub">No purchases match these filters.</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+      <div class="row" style="gap: var(--space-3); align-items: center; margin-top: var(--space-3)">
+        <span class="sub">{{ total() }} purchase{{ total() === 1 ? '' : 's' }}</span>
+        @if (pageCount > 1) {
+          <button type="button" appButton variant="ghost" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">Previous</button>
+          <span class="sub">Page {{ page() }} of {{ pageCount }}</span>
+          <button type="button" appButton variant="ghost" [disabled]="page() >= pageCount" (click)="goToPage(page() + 1)">Next</button>
+        }
+      </div>
+    </div>
+
+    @if (selected(); as d) {
+      <aside class="pay-detail" aria-label="Purchase detail">
+        <div class="row row--between">
+          <strong>Purchase</strong>
+          <button type="button" appButton variant="ghost" (click)="close()">Close</button>
+        </div>
+        <dl class="pay-dl">
+          <dt>Buyer</dt>
+          <dd><a [routerLink]="['/admin/users', d.purchase.user_id]">{{ d.purchase.user_email ?? d.purchase.user_id }}</a></dd>
+          <dt>Status</dt>
+          <dd><app-badge [variant]="badge(d.purchase.status)">{{ d.purchase.status }}</app-badge></dd>
+          <dt>Pack</dt>
+          <dd>{{ d.purchase.pack_name ?? '—' }} · {{ d.purchase.credits_granted }} credits · {{ usd(d.purchase.amount_usd_cents) }}</dd>
+          <dt>Source</dt>
+          <dd>{{ sourceLabel(d.purchase.source) }}</dd>
+          <dt>Created</dt>
+          <dd>{{ d.purchase.created_at | date: 'medium' }}</dd>
+          @if (d.purchase.paypal_order_id) {
+            <dt>PayPal order</dt>
+            <dd class="pay-mono">{{ d.purchase.paypal_order_id }}</dd>
+          }
+          @if (d.purchase.paypal_capture_id) {
+            <dt>PayPal capture</dt>
+            <dd class="pay-mono">{{ d.purchase.paypal_capture_id }}</dd>
+          }
+          @if (d.purchase.refunded_at) {
+            <dt>Refunded</dt>
+            <dd>{{ d.purchase.refunded_at | date: 'medium' }}</dd>
+          }
+          @if (d.purchase.note) {
+            <dt>Note</dt>
+            <dd>{{ d.purchase.note }}</dd>
+          }
+          @if (d.purchase.resolved_at) {
+            <dt>Last admin action</dt>
+            <dd>{{ d.purchase.resolved_by_email ?? 'admin' }}, {{ d.purchase.resolved_at | date: 'medium' }}</dd>
+          }
+        </dl>
+
+        <p class="label" style="margin-top: var(--space-4)">Credits</p>
+        <ul class="pay-ledger">
+          @for (t of d.ledger; track t.id) {
+            <li>
+              <span [style.color]="t.amount < 0 ? 'var(--color-danger)' : 'var(--color-accent)'">{{ t.amount > 0 ? '+' : '' }}{{ t.amount }}</span>
+              {{ t.reason === 'purchase' ? 'added by this purchase' : 'taken back after refund' }} · {{ t.created_at | date: 'short' }}
+            </li>
+          } @empty {
+            <li class="sub">No credits moved for this purchase.</li>
+          }
+        </ul>
+        @if (d.credits_taken_back > 0 && d.credits_taken_back < d.purchase.credits_granted) {
+          <p class="sub" style="font-size: 13px">
+            {{ d.credits_taken_back }} of {{ d.purchase.credits_granted }} credits were taken back. For the rest, use a manual
+            adjustment on the user's page.
+          </p>
+        }
+
+        @if (d.can_recheck || d.can_take_back || d.can_mark_failed) {
+          <p class="label" style="margin-top: var(--space-4)">Actions</p>
+          @if (d.can_take_back || d.can_mark_failed) {
+            <div class="field">
+              <label for="pay-note">Note (required for take-back / mark as failed)</label>
+              <input class="input" id="pay-note" [(ngModel)]="actionNote" placeholder="Why?" />
+            </div>
+          }
+          <div class="row" style="gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3)">
+            @if (d.can_recheck) {
+              <button type="button" appButton variant="secondary" [disabled]="actionBusy()" (click)="recheck(d.purchase.id)"
+                title="Ask PayPal what happened to this order and fix our record">
+                Re-check with PayPal
+              </button>
+            }
+            @if (d.can_take_back) {
+              <button type="button" appButton variant="primary" [disabled]="actionBusy()" (click)="takeBack(d.purchase.id)">
+                Take back credits
+              </button>
+            }
+            @if (d.can_mark_failed) {
+              <button type="button" appButton variant="ghost" [disabled]="actionBusy()" (click)="markFailed(d.purchase.id)">
+                Mark as failed
+              </button>
+            }
+          </div>
+          <p class="sub" style="font-size: 12.5px; margin-top: var(--space-2)">
+            None of these move money at PayPal. Mark as failed checks with PayPal first and won't fail a purchase the buyer
+            actually paid for.
+          </p>
+        }
+        @if (actionBusy() || detailLoading()) {
+          <app-spinner />
+        }
+        @if (actionMessage()) {
+          <p style="color: var(--color-accent); font-size: 14px" role="status">{{ actionMessage() }}</p>
+        }
+        @if (actionError()) {
+          <p style="color: var(--color-danger); font-size: 14px" role="alert">{{ actionError() }}</p>
+        }
+      </aside>
+    }
+  </div>
+</div>
+

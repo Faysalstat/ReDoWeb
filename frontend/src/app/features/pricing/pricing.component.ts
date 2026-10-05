@@ -1,20 +1,14 @@
 import { Component } from '@angular/core';
 
-import { PRICING_MATRIX, PRICING_TIERS } from '../../core/pricing-tiers';
-import { PricingTierComponent } from '../../shared/ui/pricing-tier/pricing-tier.component';
+import { CreditPackGridComponent } from '../../shared/ui/credit-pack-grid/credit-pack-grid.component';
 import { PublicNavComponent } from '../../shared/ui/public-nav/public-nav.component';
 
-/** Standalone pricing/plan-comparison page. Not wired to a real checkout or
- * the backend's `tiers` table yet -- see docs/PROGRESS.md. Uses the same
- * placeholder PRICING_TIERS constant as the home page's embedded pricing
- * section so the two never drift out of sync. */
+/** Public pricing page -- real, admin-configured credit packs and tier
+ * download costs (see CreditPackGridComponent). */
 @Component({
   selector: 'app-pricing',
   standalone: true,
-  imports: [PublicNavComponent, PricingTierComponent],
+  imports: [PublicNavComponent, CreditPackGridComponent],
   templateUrl: './pricing.component.html',
 })
-export class PricingComponent {
-  readonly tiers = PRICING_TIERS;
-  readonly matrix = PRICING_MATRIX;
-}
+export class PricingComponent {}

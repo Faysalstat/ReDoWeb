@@ -1,16 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
-import { PRICING_TIERS } from '../../core/pricing-tiers';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
+import { WalletService } from '../../core/wallet.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
 import { GenerationDemoComponent } from '../../shared/ui/generation-demo/generation-demo.component';
 import { IconAlertTriangle, IconArrowRight } from '../../shared/ui/icons/icons';
-import { PricingTierComponent } from '../../shared/ui/pricing-tier/pricing-tier.component';
+import { CreditPackGridComponent } from '../../shared/ui/credit-pack-grid/credit-pack-grid.component';
 import { SpinnerComponent } from '../../shared/ui/spinner/spinner.component';
 
 /** The public homepage: URL submission + marketing sections, reachable
@@ -28,7 +28,7 @@ import { SpinnerComponent } from '../../shared/ui/spinner/spinner.component';
     AppHeaderComponent,
     ButtonComponent,
     GenerationDemoComponent,
-    PricingTierComponent,
+    CreditPackGridComponent,
     SpinnerComponent,
     IconAlertTriangle,
     IconArrowRight,
@@ -36,14 +36,12 @@ import { SpinnerComponent } from '../../shared/ui/spinner/spinner.component';
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent {
   url = '';
   tosAccepted = false;
 
-  readonly pricingTiers = PRICING_TIERS;
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
-  readonly balance = signal<number | null>(null);
 
   // Marketing copy -- illustrative, not backed by real analytics yet.
   readonly stats = [
@@ -75,7 +73,8 @@ export class HomeComponent implements OnInit {
   constructor(
     private readonly api: RedoWebsApiService,
     private readonly auth: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    readonly wallet: WalletService
   ) {}
 
   accentColor(index: number): string {
@@ -84,12 +83,6 @@ export class HomeComponent implements OnInit {
 
   get canSubmit(): boolean {
     return this.url.trim().length > 0 && this.tosAccepted && !this.isSubmitting();
-  }
-
-  ngOnInit(): void {
-    if (this.auth.isAuthenticated()) {
-      this.api.getWallet().subscribe((wallet) => this.balance.set(wallet.balance));
-    }
   }
 
   submit(): void {
@@ -106,7 +99,10 @@ export class HomeComponent implements OnInit {
     this.isSubmitting.set(true);
 
     this.api.submitProject(this.url.trim(), this.tosAccepted).subscribe({
-      next: (res) => this.router.navigate(['/projects', res.project_id]),
+      next: (res) => {
+        this.wallet.refresh();
+        this.router.navigate(['/projects', res.project_id]);
+      },
       error: (err: HttpErrorResponse) => {
         const detail = err.error?.detail;
         this.errorMessage.set(typeof detail === 'string' ? detail : 'Something went wrong. Please try again.');

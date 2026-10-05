@@ -4,7 +4,7 @@
 
 ReDoWebs is a brand-new, greenfield build — the working directory currently contains only `rule.md` (mandating a `frontend/` / `backend/` / `docs/` / `standalone/` repo layout). There is no existing code to reconcile with.
 
-The product: a logged-in user submits the URL of an existing small static website (≤3 pages, no server-rendered backend). The system crawls it (respecting `robots.txt`), extracts a structured blueprint (content, nav, branding assets, colors, fonts, metadata, layout) into a semi-structured `design.md`, and uses AI (via OpenRouter) to generate tiered redesigns from that single blueprint using randomly-selected, DB-stored prompt-strategy variants per tier. Tiers (originally conceived as a fixed Basic/Premium/Pro) are now a **dynamic, admin-manageable list** — each tier row can be independently enabled/disabled, renamed, reordered, and priced; disabled tiers are skipped entirely during generation. **Current build/test phase runs only the `pro` tier** while its prompt templates and generation mechanism are being validated; `basic`/`premium` exist as disabled placeholders. Users preview all enabled tiers unlimited times and can hand-edit `design.md` to regenerate (each regeneration/generation costs 1 credit from a unified wallet). Downloading the generated source folder costs additional, admin-configurable credits per tier (stored on the tier row itself). Credits are purchased in packs via one-time Stripe payments; new signups get 3 free credits (enough to preview, never enough alone to download, which is intentional — downloads always require payment).
+The product: a logged-in user submits the URL of an existing small static website (≤3 pages, no server-rendered backend). The system crawls it (respecting `robots.txt`), extracts a structured blueprint (content, nav, branding assets, colors, fonts, metadata, layout) into a semi-structured `design.md`, and uses AI (via OpenRouter) to generate tiered redesigns from that single blueprint using randomly-selected, DB-stored prompt-strategy variants per tier. Tiers (originally conceived as a fixed Basic/Premium/Pro) are now a **dynamic, admin-manageable list** — each tier row can be independently enabled/disabled, renamed, reordered, and priced; disabled tiers are skipped entirely during generation. **Current build/test phase runs only the `pro` tier** while its prompt templates and generation mechanism are being validated; `basic`/`premium` exist as disabled placeholders. Users preview all enabled tiers unlimited times and can hand-edit `design.md` to regenerate (each regeneration/generation costs 1 credit from a unified wallet). Downloading the generated source folder costs additional, admin-configurable credits per tier (stored on the tier row itself). Credits are purchased in admin-configurable packs via one-time PayPal payments (account or card); new signups get 3 free credits (enough to preview, never enough alone to download, which is intentional — downloads always require payment).
 
 This plan was reached through an extensive interview covering product scope, credit economics, auth, crawler limits, legal/ownership risk mitigation (ToS checkbox + logging, no domain verification), job retry behavior, testing bar, observability, and blueprint structure — all decisions below reflect explicit user choices, not assumptions, except where marked as an implementation-detail judgment call consistent with those choices.
 
@@ -15,7 +15,7 @@ See [PRD.md](PRD.md) for the product-level framing (problem, users, scope, requi
 - **Backend**: Python, FastAPI, SQLAlchemy 2.0 + Alembic, Postgres-backed job queue for background jobs (originally planned as Celery + Redis; switched 2026-09-06 since Redis had no other use in the app — see the "Job Orchestration" section below), SQLAdmin (admin panel), OpenRouter (LLM access, GPT-4o-mini for dev/test phase)
 - **Frontend**: Angular (standalone components, functional route guards)
 - **DB**: PostgreSQL
-- **Payments**: Stripe (one-time checkout, no subscriptions)
+- **Payments**: PayPal (Orders v2 + JS SDK buttons, PayPal account or card, one-time credit packs, no subscriptions) — switched from Stripe 2026-10-05, see `docs/paypal-payments-plan.md`
 - **Storage**: local disk in v1, behind a thin `StorageBackend` abstraction so S3 can be swapped in later without touching callers
 - **Deployment**: Docker Compose (`standalone/`), production target AWS (not locked in, nothing AWS-specific built now)
 
@@ -51,7 +51,7 @@ ReDoWebs/
 │       ├── admin/                # sqladmin_views.py
 │       ├── core/                # security.py (JWT/hashing), rate_limit.py, logging.py (structlog)
 │       └── deps.py
-│   └── tests/unit/            # test_wallet_service.py, test_pricing.py, test_stripe_webhook.py, test_auth_permissions.py, test_template_selection.py
+│   └── tests/unit/            # test_wallet_service.py, test_pricing.py, test_billing_service.py, test_auth_permissions.py, test_template_selection.py
 └── standalone/
     ├── docker-compose.yml
     └── .env.example
@@ -75,7 +75,8 @@ Routers stay thin (parse → call service → return schema) so queue-worker tas
 - **design_strategy_templates**: tier_id FK → tiers, prompt_text, is_active, weight — admin-managed via SQLAdmin. Weighted-random selection only ever considers `is_active=true` templates whose parent tier is also `is_active=true`.
 - **generation_jobs**: project_id, blueprint_id, stage enum (drives progress UI; stage values are generated dynamically per enabled tier rather than hardcoded to 3), overall_status, failure_reason, credit_transaction_id
 - **generation_outputs** (one row per enabled tier per job): job_id, tier_id FK, template_id FK (records which template was used), output_storage_path, preview_url_path
-- **purchases**: user_id, stripe_checkout_session_id unique, stripe_event_id unique (webhook idempotency), credit_pack_credits, amount_usd_cents, status
+- **purchases**: user_id, credit_pack_id, paypal_order_id unique, paypal_capture_id unique, credits_granted + amount_usd_cents (snapshot at order time), status (pending/completed/failed/refunded), source (paypal/manual_admin) — webhook idempotency comes from the row lock + the `purchase:{id}` ledger key, not a stored event id
+- **credit_packs**: name, credits, price_usd_cents, is_active, sort_order — admin-editable, disabled not deleted
 - **admin_config**: key/value (typed columns), seeded with `usd_per_credit=<default>` — per-tier download cost moved to `tiers.download_credit_cost` (see above); this table now only holds cost/pricing config that isn't tier-specific
 - **token_usage_logs** (implemented 2026-08-03): project_id, user_id, job_id (nullable), model_name, purpose (`blueprint_extraction`|`generation`), prompt_tokens, completion_tokens, cost_estimate_usd — internal-only, never user-facing. **Deviates from this table's original job_id-first design**: keyed by `project_id` (always available) rather than `job_id` alone, because blueprint extraction's vision-model call happens before any `generation_jobs` row exists — `job_id` is populated only for `purpose="generation"` rows. Written from both `tasks_blueprint.py` and `tasks_generate.py` (`token_usage_service.record_usage()`), closing a gap where the blueprint-extraction vision call's usage was previously discarded entirely.
 
@@ -90,7 +91,7 @@ Routers stay thin (parse → call service → return schema) so queue-worker tas
 - **Jobs**: `GET /jobs/{id}` (stage/status for polling), `GET /projects/{id}/jobs`
 - **Blueprints**: version list, `GET /blueprints/{id}`, `PUT /blueprints/{id}` (free draft save, validates required frontmatter), `POST /projects/{id}/regenerate` (credit-spending, creates new version, enqueues generation-only chain)
 - **Credits**: `GET /credits/wallet`, `GET /credits/transactions`
-- **Billing**: `GET /billing/credit-packs`, `POST /billing/checkout-session`, `POST /billing/webhook` (Stripe-signature-verified, no JWT)
+- **Billing**: `GET /billing/config`, `GET /billing/credit-packs` (both public), `POST /billing/paypal/orders`, `POST /billing/paypal/orders/{id}/capture`, `GET /billing/purchases`, `POST /billing/paypal/webhook` (PayPal-signature-verified, no JWT); public `GET /tiers` for download costs
 - **Downloads**: `POST /projects/{id}/download` (tier-cost credit spend via wallet_service, assembles/serves folder)
 - **Admin**: mounted separately via SQLAdmin at `/admin`, gated by `is_admin`, reusing the same auth session (not a parallel login system)
 
@@ -118,7 +119,7 @@ Extraction aggregates crawled content/nav/headings into markdown prose, then fir
 
 ## Admin Panel (SQLAdmin)
 
-Auto-registered CRUD for all models; `DesignStrategyTemplate` and `AdminConfig` are the ones admins actively edit. Two things need custom SQLAdmin actions rather than raw generic forms: **manual credit refund** (a button calling `wallet_service.admin_adjust(...)` server-side, not a free-form ledger insert, to keep `credit_wallets.balance` consistent) and **Stripe reconciliation on failed/refunded payments** (same mechanism). SQLAdmin auth reuses the app's existing session/JWT via a custom `AuthenticationBackend` gated on `User.is_admin` — no second login system.
+Auto-registered CRUD for all models; `DesignStrategyTemplate` and `AdminConfig` are the ones admins actively edit. Two things need custom SQLAdmin actions rather than raw generic forms: **manual credit refund** (a button calling `wallet_service.admin_adjust(...)` server-side, not a free-form ledger insert, to keep `credit_wallets.balance` consistent) and **PayPal reconciliation on refunded payments** (same mechanism — refunds are marked on the purchase by the webhook, never reversed automatically). SQLAdmin auth reuses the app's existing session/JWT via a custom `AuthenticationBackend` gated on `User.is_admin` — no second login system.
 
 ## Auth
 
@@ -136,7 +137,7 @@ Email/password with argon2 hashing, email verification required before first sub
 
 ## Testing (per confirmed bar: core logic unit-tested, rest manual)
 
-Unit tests: `wallet_service` (spend success/failure, **concurrent-spend race test**, admin_adjust), `admin_config_service` pricing getters reflect DB changes, Stripe webhook (signature verification, idempotent replay, malformed events), auth/permission gates (unverified-user blocks, admin-only gates, JWT/refresh revocation), weighted template selection (respects `is_active`, weight ratios — assert via mocked `random.choices` args, not statistical sampling). Crawler accuracy and AI output/tier-differentiation quality are verified manually — no automated e2e for subjective AI output.
+Unit tests: `wallet_service` (spend success/failure, **concurrent-spend race test**, admin_adjust), `admin_config_service` pricing getters reflect DB changes, PayPal capture/webhook (signature verification, exactly-once crediting under capture/webhook races, amount-mismatch rejection), auth/permission gates (unverified-user blocks, admin-only gates, JWT/refresh revocation), weighted template selection (respects `is_active`, weight ratios — assert via mocked `random.choices` args, not statistical sampling). Crawler accuracy and AI output/tier-differentiation quality are verified manually — no automated e2e for subjective AI output.
 
 ## Observability & Rate Limiting
 
@@ -154,7 +155,7 @@ Services: `postgres`, `backend` (uvicorn, runs `alembic upgrade head` on startup
 4. **Credit/wallet system** — `wallet_service` with row-locking spend (TDD, tests first), signup grant, wire generation/regeneration to spend real credits, wire the pre-check/no-charge-on-reject path.
 5. **Downloads + AdminConfig** — tier-cost spend, folder assembly, download endpoint/UI.
 6. **Auth hardening** — real email verification, password reset, Google OAuth, JWT+refresh sessions.
-7. **Stripe billing** — Checkout Session, webhook + idempotency (tests alongside), credit-pack purchase UI.
+7. **PayPal billing** — admin-configurable credit packs, order create/capture, webhook + idempotency (tests alongside), credit-pack purchase UI.
 8. **Admin panel** — SQLAdmin mount, all ModelViews, custom refund action.
 9. **Observability & rate limiting** — structlog, Sentry, slowapi on the flagged endpoints, confirm submission_logs works end to end.
 10. **Polish** — SEO/accessibility verification pass, tier-differentiation prompt tuning, UI polish, any deferred tests.
@@ -165,6 +166,6 @@ This order front-loads the one genuinely uncertain piece — does crawl→bluepr
 
 - Milestone 2 end-to-end check: submit a real small static site's URL, confirm job progresses through all stages, confirm `design.md` has valid frontmatter + sensible prose, confirm all 3 tier previews render and are visibly different in polish (Pro > Premium > Basic).
 - Milestone 4: run `pytest backend/tests/unit/test_wallet_service.py` including the concurrent-spend test; manually attempt two rapid download clicks against a low balance to confirm only one succeeds.
-- Milestone 6: use Stripe CLI (`stripe listen --forward-to localhost:.../billing/webhook`) to fire test webhook events, confirm idempotent replay doesn't double-credit.
+- Milestone 7: buy a pack in the PayPal sandbox (account and card), re-POST the capture and confirm no double credit; for webhooks, register the sandbox webhook against a public URL (ngrok or Railway) and use PayPal's webhook simulator.
 - Milestone 8: confirm a non-admin JWT is rejected at `/admin`, confirm the custom refund action updates both the ledger and `credit_wallets.balance` consistently.
 - Full run: `docker compose -f standalone/docker-compose.yml up`, exercise the complete user journey (signup → verify → submit → preview → regenerate → buy credits → download) manually before calling v1 done.

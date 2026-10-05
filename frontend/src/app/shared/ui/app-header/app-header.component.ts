@@ -1,8 +1,8 @@
-import { Component, ElementRef, HostListener, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 import { AuthService } from '../../../core/auth.service';
-import { RedoWebsApiService } from '../../../core/redowebs-api.service';
+import { WalletService } from '../../../core/wallet.service';
 import { BadgeComponent } from '../badge/badge.component';
 import { ButtonComponent } from '../button/button.component';
 import { IconChevronDown } from '../icons/icons';
@@ -31,8 +31,11 @@ import { IconChevronDown } from '../icons/icons';
         <a routerLink="/history" ariaCurrentWhenActive="page" routerLinkActive>History</a>
         <a routerLink="/settings/billing" ariaCurrentWhenActive="page" routerLinkActive>Billing</a>
 
-        @if (balance(); as b) {
-          <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
+        @if (wallet.balance() !== null) {
+          @let b = wallet.balance()!;
+          <a routerLink="/checkout" title="Buy credits" class="app-header__balance">
+            <app-badge [variant]="b <= 1 ? 'danger' : 'accent'">{{ b }} credit{{ b === 1 ? '' : 's' }}</app-badge>
+          </a>
         }
 
         <div class="app-header__menu">
@@ -125,6 +128,9 @@ import { IconChevronDown } from '../icons/icons';
       .app-header__dropdown a {
         padding: var(--space-2) 0;
       }
+      .app-header__balance {
+        text-decoration: none;
+      }
       .app-header__signout {
         text-align: left;
         background: transparent;
@@ -139,22 +145,15 @@ import { IconChevronDown } from '../icons/icons';
   ],
 })
 export class AppHeaderComponent {
-  readonly balance = signal<number | null>(null);
   readonly menuOpen = signal(false);
 
   private readonly elementRef = inject(ElementRef<HTMLElement>);
 
   constructor(
     readonly auth: AuthService,
-    private readonly api: RedoWebsApiService,
+    readonly wallet: WalletService,
     private readonly router: Router
-  ) {
-    effect(() => {
-      if (this.auth.isAuthenticated()) {
-        this.api.getWallet().subscribe((wallet) => this.balance.set(wallet.balance));
-      }
-    });
-  }
+  ) {}
 
   initial(): string {
     return (this.auth.currentUser()?.email ?? '?').charAt(0).toUpperCase();

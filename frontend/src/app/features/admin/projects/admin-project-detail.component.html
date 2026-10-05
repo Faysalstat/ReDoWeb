@@ -22,6 +22,22 @@
     }
 
     <p class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading)); margin-bottom: var(--space-3)">
+      Paid tiers
+    </p>
+    @if (d.paid_tiers.length > 0) {
+      <table class="table">
+        <thead><tr><th>Tier</th><th>Credits charged</th><th>Paid</th></tr></thead>
+        <tbody>
+          @for (t of d.paid_tiers; track t.tier) {
+            <tr><td>{{ t.tier }}</td><td>{{ t.credits }}</td><td>{{ t.charged_at | date: 'medium' }}</td></tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="sub">No tier of this project has been downloaded yet.</p>
+    }
+
+    <p class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading)); margin-bottom: var(--space-3)">
       Generation history
     </p>
     @for (job of d.generation_jobs; track job.job_id) {

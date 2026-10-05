@@ -1,4 +1,6 @@
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -111,6 +113,126 @@ def spend(
             reason=reason,
             related_project_id=related_project_id,
             related_job_id=related_job_id,
+            idempotency_key=idempotency_key,
+        )
+    )
+    db.flush()
+    return wallet
+
+
+_DOWNLOAD_SPEND_PREFIX = "download_spend:"
+
+
+def download_spend_key(project_id: uuid.UUID, tier: str) -> str:
+    """The one place the download charge's idempotency key is built --
+    per (project, tier), so a re-download of a paid tier is free.
+    purchased_download_tiers() parses this same shape back."""
+    return f"{_DOWNLOAD_SPEND_PREFIX}{project_id}:{tier}"
+
+
+def tier_from_download_key(key: str | None, project_id: uuid.UUID) -> str | None:
+    prefix = f"{_DOWNLOAD_SPEND_PREFIX}{project_id}:"
+    if not key or not key.startswith(prefix):
+        return None
+    return key[len(prefix):] or None
+
+
+def purchased_download_tiers(
+    db: Session, user_id: uuid.UUID, project_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[str]]:
+    """Which tiers the user has already paid to download, per project --
+    derived from existing download_spend ledger rows, so no extra table.
+    Scoped to the user's own wallet."""
+    if not project_ids:
+        return {}
+    rows = (
+        db.query(CreditTransaction.related_project_id, CreditTransaction.idempotency_key)
+        .join(CreditWallet, CreditWallet.id == CreditTransaction.wallet_id)
+        .filter(
+            CreditWallet.user_id == user_id,
+            CreditTransaction.reason == "download_spend",
+            CreditTransaction.related_project_id.in_(project_ids),
+        )
+        .all()
+    )
+    result: dict[uuid.UUID, list[str]] = {}
+    for project_id, key in rows:
+        tier = tier_from_download_key(key, project_id)
+        if tier is not None and tier not in result.setdefault(project_id, []):
+            result[project_id].append(tier)
+    return result
+
+
+@dataclass(frozen=True)
+class DownloadCharge:
+    tier: str
+    credits: int
+    charged_at: datetime
+
+
+def download_charges_for_project(db: Session, project_id: uuid.UUID) -> list[DownloadCharge]:
+    """Paid tiers of one project with what each cost and when, oldest first
+    -- for the admin project detail page. Read from the download_spend
+    ledger rows (the charge itself), so it's exact even after an admin
+    changes a tier's price."""
+    rows = (
+        db.query(CreditTransaction.idempotency_key, CreditTransaction.amount, CreditTransaction.created_at)
+        .filter(
+            CreditTransaction.reason == "download_spend",
+            CreditTransaction.related_project_id == project_id,
+        )
+        .order_by(CreditTransaction.created_at)
+        .all()
+    )
+    charges = []
+    for key, amount, created_at in rows:
+        tier = tier_from_download_key(key, project_id)
+        if tier is not None:
+            charges.append(DownloadCharge(tier=tier, credits=-amount, charged_at=created_at))
+    return charges
+
+
+def grant_purchase_credits(
+    db: Session,
+    user_id: uuid.UUID,
+    amount: int,
+    *,
+    purchase_id: uuid.UUID,
+    idempotency_key: str,
+) -> CreditWallet:
+    """Credits a paid PayPal purchase to the wallet. `idempotency_key` is
+    required (billing_service always passes `purchase:{purchase_id}`): the
+    browser's capture call and PayPal's webhook routinely race to fulfil the
+    same purchase, and this key is what guarantees exactly one credit no
+    matter which path -- or both -- reaches here. Same lock-*then*-check
+    ordering as spend() (see its docstring for why), not admin_adjust()'s
+    older check-then-lock. Caller commits."""
+    if amount <= 0:
+        raise ValueError(f"purchase grant must be positive, got {amount}")
+
+    wallet = (
+        db.query(CreditWallet).filter(CreditWallet.user_id == user_id).with_for_update().one_or_none()
+    )
+    if wallet is None:
+        wallet = CreditWallet(user_id=user_id, balance=0)
+        db.add(wallet)
+        db.flush()
+
+    existing = (
+        db.query(CreditTransaction)
+        .filter(CreditTransaction.idempotency_key == idempotency_key)
+        .one_or_none()
+    )
+    if existing is not None:
+        return wallet
+
+    wallet.balance += amount
+    db.add(
+        CreditTransaction(
+            wallet_id=wallet.id,
+            amount=amount,
+            reason="purchase",
+            related_purchase_id=purchase_id,
             idempotency_key=idempotency_key,
         )
     )

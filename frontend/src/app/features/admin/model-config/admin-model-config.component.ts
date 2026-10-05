@@ -27,7 +27,6 @@ export class AdminModelConfigComponent implements OnInit {
   readonly loading = signal(true);
   readonly errorMessage = signal('');
   readonly savingKey = signal<string | null>(null);
-  readonly togglingKey = signal<string | null>(null);
   readonly savingVision = signal(false);
   readonly savedMessage = signal('');
 
@@ -58,23 +57,6 @@ export class AdminModelConfigComponent implements OnInit {
       error: () => {
         this.savingKey.set(null);
         this.errorMessage.set(`Failed to save ${key}.`);
-      },
-    });
-  }
-
-  toggleTierActive(tier: AdminTierModelRow): void {
-    this.savedMessage.set('');
-    this.errorMessage.set('');
-    this.togglingKey.set(tier.key);
-    this.api.setTierActive(tier.key, { is_active: !tier.is_active }).subscribe({
-      next: () => {
-        this.togglingKey.set(null);
-        this.savedMessage.set(`${tier.label} is now ${tier.is_active ? 'disabled' : 'active'}.`);
-        this.load();
-      },
-      error: () => {
-        this.togglingKey.set(null);
-        this.errorMessage.set(`Failed to update ${tier.label}.`);
       },
     });
   }

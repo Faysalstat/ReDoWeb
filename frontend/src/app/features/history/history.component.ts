@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { isTerminal, stagePercent, statusBadgeVariant, statusLabel } from '../../core/project-status';
+import { isTerminal, stagePercent, statusBadgeVariant, statusLabel, tierLabel } from '../../core/project-status';
 import { ProjectListItem } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
@@ -33,6 +33,7 @@ export class HistoryComponent implements OnInit {
   readonly statusBadgeVariant = statusBadgeVariant;
   readonly stagePercent = stagePercent;
   readonly isTerminal = isTerminal;
+  readonly tierLabel = tierLabel;
 
   constructor(private readonly api: RedoWebsApiService) {}
 

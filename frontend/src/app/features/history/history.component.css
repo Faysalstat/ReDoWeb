@@ -55,3 +55,12 @@
     gap: var(--space-2);
   }
 }
+
+.sites__downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+}

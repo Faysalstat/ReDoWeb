@@ -64,5 +64,22 @@
         <app-stat-tile label="Credits outstanding" [value]="s.credits_outstanding" />
       </div>
     </div>
+
+    <div class="panel" style="margin-top: var(--space-4)">
+      <div class="panel__head"><strong>Payments</strong> <span class="sub" style="font-size: 12.5px">PayPal only — test payments excluded</span></div>
+      <div class="cells cells--4">
+        <app-stat-tile label="Purchases (in range)" [value]="s.purchases_in_range" />
+        <a routerLink="/admin/payments" [queryParams]="{ status: 'pending' }" style="text-decoration: none; color: inherit">
+          <app-stat-tile
+            label="Pending purchases"
+            [value]="s.pending_purchases"
+            [note]="s.pending_purchases > 0 ? 'review on Payments →' : 'none waiting'"
+            [variant]="s.pending_purchases > 0 ? 'danger' : 'default'"
+          />
+        </a>
+        <app-stat-tile label="Refunds (in range)" [value]="s.refunds_in_range" />
+        <app-stat-tile label="Paying users (all-time)" [value]="s.paying_users" />
+      </div>
+    </div>
   }
 </div>

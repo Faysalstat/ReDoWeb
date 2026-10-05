@@ -142,6 +142,8 @@ export interface ProjectStatusResponse {
    * including on an otherwise-"ready" project where other tiers succeeded. */
   tier_failures: ProjectTierFailure[];
   cost_gate?: GenerationCostGateInfo | null;
+  /** Tiers already paid for -- re-downloading these is free. */
+  purchased_tiers: string[];
 }
 
 export interface ProjectListItem {
@@ -150,6 +152,7 @@ export interface ProjectListItem {
   status: string;
   created_at: string;
   tier?: string | null;
+  purchased_tiers: string[];
 }
 
 // --- Auth (Google SSO) ---
@@ -183,4 +186,71 @@ export interface DownloadStartResponse {
 export interface DownloadStatusResponse {
   status: 'ready' | 'building' | 'failed';
   failure_reason?: string | null;
+}
+
+/** Body of a 402 from POST /projects/{id}/download -- enough to offer an
+ * exact top-up instead of a generic failure. */
+export interface InsufficientCreditsDetail {
+  message: string;
+  required: number;
+  balance: number;
+  shortfall: number;
+}
+
+// --- Billing (PayPal credit packs) ---
+
+export interface BillingConfigResponse {
+  /** False until the backend has PayPal credentials configured. */
+  enabled: boolean;
+  /** 'mock' = local test mode: every payment succeeds, no PayPal involved. */
+  mode: 'paypal' | 'mock';
+  paypal_client_id: string;
+  paypal_env: string;
+  currency: string;
+}
+
+export interface CreditPack {
+  id: string;
+  name: string;
+  credits: number;
+  price_usd_cents: number;
+}
+
+export interface CreditPackListResponse {
+  items: CreditPack[];
+}
+
+export interface CreateOrderResponse {
+  order_id: string;
+  purchase_id: string;
+}
+
+export interface CaptureResponse {
+  status: 'completed' | 'pending' | 'failed' | 'refunded';
+  credits_granted: number;
+  balance: number;
+  reason?: string | null;
+}
+
+export interface PurchaseHistoryItem {
+  id: string;
+  created_at: string;
+  credits: number;
+  amount_usd_cents: number;
+  status: string;
+  source: string;
+}
+
+export interface PurchaseHistoryResponse {
+  items: PurchaseHistoryItem[];
+}
+
+export interface PublicTier {
+  key: string;
+  label: string;
+  download_credit_cost: number;
+}
+
+export interface PublicTierListResponse {
+  items: PublicTier[];
 }

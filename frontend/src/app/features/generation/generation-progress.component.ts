@@ -14,10 +14,12 @@ import {
   tierLabel,
 } from '../../core/project-status';
 import {
+  InsufficientCreditsDetail,
   ProjectGenerationSummary,
   ProjectStatusResponse,
 } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
+import { WalletService } from '../../core/wallet.service';
 import { AppHeaderComponent } from '../../shared/ui/app-header/app-header.component';
 import { BrowserFrameComponent } from '../../shared/ui/browser-frame/browser-frame.component';
 import { ButtonComponent } from '../../shared/ui/button/button.component';
@@ -33,6 +35,7 @@ import {
 import { StepItemComponent, StepStatus } from '../../shared/ui/step-item/step-item.component';
 
 type Device = 'desktop' | 'phone';
+type DownloadState = 'idle' | 'starting' | 'building' | 'ready' | 'failed' | 'needs-credits';
 
 const POLL_INTERVAL_MS = 3000;
 const SUBSTEP_INTERVAL_MS = 2400;
@@ -101,9 +104,18 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   /** Per-tier download state -- 'idle' until the user clicks, 'starting'
    * while POST /download is in flight, 'building' while a multi-page
    * project's full-site job runs (polled), then 'ready'/'failed'. */
-  readonly downloadStatus = signal<Record<string, 'idle' | 'starting' | 'building' | 'ready' | 'failed'>>(
-    {}
-  );
+  readonly downloadStatus = signal<Record<string, DownloadState>>({});
+  /** Set per tier when POST /download answers 402 -- drives the "needs N
+   * more credits" prompt and its exact Top Up amount. */
+  readonly downloadShortfall = signal<Record<string, InsufficientCreditsDetail>>({});
+  /** Download credit cost per enabled tier, from the public GET /tiers. */
+  readonly tierCosts = signal<Record<string, number>>({});
+  /** Tiers paid for during this visit, on top of status().purchased_tiers
+   * (which only refreshes on the next poll). */
+  private readonly paidThisSession = signal<string[]>([]);
+  /** ?download=<tier> -- set by the Top Up return URL so the download the
+   * user was trying to make resumes automatically after paying. */
+  private pendingAutoDownload: string | null = null;
   /** State for the awaiting_cost_approval screen (see
    * docs/generation-cost-gate-plan.md) -- `approving` while the Continue
    * click's POST is in flight. */
@@ -128,8 +140,17 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly api: RedoWebsApiService,
     private readonly preview: PreviewService,
-    private readonly sanitizer: DomSanitizer
+    private readonly sanitizer: DomSanitizer,
+    readonly wallet: WalletService
   ) {}
+
+  isPurchased(tier: string): boolean {
+    return (this.status()?.purchased_tiers ?? []).includes(tier) || this.paidThisSession().includes(tier);
+  }
+
+  tierCost(tier: string): number | null {
+    return this.tierCosts()[tier] ?? null;
+  }
 
   get isBusy(): boolean {
     return STAGE_ORDER.includes(this.stage());
@@ -296,7 +317,25 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
    * re-plumbed. */
   goToTopUp(): void {
     const shortfall = this.status()?.cost_gate?.shortfall_credits;
-    this.router.navigate(['/checkout'], { queryParams: shortfall ? { credits: shortfall } : {} });
+    this.navigateToCheckout(shortfall ?? null, null);
+  }
+
+  /** Top Up from the download prompt -- comes back to this project with
+   * ?download=<tier> so the download resumes on return. */
+  topUpForDownload(tier: string): void {
+    this.navigateToCheckout(this.downloadShortfall()[tier]?.shortfall ?? null, tier);
+  }
+
+  private navigateToCheckout(credits: number | null, resumeDownloadTier: string | null): void {
+    const projectId = this.route.snapshot.paramMap.get('id');
+    const returnUrl = resumeDownloadTier
+      ? `/projects/${projectId}?download=${encodeURIComponent(resumeDownloadTier)}`
+      : `/projects/${projectId}`;
+    const queryParams: Record<string, string | number> = { returnUrl };
+    if (credits) {
+      queryParams['credits'] = credits;
+    }
+    this.router.navigate(['/checkout'], { queryParams });
   }
 
   ngOnInit(): void {
@@ -305,6 +344,12 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
       this.router.navigate(['/']);
       return;
     }
+    this.pendingAutoDownload = this.route.snapshot.queryParamMap.get('download');
+    this.api.getTiers().subscribe({
+      next: (res) =>
+        this.tierCosts.set(Object.fromEntries(res.items.map((t) => [t.key, t.download_credit_cost]))),
+      error: () => {},
+    });
     this.startTicking();
     this.startSubstepCycling();
     this.startPolling(projectId);
@@ -330,8 +375,30 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     }
     this.setDownloadStatus(tier, 'starting');
     this.api.startDownload(projectId, tier).subscribe({
-      next: (res) => (res.status === 'ready' ? this.fetchFile(projectId, tier) : this.pollDownload(projectId, tier)),
-      error: () => this.setDownloadStatus(tier, 'failed'),
+      next: (res) => {
+        // The charge (if any) has happened by now -- reflect it in the
+        // header and mark the tier paid so the button says so.
+        if (!this.paidThisSession().includes(tier)) {
+          this.paidThisSession.set([...this.paidThisSession(), tier]);
+        }
+        this.wallet.refresh();
+        if (res.status === 'ready') {
+          this.fetchFile(projectId, tier);
+        } else {
+          this.pollDownload(projectId, tier);
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        const detail = err.error?.detail;
+        if (err.status === 402 && detail && typeof detail === 'object') {
+          const short = detail as InsufficientCreditsDetail;
+          this.downloadShortfall.set({ ...this.downloadShortfall(), [tier]: short });
+          this.wallet.set(short.balance);
+          this.setDownloadStatus(tier, 'needs-credits');
+        } else {
+          this.setDownloadStatus(tier, 'failed');
+        }
+      },
     });
   }
 
@@ -366,7 +433,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     });
   }
 
-  private setDownloadStatus(tier: string, value: 'idle' | 'starting' | 'building' | 'ready' | 'failed'): void {
+  private setDownloadStatus(tier: string, value: DownloadState): void {
     this.downloadStatus.set({ ...this.downloadStatus(), [tier]: value });
   }
 
@@ -442,6 +509,21 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     if (stage === 'ready') {
       this.stopLiveIndicators();
     }
+    this.resumePendingDownload(res);
+  }
+
+  /** After a Top Up round-trip (?download=<tier>), start that download
+   * once its preview is available, then drop the param so a refresh
+   * doesn't download again. */
+  private resumePendingDownload(res: ProjectStatusResponse): void {
+    const tier = this.pendingAutoDownload;
+    if (!tier || !res.generations.some((gen) => gen.tier === tier)) {
+      return;
+    }
+    this.pendingAutoDownload = null;
+    this.selectedTier.set(tier);
+    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    this.download(tier);
   }
 
   /** Mints (once) and caches the authed iframe-loadable preview URL for one

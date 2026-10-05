@@ -4,7 +4,11 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './api-config';
 import {
+  BillingConfigResponse,
   BlueprintResponse,
+  CaptureResponse,
+  CreateOrderResponse,
+  CreditPackListResponse,
   CrawlResponse,
   DownloadStartResponse,
   DownloadStatusResponse,
@@ -13,6 +17,8 @@ import {
   ProjectListItem,
   ProjectStatusResponse,
   ProjectSubmitResponse,
+  PublicTierListResponse,
+  PurchaseHistoryResponse,
   TierRetryResponse,
   WalletResponse,
 } from './redowebs-api.models';
@@ -106,5 +112,41 @@ export class RedoWebsApiService {
     return this.http.get(`${API_BASE_URL}/api/v1/projects/${projectId}/download-file?tier=${tier}`, {
       responseType: 'blob',
     });
+  }
+
+  /** Public -- enabled tiers with their download credit cost. */
+  getTiers(): Observable<PublicTierListResponse> {
+    return this.http.get<PublicTierListResponse>(`${API_BASE_URL}/api/v1/tiers`);
+  }
+
+  /** Public -- PayPal client id/env for loading the JS SDK. */
+  getBillingConfig(): Observable<BillingConfigResponse> {
+    return this.http.get<BillingConfigResponse>(`${API_BASE_URL}/api/v1/billing/config`);
+  }
+
+  /** Public -- active credit packs, cheapest-first by admin sort order. */
+  getCreditPacks(): Observable<CreditPackListResponse> {
+    return this.http.get<CreditPackListResponse>(`${API_BASE_URL}/api/v1/billing/credit-packs`);
+  }
+
+  /** Creates the PayPal order for a pack. The price is decided server-side
+   * from the pack, never sent from here. */
+  createPayPalOrder(packId: string): Observable<CreateOrderResponse> {
+    return this.http.post<CreateOrderResponse>(`${API_BASE_URL}/api/v1/billing/paypal/orders`, {
+      pack_id: packId,
+    });
+  }
+
+  /** Called from the PayPal button's onApprove -- captures the payment and
+   * credits the wallet (exactly once, even if the webhook also fires). */
+  capturePayPalOrder(orderId: string): Observable<CaptureResponse> {
+    return this.http.post<CaptureResponse>(
+      `${API_BASE_URL}/api/v1/billing/paypal/orders/${encodeURIComponent(orderId)}/capture`,
+      {}
+    );
+  }
+
+  listPurchases(): Observable<PurchaseHistoryResponse> {
+    return this.http.get<PurchaseHistoryResponse>(`${API_BASE_URL}/api/v1/billing/purchases`);
   }
 }

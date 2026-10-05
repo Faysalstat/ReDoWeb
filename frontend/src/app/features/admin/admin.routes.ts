@@ -55,6 +55,18 @@ export const ADMIN_ROUTES: Routes = [
           import('./earnings/admin-earnings.component').then((m) => m.AdminEarningsComponent),
       },
       {
+        path: 'payments',
+        loadComponent: () =>
+          import('./payments/admin-payments.component').then((m) => m.AdminPaymentsComponent),
+      },
+      {
+        path: 'tiers-pricing',
+        loadComponent: () =>
+          import('./tiers-pricing/admin-tiers-pricing.component').then((m) => m.AdminTiersPricingComponent),
+      },
+      // Credit packs now live on Tiers & pricing.
+      { path: 'credit-packs', redirectTo: 'tiers-pricing' },
+      {
         path: 'cost-gate',
         loadComponent: () =>
           import('./cost-gate/admin-cost-gate.component').then((m) => m.AdminCostGateComponent),

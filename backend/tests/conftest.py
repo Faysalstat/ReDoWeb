@@ -8,6 +8,7 @@ from app.models import (
     AIModelSetting,
     AuthIdentity,
     CostSetting,
+    CreditPack,
     CreditTransaction,
     CreditWallet,
     Purchase,
@@ -27,6 +28,9 @@ def _test_settings(monkeypatch):
     monkeypatch.setenv("REDOWEBS_GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     monkeypatch.setenv("REDOWEBS_GOOGLE_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setenv("REDOWEBS_JWT_EXPIRE_DAYS", "7")
+    # backend/.env may set REDOWEBS_PAYMENTS_MODE=mock for local testing --
+    # pin real-PayPal mode so billing tests never silently run against the mock.
+    monkeypatch.setenv("REDOWEBS_PAYMENTS_MODE", "paypal")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -45,6 +49,7 @@ def db_session():
             AuthIdentity.__table__,
             CreditWallet.__table__,
             CreditTransaction.__table__,
+            CreditPack.__table__,
             Purchase.__table__,
             Tier.__table__,
             AIModelSetting.__table__,

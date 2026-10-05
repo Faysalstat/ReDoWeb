@@ -54,6 +54,12 @@ class AdminGenerationJobSummary(BaseModel):
     total_cost_usd: float = 0.0
 
 
+class AdminPaidTier(BaseModel):
+    tier: str
+    credits: int
+    charged_at: datetime
+
+
 class AdminProjectDetailResponse(BaseModel):
     project_id: str
     source_url: str
@@ -64,3 +70,5 @@ class AdminProjectDetailResponse(BaseModel):
     created_at: datetime
     blueprint: AdminBlueprintSummary | None = None
     generation_jobs: list[AdminGenerationJobSummary]
+    # Tiers the owner paid to download, from the download_spend ledger rows.
+    paid_tiers: list[AdminPaidTier] = []

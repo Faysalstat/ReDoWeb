@@ -13,8 +13,9 @@ from ...schemas.admin.users import (
     AdminUserDetailResponse,
     AdminUserListItem,
     AdminUserListResponse,
+    AdminUserPurchase,
 )
-from ...services import admin_credits_service, admin_users_service
+from ...services import admin_credits_service, admin_users_service, billing_service
 from ...services.wallet_service import InsufficientCreditsError
 
 router = APIRouter()
@@ -67,9 +68,21 @@ def get_user_detail(user_id: str, db: Session = Depends(get_db)) -> AdminUserDet
                 reason=txn.reason,
                 related_project_id=str(txn.related_project_id) if txn.related_project_id else None,
                 related_job_id=str(txn.related_job_id) if txn.related_job_id else None,
+                related_purchase_id=str(txn.related_purchase_id) if txn.related_purchase_id else None,
                 created_at=txn.created_at,
             )
             for txn in result.ledger
+        ],
+        purchases=[
+            AdminUserPurchase(
+                id=str(p.id),
+                created_at=p.created_at,
+                credits_granted=p.credits_granted,
+                amount_usd_cents=p.amount_usd_cents,
+                status=p.status,
+                source=p.source,
+            )
+            for p in billing_service.list_user_purchases(db, result.user.id)
         ],
         projects=[
             AdminProjectListItem(

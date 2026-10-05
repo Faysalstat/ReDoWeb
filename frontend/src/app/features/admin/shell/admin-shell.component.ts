@@ -24,27 +24,29 @@ import { AuthService } from '../../../core/auth.service';
         <a class="shell-aside-link" routerLink="/admin/overview" ariaCurrentWhenActive="page" routerLinkActive="active"
           >Overview</a
         >
-        <a class="shell-aside-link" routerLink="/admin/users" ariaCurrentWhenActive="page" routerLinkActive="active">Users</a>
+        <a class="shell-aside-link" routerLink="/admin/users" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Users</a
+        >
         <a class="shell-aside-link" routerLink="/admin/projects" ariaCurrentWhenActive="page" routerLinkActive="active"
           >Projects</a
         >
-        <a class="shell-aside-link" routerLink="/admin/costs" ariaCurrentWhenActive="page" routerLinkActive="active">Costs</a>
-        <a
-          class="shell-aside-link"
-          routerLink="/admin/model-config"
-          ariaCurrentWhenActive="page"
-          routerLinkActive="active"
-          >Model config</a
-        >
-        <a
-          class="shell-aside-link"
-          routerLink="/admin/prompt-templates"
-          ariaCurrentWhenActive="page"
-          routerLinkActive="active"
-          >Prompt templates</a
+        <a class="shell-aside-link" routerLink="/admin/payments" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Payments</a
         >
         <a class="shell-aside-link" routerLink="/admin/earnings" ariaCurrentWhenActive="page" routerLinkActive="active"
           >Earnings</a
+        >
+        <a class="shell-aside-link" routerLink="/admin/tiers-pricing" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Tiers &amp; pricing</a
+        >
+        <a class="shell-aside-link" routerLink="/admin/costs" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Costs</a
+        >
+        <a class="shell-aside-link" routerLink="/admin/model-config" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Model config</a
+        >
+        <a class="shell-aside-link" routerLink="/admin/prompt-templates" ariaCurrentWhenActive="page" routerLinkActive="active"
+          >Prompt templates</a
         >
         <a class="shell-aside-link" routerLink="/admin/cost-gate" ariaCurrentWhenActive="page" routerLinkActive="active"
           >Cost gate</a

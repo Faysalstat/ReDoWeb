@@ -405,3 +405,21 @@
   color: var(--color-accent-700);
   margin: 0;
 }
+
+.gp-topup {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 2px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.gp-topup p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-neutral-700);
+  flex: 1 1 280px;
+}

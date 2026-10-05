@@ -88,6 +88,25 @@ class Settings(BaseSettings):
     generation_cost_alert_usd_default: float = 1.00
     usd_per_credit_default: float = 1.00
 
+    # PayPal (Orders v2 + JS SDK buttons) -- see docs/paypal-payments-plan.md.
+    # paypal_env picks the API host: "sandbox" for testing, "live" for real
+    # money. The client id is public by design (the frontend reads it from
+    # GET /billing/config); the secret never leaves the backend.
+    # paypal_webhook_id is the id PayPal assigns when the webhook URL is
+    # registered on the app -- signature verification needs it, and webhooks
+    # are rejected while it's empty (the browser-capture path still works).
+    paypal_client_id: str = ""
+    paypal_client_secret: str = ""
+    paypal_env: str = "sandbox"
+    paypal_webhook_id: str = ""
+    paypal_brand_name: str = "ReDoWebs"
+    paypal_timeout_seconds: float = 20.0
+    # "paypal" (default) or "mock": mock auto-approves every payment for
+    # local testing (payments/mock_gateway.py) and is ignored unless
+    # frontend_url is localhost, so it can't leak into a deployment.
+    payments_mode: str = "paypal"
+    rate_limit_checkout: str = "10/minute"
+
     class Config:
         env_prefix = "REDOWEBS_"
         env_file = ".env"

@@ -11,6 +11,11 @@ export interface AdminOverviewResponse {
   net_margin_usd_in_range: number;
   credits_outstanding: number;
   active_jobs_running: number;
+  // Payments -- PayPal only, never test or manual-adjustment rows.
+  purchases_in_range: number;
+  pending_purchases: number;
+  refunds_in_range: number;
+  paying_users: number;
 }
 
 // -- Projects (cross-user browse + detail) ----------------------------------
@@ -72,6 +77,13 @@ export interface AdminProjectDetailResponse {
   created_at: string;
   blueprint: AdminBlueprintSummary | null;
   generation_jobs: AdminGenerationJobSummary[];
+  paid_tiers: AdminPaidTier[];
+}
+
+export interface AdminPaidTier {
+  tier: string;
+  credits: number;
+  charged_at: string;
 }
 
 // -- Users --------------------------------------------------------------
@@ -99,7 +111,17 @@ export interface AdminCreditLedgerEntry {
   reason: string;
   related_project_id: string | null;
   related_job_id: string | null;
+  related_purchase_id: string | null;
   created_at: string;
+}
+
+export interface AdminUserPurchase {
+  id: string;
+  created_at: string;
+  credits_granted: number;
+  amount_usd_cents: number;
+  status: string;
+  source: string;
 }
 
 export interface AdminUserDetailResponse {
@@ -110,6 +132,7 @@ export interface AdminUserDetailResponse {
   created_at: string;
   wallet_balance: number;
   ledger: AdminCreditLedgerEntry[];
+  purchases: AdminUserPurchase[];
   projects: AdminProjectListItem[];
 }
 
@@ -206,10 +229,6 @@ export interface AdminTierModelUpdateRequest {
   generation_model: string | null;
 }
 
-export interface AdminTierActiveUpdateRequest {
-  is_active: boolean;
-}
-
 export interface AdminVisionModelResponse {
   model_name: string | null;
   effective_model_name: string;
@@ -254,7 +273,131 @@ export interface AdminCostSettingUpdateRequest {
 export interface AdminRevenueResponse {
   revenue_usd_in_range: number;
   revenue_usd_all_time: number;
-  stripe_revenue_usd_in_range: number;
+  paypal_revenue_usd_in_range: number;
   manual_revenue_usd_in_range: number;
   purchase_count_in_range: number;
+}
+
+// -- Credit packs + purchases (PayPal) -----------------------------------------
+// See docs/paypal-payments-plan.md.
+
+export interface AdminCreditPackRow {
+  id: string;
+  name: string;
+  credits: number;
+  price_usd_cents: number;
+  is_active: boolean;
+  sort_order: number;
+  updated_at: string | null;
+  updated_by_admin_id: string | null;
+}
+
+export interface AdminCreditPackListResponse {
+  items: AdminCreditPackRow[];
+}
+
+export interface AdminCreditPackCreateRequest {
+  name: string;
+  credits: number;
+  price_usd_cents: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface AdminCreditPackUpdateRequest {
+  name: string;
+  credits: number;
+  price_usd_cents: number;
+  sort_order: number;
+}
+
+// -- Payments (purchases + admin actions) -------------------------------------
+// See docs/admin-payments-plan.md.
+
+export type AdminPaymentsMode = 'mock' | 'paypal_sandbox' | 'paypal_live';
+
+export interface AdminPaymentsStatusResponse {
+  mode: AdminPaymentsMode;
+  mock_requested_but_ignored: boolean;
+  paypal_configured: boolean;
+  webhook_configured: boolean;
+}
+
+export interface AdminPurchaseRow {
+  id: string;
+  user_id: string;
+  user_email: string | null;
+  pack_name: string | null;
+  created_at: string;
+  credits_granted: number;
+  amount_usd_cents: number;
+  status: string;
+  source: string;
+  paypal_order_id: string | null;
+  paypal_capture_id: string | null;
+  note: string | null;
+  refunded_at: string | null;
+  resolved_at: string | null;
+  resolved_by_email: string | null;
+}
+
+export interface AdminPurchaseListResponse {
+  items: AdminPurchaseRow[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AdminPurchaseLedgerEntry {
+  id: string;
+  amount: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface AdminPurchaseDetailResponse {
+  purchase: AdminPurchaseRow;
+  ledger: AdminPurchaseLedgerEntry[];
+  credits_taken_back: number;
+  can_recheck: boolean;
+  can_take_back: boolean;
+  can_mark_failed: boolean;
+}
+
+export interface AdminPurchaseActionResponse {
+  status: string;
+  credits_granted: number;
+  reason: string | null;
+  marked_failed: boolean | null;
+  purchase: AdminPurchaseRow;
+}
+
+export interface AdminTakeBackResponse {
+  taken_back: number;
+  requested: number;
+  balance_after: number;
+  already_done: boolean;
+  purchase: AdminPurchaseRow;
+}
+
+// -- Tiers & pricing ---------------------------------------------------------
+
+export interface AdminTierRow {
+  key: string;
+  label: string;
+  is_active: boolean;
+  sort_order: number;
+  download_credit_cost: number;
+  updated_at: string;
+  updated_by_admin_id: string | null;
+}
+
+export interface AdminTierListResponse {
+  items: AdminTierRow[];
+}
+
+export interface AdminTierUpdateRequest {
+  label: string;
+  sort_order: number;
+  download_credit_cost: number;
 }

@@ -14,3 +14,8 @@ class AdminOverviewResponse(BaseModel):
     net_margin_usd_in_range: float
     credits_outstanding: int
     active_jobs_running: int
+    # Payments (PayPal only -- never test or manual-adjustment rows).
+    purchases_in_range: int = 0
+    pending_purchases: int = 0
+    refunds_in_range: int = 0
+    paying_users: int = 0

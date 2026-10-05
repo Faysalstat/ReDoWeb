@@ -8,11 +8,12 @@ from ...schemas.admin.projects import (
     AdminBlueprintSummary,
     AdminGenerationJobSummary,
     AdminGenerationOutputSummary,
+    AdminPaidTier,
     AdminProjectDetailResponse,
     AdminProjectListItem,
     AdminProjectListResponse,
 )
-from ...services import admin_analytics_service
+from ...services import admin_analytics_service, wallet_service
 
 router = APIRouter()
 
@@ -111,4 +112,8 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
         created_at=project.created_at,
         blueprint=blueprint_summary,
         generation_jobs=job_summaries,
+        paid_tiers=[
+            AdminPaidTier(tier=c.tier, credits=c.credits, charged_at=c.charged_at)
+            for c in wallet_service.download_charges_for_project(db, project.id)
+        ],
     )

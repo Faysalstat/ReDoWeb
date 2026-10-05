@@ -68,6 +68,10 @@ REDOWEBS_GOOGLE_CLIENT_SECRET=<client secret>
 REDOWEBS_GOOGLE_OAUTH_REDIRECT_URI=https://<backend-domain>/api/v1/auth/google/callback
 REDOWEBS_FRONTEND_URL=https://<frontend-domain>
 REDOWEBS_JWT_SECRET_KEY=<python -c "import secrets; print(secrets.token_hex(32))">
+REDOWEBS_PAYPAL_CLIENT_ID=<paypal app client id>
+REDOWEBS_PAYPAL_CLIENT_SECRET=<paypal app secret>
+REDOWEBS_PAYPAL_ENV=sandbox
+REDOWEBS_PAYPAL_WEBHOOK_ID=<id shown after registering https://<backend-domain>/api/v1/billing/paypal/webhook>
 RAILWAY_RUN_UID=0
 REDOWEBS_LOG_FORMAT=json
 ```
@@ -76,6 +80,7 @@ REDOWEBS_LOG_FORMAT=json
 - `REDOWEBS_MIN_FREE_DISK_GB`: the default (2.0) exceeds a Trial volume and would reject every submission. On Hobby (5 GB) raise to ~1.
 - `RAILWAY_RUN_UID=0`: the Dockerfile runs as non-root `appuser`, which can't write to Railway volumes otherwise.
 - `REDOWEBS_FRONTEND_URL` also drives the CORS allow-list (`main.py`).
+- `REDOWEBS_PAYPAL_*`: switch `REDOWEBS_PAYPAL_ENV` to `live` (with the live app's id/secret and a webhook registered on the live app) only when taking real money. See `docs/paypal-payments-plan.md`.
 
 Check: `https://<backend-domain>/health` → `{"status":"ok"}`.
 

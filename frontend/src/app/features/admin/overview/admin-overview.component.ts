@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { Component, OnInit, signal } from '@angular/core';
 
 import { CardComponent } from '../../../shared/ui/card/card.component';
@@ -14,7 +15,7 @@ const RANGE_PRESETS = [7, 30, 90] as const;
 @Component({
   selector: 'app-admin-overview',
   standalone: true,
-  imports: [CardComponent, StatTileComponent, SpinnerComponent],
+  imports: [RouterLink, CardComponent, StatTileComponent, SpinnerComponent],
   templateUrl: './admin-overview.component.html',
 })
 export class AdminOverviewComponent implements OnInit {
