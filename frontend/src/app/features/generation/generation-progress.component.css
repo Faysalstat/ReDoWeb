@@ -423,3 +423,30 @@
   color: var(--color-neutral-700);
   flex: 1 1 280px;
 }
+
+/* — post-purchase actions: Download / Generate all pages / Run SEO — */
+.gp-actions{margin-top:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--color-neutral-200);border-radius:12px;display:flex;flex-direction:column;gap:var(--space-3)}
+.gp-actions.is-locked{border-style:dashed;background:color-mix(in srgb,var(--color-neutral-200) 35%,transparent)}
+.gp-actions__head,.gp-actions__row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);font-size:13px}
+.gp-actions__row{align-items:flex-start}
+.gp-actions__title,.gp-actions__badge,.gp-actions__row button{display:inline-flex;align-items:center;gap:6px}
+.gp-actions__title,.gp-actions__badge{font-weight:700}
+.gp-actions__title,.gp-actions__caption,.gp-action__hint{color:var(--color-neutral-700)}
+.gp-actions__badge{color:var(--color-success)}
+.gp-action{display:flex;flex-direction:column;gap:4px}
+.gp-action__hint,.gp-action__error{margin:0;font-size:12px;max-width:280px}
+.gp-action__error{color:var(--color-danger)}
+.gp-spinner{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:gp-spin .8s linear infinite}
+@keyframes gp-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.gp-spinner{animation:none;opacity:.6}}
+.gp-run{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-neutral-700)}
+.gp-run__head{display:flex;justify-content:space-between;gap:var(--space-3)}
+.gp-run__bar{height:6px;border-radius:999px;background:var(--color-neutral-200);overflow:hidden}
+.gp-run__bar span{display:block;height:100%;background:var(--color-accent);transition:width .4s ease}
+.gp-run__detail{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-run--log summary{cursor:pointer;font-weight:600}
+.gp-run__steps,.gp-run__activity{margin:6px 0 0;padding-left:18px;display:grid;gap:2px}
+.gp-run__steps .is-done::marker{content:'✓  '}
+.gp-run__steps .is-failed,.gp-run__activity .is-error{color:var(--color-danger)}
+.gp-run__activity .is-warning{color:var(--color-accent-2-800)}
+@media (prefers-reduced-motion:reduce){.gp-run__bar span{transition:none}}

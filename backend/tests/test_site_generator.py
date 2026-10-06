@@ -64,9 +64,35 @@ def test_page_output_filename_home_page_is_index_html():
     assert site_generator._page_output_filename(0, "https://example.com/") == "index.html"
 
 
-def test_page_output_filename_other_pages_use_position_based_name():
-    assert site_generator._page_output_filename(1, "https://example.com/about") == "page-1.html"
-    assert site_generator._page_output_filename(4, "https://example.com/contact") == "page-4.html"
+def test_page_output_filename_other_pages_use_url_slug():
+    assert site_generator._page_output_filename(1, "https://example.com/about") == "about.html"
+    assert site_generator._page_output_filename(4, "https://example.com/contact-us/") == "contact-us.html"
+    assert site_generator._page_output_filename(2, "https://example.com/services/web-design") == "services-web-design.html"
+    assert site_generator._page_output_filename(3, "https://example.com/About%20Us.php") == "about-us.html"
+
+
+def test_page_output_filename_falls_back_to_position_name_when_no_usable_slug():
+    assert site_generator._page_output_filename(1, "https://example.com/?page_id=12") == "page-1.html"
+    assert site_generator._page_output_filename(2, "https://example.com/index.html") == "page-2.html"
+    assert site_generator._page_output_filename(3, "https://example.com/%20/--/") == "page-3.html"
+
+
+def test_page_output_filename_never_emits_path_traversal_or_unsafe_chars():
+    name = site_generator._page_output_filename(1, "https://example.com/../../etc/passwd")
+    assert name == "etc-passwd.html"
+    assert "/" not in name and "\\" not in name
+
+
+def test_page_output_filenames_disambiguates_collisions_in_crawl_order():
+    names = site_generator._page_output_filenames(
+        [
+            "https://example.com/",
+            "https://example.com/about/",
+            "https://example.com/about",
+            "https://example.com/ABOUT.html",
+        ]
+    )
+    assert names == ["index.html", "about.html", "about-2.html", "about-3.html"]
 
 
 # --- _run_agent_loop: premature-stop regression --------------------------
@@ -390,3 +416,50 @@ def test_generate_full_site_precopies_preview_files_byte_identical(tmp_path, mon
     full_dir = project_root / "generated" / "pro" / "full"
     assert full_dir.joinpath("index.html").read_text(encoding="utf-8") == "<html>home</html>"
     assert full_dir.joinpath("style.css").read_text(encoding="utf-8") == "body{color:red}"
+
+
+# --- _run_agent_loop: on_event progress hook ------------------------------
+
+
+def test_run_agent_loop_emits_iteration_and_tool_events(tmp_path, monkeypatch):
+    _stub_two_file_success(monkeypatch)
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    events: list[dict] = []
+
+    site_generator._run_agent_loop(
+        site_generator.get_settings(),
+        "test-model",
+        "system",
+        "user",
+        make_tool_dispatch(output_dir),
+        trace_path=output_dir / "_debug_trace.json",
+        on_event=events.append,
+    )
+
+    assert [e["type"] for e in events] == ["iteration", "tool", "tool", "iteration"]
+    tool_events = [e for e in events if e["type"] == "tool"]
+    assert [e["args"]["path"] for e in tool_events] == ["index.html", "style.css"]
+    assert all(e["ok"] for e in tool_events)
+
+
+def test_run_agent_loop_survives_a_crashing_on_event_callback(tmp_path, monkeypatch):
+    _stub_two_file_success(monkeypatch)
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    def broken(event):
+        raise RuntimeError("progress tracking bug")
+
+    summary, _usage, _iterations = site_generator._run_agent_loop(
+        site_generator.get_settings(),
+        "test-model",
+        "system",
+        "user",
+        make_tool_dispatch(output_dir),
+        trace_path=output_dir / "_debug_trace.json",
+        on_event=broken,
+    )
+
+    assert summary == "Done."
+    assert (output_dir / "index.html").exists()

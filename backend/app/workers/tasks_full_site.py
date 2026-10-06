@@ -10,7 +10,7 @@ from ..ai.errors import GenerationError
 from ..ai.site_generator import generate_full_site
 from ..config import get_settings
 from ..db.session import SessionLocal
-from ..models import Blueprint, GenerationJob, GenerationOutput, Project
+from ..models import Blueprint, GenerationJob, GenerationOutput, Project, TokenUsageLog
 from ..services import model_config_service, token_usage_service
 from ..services.blueprint_service import build_blueprint_row
 from ..services.preview_service import build_preview_url_path
@@ -29,6 +29,16 @@ def _merge_full_blueprint(
     merged = home_blueprint.model_copy(deep=True)
     merged.pages = home_blueprint.pages + remaining_reviewed.pages
     return merged
+
+
+def _preview_generation_model(db, preview_job_id: uuid.UUID) -> str | None:
+    row = (
+        db.query(TokenUsageLog.model_name)
+        .filter(TokenUsageLog.job_id == preview_job_id, TokenUsageLog.purpose == "generation")
+        .order_by(TokenUsageLog.created_at.desc())
+        .first()
+    )
+    return row[0] if row else None
 
 
 def generate_full_site_task(project_id: str, tier: str, job_id: str) -> dict:
@@ -151,7 +161,14 @@ def generate_full_site_task(project_id: str, tier: str, job_id: str) -> dict:
             if preview_job is None or preview_job.output is None:
                 raise GenerationError(f"No succeeded preview generation found for tier '{tier}'")
 
-            generation_model = model_config_service.get_generation_model(tier, db)
+            # D6: build the remaining pages with the SAME model that built
+            # the shown home page -- an admin may have switched the tier's
+            # model since, and a different model reads the same template
+            # differently. Falls back to the tier's current model when the
+            # preview's usage row is missing.
+            generation_model = _preview_generation_model(db, preview_job.id) or (
+                model_config_service.get_generation_model(tier, db)
+            )
             result = generate_full_site(
                 project_root,
                 tier,
@@ -181,6 +198,7 @@ def generate_full_site_task(project_id: str, tier: str, job_id: str) -> dict:
                 og_tags_added=postprocess["og_tags_added"],
                 reveal_visibility_fixes=postprocess["reveal_visibility_fixes"],
                 sitemap_written=postprocess["sitemap_written"],
+                consistency_report=result.get("consistency"),
             )
         )
         token_usage_service.record_usage(

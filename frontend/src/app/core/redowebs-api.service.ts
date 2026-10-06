@@ -10,8 +10,7 @@ import {
   CreateOrderResponse,
   CreditPackListResponse,
   CrawlResponse,
-  DownloadStartResponse,
-  DownloadStatusResponse,
+  ActionStartResponse,
   GenerationApprovalResponse,
   GenerationResponse,
   ProjectListItem,
@@ -19,6 +18,7 @@ import {
   ProjectSubmitResponse,
   PublicTierListResponse,
   PurchaseHistoryResponse,
+  PurchaseResponse,
   TierRetryResponse,
   WalletResponse,
 } from './redowebs-api.models';
@@ -92,22 +92,36 @@ export class RedoWebsApiService {
     return this.http.get<WalletResponse>(`${API_BASE_URL}/api/v1/credits/wallet`);
   }
 
-  /** Charges the tier's download cost (idempotent per project+tier) and,
-   * for a multi-page project without a cached full-site build yet, kicks
-   * off one and returns status: "building" instead of "ready". */
-  startDownload(projectId: string, tier: string): Observable<DownloadStartResponse> {
-    return this.http.post<DownloadStartResponse>(
-      `${API_BASE_URL}/api/v1/projects/${projectId}/download?tier=${tier}`,
+  /** Buys a tier's design (charges its credit cost once per project+tier;
+   * buying again is free). Unlocks Download, Generate all pages and, on
+   * Pro/Premium, Run SEO. Starts nothing by itself. */
+  purchaseTier(projectId: string, tier: string): Observable<PurchaseResponse> {
+    return this.http.post<PurchaseResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/purchase?tier=${encodeURIComponent(tier)}`,
       {}
     );
   }
 
-  getDownloadStatus(projectId: string, tier: string): Observable<DownloadStatusResponse> {
-    return this.http.get<DownloadStatusResponse>(
-      `${API_BASE_URL}/api/v1/projects/${projectId}/download-status?tier=${tier}`
+  /** "Generate all pages" -- builds the rest of a multi-page site in the
+   * preview's design. Purchase required; once per purchase. */
+  startFullSite(projectId: string, tier: string): Observable<ActionStartResponse> {
+    return this.http.post<ActionStartResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/full-site?tier=${encodeURIComponent(tier)}`,
+      {}
     );
   }
 
+  /** "Run SEO agent" (Pro/Premium) -- on a multi-page site only after all
+   * pages are generated. Purchase required; once per purchase. */
+  startSeo(projectId: string, tier: string): Observable<ActionStartResponse> {
+    return this.http.post<ActionStartResponse>(
+      `${API_BASE_URL}/api/v1/projects/${projectId}/seo?tier=${encodeURIComponent(tier)}`,
+      {}
+    );
+  }
+
+  /** The best finished output right now (SEO version, then all pages, then
+   * the home-page preview). Purchase required. */
   downloadFile(projectId: string, tier: string): Observable<Blob> {
     return this.http.get(`${API_BASE_URL}/api/v1/projects/${projectId}/download-file?tier=${tier}`, {
       responseType: 'blob',

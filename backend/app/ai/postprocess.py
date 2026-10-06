@@ -12,11 +12,13 @@ a content decision), and writes sitemap.xml.
 
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml
 from bs4 import BeautifulSoup
 
 FALLBACK_ALT = "Image"
+PLACEHOLDER_ORIGIN = "https://REPLACE-WITH-YOUR-DOMAIN.com"
 
 # Real failure mode seen 2026-09-16: the agent writes JS that adds a class
 # to reveal a scroll-triggered element (classList.add('is-visible')) but
@@ -45,7 +47,30 @@ def parse_frontmatter(design_md: str) -> dict:
         return {}
 
 
-def postprocess_output(output_dir: Path, frontmatter: dict) -> dict:
+def site_origin_from_url(source_url: str | None) -> str | None:
+    """The redesign replaces the site the user submitted, so its domain is
+    the real production origin for sitemap/canonical/og:url. Always https
+    (the generated site should be served over HTTPS regardless of what the
+    old one used). None when there's no usable host."""
+    if not source_url:
+        return None
+    try:
+        netloc = urlsplit(source_url.strip()).netloc
+    except ValueError:
+        return None
+    netloc = netloc.rsplit("@", 1)[-1].lower()
+    if not netloc or "." not in netloc or any(c.isspace() for c in netloc):
+        return None
+    return f"https://{netloc}"
+
+
+def page_url(site_origin: str | None, filename: str) -> str:
+    """Absolute public URL for a generated page -- index.html is the site root."""
+    origin = site_origin or PLACEHOLDER_ORIGIN
+    return f"{origin}/" if filename == "index.html" else f"{origin}/{filename}"
+
+
+def postprocess_output(output_dir: Path, frontmatter: dict, site_origin: str | None = None) -> dict:
     html_files = sorted(output_dir.glob("*.html"))
     report = {
         "alt_text_added": [],
@@ -67,7 +92,7 @@ def postprocess_output(output_dir: Path, frontmatter: dict) -> dict:
                 report["alt_text_added"].append(f"{html_path.name}: {img.get('src')} -> {fallback}")
                 changed = True
 
-        if _inject_og_tags(soup, frontmatter, html_path.name):
+        if _inject_og_tags(soup, frontmatter, html_path.name, site_origin):
             report["og_tags_added"].append(html_path.name)
             changed = True
 
@@ -77,7 +102,7 @@ def postprocess_output(output_dir: Path, frontmatter: dict) -> dict:
     report["contrast_warnings"] = _check_contrast(frontmatter)
     report["reveal_visibility_fixes"] = _fix_reveal_visibility_gaps(output_dir)
 
-    _write_sitemap(output_dir, html_files)
+    _write_sitemap(output_dir, html_files, site_origin)
     report["sitemap_written"] = True
 
     return report
@@ -92,7 +117,9 @@ def _fallback_alt_text(src: str) -> str:
     return text.title() if text else FALLBACK_ALT
 
 
-def _inject_og_tags(soup: BeautifulSoup, frontmatter: dict, page_filename: str) -> bool:
+def _inject_og_tags(
+    soup: BeautifulSoup, frontmatter: dict, page_filename: str, site_origin: str | None = None
+) -> bool:
     head = soup.find("head")
     if head is None:
         return False
@@ -108,11 +135,13 @@ def _inject_og_tags(soup: BeautifulSoup, frontmatter: dict, page_filename: str) 
     # basename under its own local images/ folder (see _copy_images).
     raw_logo_path = frontmatter.get("logo")
     logo_path = f"images/{Path(raw_logo_path).name}" if raw_logo_path else None
+    if logo_path and site_origin:
+        logo_path = f"{site_origin}/{logo_path}"
 
     og_pairs = [("og:type", "website"), ("og:title", title_text), ("og:description", description_text)]
     if logo_path:
         og_pairs.append(("og:image", logo_path))
-    og_pairs.append(("og:url", page_filename))
+    og_pairs.append(("og:url", page_url(site_origin, page_filename) if site_origin else page_filename))
 
     added_any = False
     for prop, content in og_pairs:
@@ -258,10 +287,11 @@ def _fix_reveal_visibility_gaps(output_dir: Path) -> list[str]:
     return fixes
 
 
-def _write_sitemap(output_dir: Path, html_files: list[Path]) -> None:
-    urls = "\n".join(
-        f"  <url><loc>https://REPLACE-WITH-YOUR-DOMAIN.com/{p.name}</loc></url>" for p in html_files
-    )
+def _write_sitemap(output_dir: Path, html_files: list[Path], site_origin: str | None = None) -> None:
+    """Uses the real domain the user submitted when known (site_origin);
+    the placeholder is only a fallback for projects with no usable
+    source_url."""
+    urls = "\n".join(f"  <url><loc>{page_url(site_origin, p.name)}</loc></url>" for p in html_files)
     sitemap = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

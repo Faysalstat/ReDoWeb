@@ -52,6 +52,10 @@ class AdminGenerationJobSummary(BaseModel):
     # reflect the *current* config and can drift after this job ran.
     models_used: list[str] = []
     total_cost_usd: float = 0.0
+    # Full step checklist + activity log (incl. debug entries: raw errors,
+    # tokens/cost, per-page audit findings) -- see services/job_progress.py.
+    # Currently written by SEO jobs only.
+    progress: dict | None = None
 
 
 class AdminPaidTier(BaseModel):

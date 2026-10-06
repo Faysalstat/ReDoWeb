@@ -12,21 +12,31 @@ from ..config import get_settings
 # shipped, per PRD FR9). Matched against each file's name, at any depth.
 EXCLUDED_NAME_PATTERNS = ("_debug_trace*.json", "blueprint.json")
 
+# Sibling build outputs that live INSIDE the preview output directory
+# (generated/{tier}/full/, generated/{tier}/seo/) -- zipping the preview
+# must never pick them up, finished or half-built (Download stays enabled
+# while those builds run). See docs/seo-agent-and-buy-flow-plan.md.
+NESTED_OUTPUT_DIRS = ("full", "seo")
+
 
 def is_excluded(name: str) -> bool:
     return any(fnmatch.fnmatch(name, pattern) for pattern in EXCLUDED_NAME_PATTERNS)
 
 
-def write_site_zip(output_dir: Path, archive_path: Path) -> Path:
-    """Zips `output_dir` into `archive_path`, skipping internal artifacts.
-    Written to a temp file then atomically renamed, so two concurrent
-    downloads of the same tier never serve a half-written archive."""
+def write_site_zip(output_dir: Path, archive_path: Path, excluded_dirs: tuple[str, ...] = ()) -> Path:
+    """Zips `output_dir` into `archive_path`, skipping internal artifacts and
+    any top-level subdirectory named in `excluded_dirs`. Written to a temp
+    file then atomically renamed, so two concurrent downloads of the same
+    tier never serve a half-written archive."""
     tmp_path = archive_path.with_name(f".{archive_path.name}.{uuid.uuid4().hex}.tmp")
     try:
         with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(output_dir.rglob("*")):
+                rel = path.relative_to(output_dir)
+                if len(rel.parts) > 1 and rel.parts[0] in excluded_dirs:
+                    continue
                 if path.is_file() and not is_excluded(path.name):
-                    archive.write(path, path.relative_to(output_dir).as_posix())
+                    archive.write(path, rel.as_posix())
         os.replace(tmp_path, archive_path)
     finally:
         if tmp_path.exists():
@@ -45,4 +55,4 @@ def build_download_zip(project_id: str, tier_key: str, output_storage_path: str)
     output_dir = project_root / output_storage_path
     downloads_dir = project_root / "downloads"
     downloads_dir.mkdir(parents=True, exist_ok=True)
-    return write_site_zip(output_dir, downloads_dir / f"{tier_key}.zip")
+    return write_site_zip(output_dir, downloads_dir / f"{tier_key}.zip", excluded_dirs=NESTED_OUTPUT_DIRS)

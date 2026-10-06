@@ -99,6 +99,7 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
                 ),
                 models_used=usage.models_used if usage is not None else [],
                 total_cost_usd=usage.total_cost_usd if usage is not None else 0.0,
+                progress=job.progress,
             )
         )
 

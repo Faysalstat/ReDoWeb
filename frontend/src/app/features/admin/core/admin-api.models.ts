@@ -1,3 +1,5 @@
+import { JobProgress } from '../../../core/redowebs-api.models';
+
 export interface AdminOverviewResponse {
   users_total: number;
   users_new_in_range: number;
@@ -65,6 +67,9 @@ export interface AdminGenerationJobSummary {
   output: AdminGenerationOutputSummary | null;
   models_used: string[];
   total_cost_usd: number;
+  /** Full step checklist + activity log, debug entries included (raw
+   * errors, tokens/cost, per-page audit findings). SEO jobs only so far. */
+  progress?: JobProgress | null;
 }
 
 export interface AdminProjectDetailResponse {

@@ -1,18 +1,28 @@
 import hashlib
 import json
 import random
+import re
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from ..config import get_settings
 from ..services import tier_service
 from .blueprint_legacy_compat import render_design_md_compat
 from .blueprint_schema import BlueprintDocument
-from .errors import GenerationError, OpenRouterError
+from .errors import GenerationError, IterationLimitError, OpenRouterError
 from .generation_tools import TOOL_SCHEMAS, make_tool_dispatch
 from .openrouter_client import chat_completion
-from .postprocess import parse_frontmatter, postprocess_output
+from .postprocess import parse_frontmatter, postprocess_output, site_origin_from_url
+from .site_consistency import (
+    enforce_shared_head,
+    guard_appended_css,
+    rewrite_internal_links,
+    shared_shell_excerpt,
+    sync_site_chrome,
+)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
@@ -36,8 +46,9 @@ FULL_SITE_TECH_CONSTRAINTS = """
 
 IMPORTANT project-specific constraints (these override anything above that conflicts):
 - There is no existing codebase and no build tooling. Do NOT scaffold React, Next.js, Vue, or any framework/bundler.
-- index.html and style.css already exist in this output directory and are the LIVE, already-generated, already-shown-to-the-user home page and design system -- copied here verbatim. index.html is READ-ONLY: calling write_file on it will fail with an error and do nothing. style.css is APPEND-ONLY: calling write_file on it never replaces its contents, it only adds your new content to the end -- so never re-paste the whole stylesheet, only write the new rules a new page actually needs beyond what's already there (new component classes, never edits to existing colors/fonts/spacing/layout rules).
-- Build every other page listed in the user message below (NOT the home page, which is already done) as its own .html file, using the exact filename given for each. Every page's <head>, nav, and footer must match index.html's exactly, so read index.html first with read_file before writing anything, and reuse its markup structure/classes so the whole site looks like one consistent design.
+- index.html, style.css (and script.js / any other asset files, when the home page has them) already exist in this output directory and are the LIVE, already-generated, already-shown-to-the-user home page and design system -- copied here verbatim. index.html is READ-ONLY: calling write_file on it will fail with an error and do nothing. style.css, script.js and every other existing .css/.js file are APPEND-ONLY: calling write_file on them never replaces their contents, it only adds your new content to the end -- so never re-paste a whole file, only write what a new page actually needs beyond what's already there.
+- New CSS rules must use NEW component class names only. Rules that target bare elements (body, h1, a, section, ...), :root, *, or any selector already defined in style.css are automatically removed after this run -- they would change the look of the existing pages.
+- Build every other page listed in the user message below (NOT the home page, which is already done) as its own .html file, using the exact filename given for each. Every page's <head> assets, nav/header, and footer must match index.html's exactly -- the user message includes them verbatim; copy them as-is, then reuse index.html's markup structure/classes for the page body so the whole site looks like one consistent design.
 - You may use Tailwind CSS via its CDN script tag, Bootstrap via its CDN link, or hand-written CSS in style.css -- whichever index.html already uses (match it, don't introduce a second approach).
 - An images/ folder already exists in the output directory with the site's real logo and photos, downloaded from the original site. Do not invent placeholder images -- reference only the exact filenames listed in the user message.
 - There is no user to ask questions of -- the content below is your complete brief; just build the pages.
@@ -157,6 +168,8 @@ def generate_site(
 
     metadata = json.loads((project_root / "metadata.json").read_text(encoding="utf-8"))
     assets = metadata.get("assets") or []
+    # The real domain the user submitted -- see postprocess.site_origin_from_url.
+    site_origin = site_origin_from_url(metadata.get("source_url"))
 
     settings = get_settings()
     generation_model = generation_model or settings.generation_model
@@ -186,7 +199,7 @@ def generate_site(
         settings, generation_model, system_prompt, user_message, dispatch, trace_path=trace_path
     )
 
-    postprocess_report = postprocess_output(output_dir, frontmatter)
+    postprocess_report = postprocess_output(output_dir, frontmatter, site_origin=site_origin)
 
     written_files = sorted(
         p.relative_to(output_dir).as_posix() for p in output_dir.rglob("*") if p.is_file()
@@ -202,17 +215,52 @@ def generate_site(
         "usage": total_usage,
         "iterations": iterations_used,
         "model": generation_model,
+        "site_origin": site_origin,
     }
+
+
+_SLUG_UNSAFE_RE = re.compile(r"[^a-z0-9]+")
+_RESERVED_SLUGS = {"index", "sitemap", "robots", "llms", "style", "script"}
 
 
 def _page_output_filename(index: int, page_url: str) -> str:
     """index 0 -> "index.html" (the already-generated, locked home page);
-    index N>0 -> "page-{N}.html", mirroring crawl_service.py's own
-    index/page-{n} snapshot naming convention rather than a URL-slugify
-    scheme. `page_url` isn't used in the filename itself (kept in the
-    signature since callers already have it and it documents which page
-    each call is for)."""
-    return "index.html" if index == 0 else f"page-{index}.html"
+    index N>0 -> a clean, SEO-friendly slug from the crawled URL's path
+    ("https://x.com/about-us/" -> "about-us.html", "/services/web" ->
+    "services-web.html"). Only [a-z0-9-] ever reaches the filename, so a
+    hostile crawled URL can't produce a path-traversal or odd filename;
+    falls back to "page-{N}.html" when the path yields no usable slug.
+    Collisions between pages are resolved by _page_output_filenames."""
+    if index == 0:
+        return "index.html"
+    try:
+        path = unquote(urlsplit(page_url).path)
+    except ValueError:
+        path = ""
+    path = re.sub(r"\.(html?|php|aspx?|jsp)$", "", path.strip("/"), flags=re.IGNORECASE)
+    slug = _SLUG_UNSAFE_RE.sub("-", path.lower()).strip("-")[:60].strip("-")
+    if not slug or slug in _RESERVED_SLUGS:
+        return f"page-{index}.html"
+    return f"{slug}.html"
+
+
+def _page_output_filenames(page_urls: list[str]) -> list[str]:
+    """_page_output_filename for every page, with collisions (two crawled
+    URLs slugging to the same name) disambiguated by a -2/-3 suffix in crawl
+    order."""
+    used: set[str] = set()
+    names: list[str] = []
+    for index, url in enumerate(page_urls):
+        name = _page_output_filename(index, url)
+        if name in used:
+            stem = name[: -len(".html")]
+            n = 2
+            while f"{stem}-{n}.html" in used:
+                n += 1
+            name = f"{stem}-{n}.html"
+        used.add(name)
+        names.append(name)
+    return names
 
 
 def _build_full_site_batch_message(
@@ -220,10 +268,19 @@ def _build_full_site_batch_message(
     filename_map: str,
     batch_filenames: list[str],
     image_names: list[str],
+    shared_shell: str = "",
 ) -> str:
     image_list = "\n".join(f"- images/{name}" for name in image_names) or "(no images available)"
     pages_list = "\n".join(f"- {name}" for name in batch_filenames)
+    shell_block = (
+        "Shared markup from index.html that EVERY page must reuse exactly "
+        "(head assets, nav/header, footer):\n"
+        f"{shared_shell}\n\n"
+        if shared_shell
+        else ""
+    )
     return (
+        f"{shell_block}"
         "Full site page -> filename map (use this for every nav link you "
         "write, including links to pages outside this batch -- they'll be "
         "built in a later batch but must still be linked correctly now):\n"
@@ -262,13 +319,18 @@ def generate_full_site(
     built with the same design-strategy prompt as the already-shown home
     page.
 
-    Style continuity is enforced twice: physically, by copying the
-    preview's actual index.html/style.css into the new output directory
-    before generation starts, and at the tool layer, by making index.html
-    unwritable and style.css append-only for the whole run (see
-    generation_tools.make_tool_dispatch's locked_files/append_only_files) --
-    the system prompt's wording (FULL_SITE_TECH_CONSTRAINTS) explains this
-    to the model, it doesn't rely on the model obeying it voluntarily.
+    Style continuity is enforced in layers (see
+    docs/seo-agent-and-buy-flow-plan.md, "Design consistency", D1-D6):
+    physically, by copying every preview file (index.html, style.css,
+    script.js, ...) into the new output directory before generation starts;
+    at the tool layer, by making index.html unwritable and every copied
+    .css/.js append-only (generation_tools.make_tool_dispatch's
+    locked_files/append_only_files); in the prompt, by handing each batch
+    index.html's head assets + nav/footer verbatim (shared_shell_excerpt);
+    and afterwards, by site_consistency's deterministic guards (local link
+    rewrite, shared head assets, nav/footer sync, appended-CSS guard).
+    The system prompt (FULL_SITE_TECH_CONSTRAINTS) explains this to the
+    model, but nothing relies on the model obeying it voluntarily.
 
     Generated in batches of FULL_SITE_PAGES_PER_BATCH pages per agent-loop
     call, not one call for every remaining page -- a full ~19-page crawl's
@@ -299,6 +361,8 @@ def generate_full_site(
 
     metadata = json.loads((project_root / "metadata.json").read_text(encoding="utf-8"))
     assets = metadata.get("assets") or []
+    # The real domain the user submitted -- see postprocess.site_origin_from_url.
+    site_origin = site_origin_from_url(metadata.get("source_url"))
 
     settings = get_settings()
     generation_model = generation_model or settings.generation_model
@@ -309,12 +373,21 @@ def generate_full_site(
         _rmtree_with_retry(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for name in ("index.html", "style.css"):
-        src = preview_dir / name
-        if src.exists():
-            (output_dir / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    copied_files = _copy_preview_files(preview_dir, output_dir)
     if not (output_dir / "index.html").exists():
         raise GenerationError("No preview index.html found on disk to anchor the full-site design to")
+    # D1: every copied stylesheet/script is append-only (so the home page's
+    # own CSS/JS can never be replaced), every other copied file (index.html,
+    # favicon, ...) is locked outright.
+    append_only_files = {name for name in copied_files if name.lower().endswith((".css", ".js"))}
+    append_only_files |= {"style.css", "script.js"}
+    locked_files = {name for name in copied_files if name not in append_only_files} | {"index.html"}
+    original_stylesheets = {
+        name: (output_dir / name).read_text(encoding="utf-8")
+        for name in copied_files
+        if name.lower().endswith(".css")
+    }
+    shared_shell = shared_shell_excerpt((output_dir / "index.html").read_text(encoding="utf-8"))
 
     image_names = _copy_images(project_root, output_dir, assets)
     (output_dir / "design.md").write_text(design_md, encoding="utf-8")
@@ -326,12 +399,12 @@ def generate_full_site(
     system_prompt = template_path.read_text(encoding="utf-8") + FULL_SITE_TECH_CONSTRAINTS
     strategy_used = template_path.name
 
-    page_filenames = [_page_output_filename(i, page.page_url) for i, page in enumerate(blueprint.pages)]
+    page_filenames = _page_output_filenames([page.page_url for page in blueprint.pages])
     filename_map = "\n".join(
         f"- {page.page_url} -> {filename}" for page, filename in zip(blueprint.pages, page_filenames)
     )
 
-    dispatch = make_tool_dispatch(output_dir, locked_files={"index.html"}, append_only_files={"style.css"})
+    dispatch = make_tool_dispatch(output_dir, locked_files=locked_files, append_only_files=append_only_files)
 
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
     total_iterations = 0
@@ -353,7 +426,9 @@ def generate_full_site(
         batch_design_md = render_design_md_compat(batch_doc)
         batch_filenames = [page_filenames[i] for i in batch_indices]
 
-        user_message = _build_full_site_batch_message(batch_design_md, filename_map, batch_filenames, image_names)
+        user_message = _build_full_site_batch_message(
+            batch_design_md, filename_map, batch_filenames, image_names, shared_shell
+        )
 
         trace_path = output_dir / f"_debug_trace_batch_{batch_number}.json"
         summary_text, batch_usage, batch_iterations = _run_agent_loop(
@@ -370,7 +445,24 @@ def generate_full_site(
         total_iterations += batch_iterations
         last_summary = summary_text
 
-    postprocess_report = postprocess_output(output_dir, frontmatter)
+    # Deterministic design-consistency pass (docs/seo-agent-and-buy-flow-plan.md,
+    # D2/D4/D5 + breakage item 5a). Order matters: links are rewritten first
+    # so the nav/footer copied by sync_site_chrome already points at the
+    # local pages.
+    consistency_report = {
+        "links_rewritten": rewrite_internal_links(
+            output_dir, [page.page_url for page in blueprint.pages], page_filenames
+        ),
+        "head_assets_added": enforce_shared_head(output_dir),
+        "chrome_synced": sync_site_chrome(output_dir),
+        "css_rules_stripped": [
+            change
+            for name, original in original_stylesheets.items()
+            for change in guard_appended_css(output_dir / name, original)
+        ],
+    }
+
+    postprocess_report = postprocess_output(output_dir, frontmatter, site_origin=site_origin)
     written_files = sorted(p.relative_to(output_dir).as_posix() for p in output_dir.rglob("*") if p.is_file())
 
     return {
@@ -383,10 +475,76 @@ def generate_full_site(
         "usage": total_usage,
         "iterations": total_iterations,
         "model": generation_model,
+        "site_origin": site_origin,
+        "consistency": consistency_report,
     }
 
 
-def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> None:
+# Preview-output entries that are never copied into full/ -- sibling build
+# outputs, the separately-copied images folder, and files generate_full_site
+# rewrites itself (design.md/blueprint.json) or regenerates (sitemap.xml).
+_PREVIEW_COPY_SKIP_DIRS = {"full", "seo", "images"}
+_PREVIEW_COPY_SKIP_FILES = {"design.md", "blueprint.json", "sitemap.xml"}
+
+
+def _copy_preview_files(preview_dir: Path, output_dir: Path) -> list[str]:
+    """D1: copies EVERY file the preview run produced (index.html,
+    style.css, script.js, any extra CSS/JS/favicon) byte-for-byte into
+    full/, not just index.html + style.css -- otherwise a page referencing
+    script.js 404s, or the agent writes a new script.js that index.html then
+    loads, changing the home page's behavior. Returns the copied files'
+    relative posix paths."""
+    copied: list[str] = []
+    if not preview_dir.exists():
+        return copied
+    for src in sorted(preview_dir.rglob("*")):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(preview_dir)
+        if len(rel.parts) > 1 and rel.parts[0] in _PREVIEW_COPY_SKIP_DIRS:
+            continue
+        if rel.name in _PREVIEW_COPY_SKIP_FILES or rel.name.startswith("_debug_trace"):
+            continue
+        dest = output_dir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(src.read_bytes())
+        copied.append(rel.as_posix())
+    return copied
+
+
+# Read-style tools whose latest result per path can be kept in context
+# (keep_latest_reads) -- see _compact_resolved_tool_turns.
+_READ_TOOLS = ("read_file", "get_page_outline")
+
+
+def _latest_read_message_ids(messages: list[dict], before_index: int) -> set[int]:
+    """id()s of the most recent read_file/get_page_outline result message
+    for each path in messages[:before_index]."""
+    call_paths: dict[str, str] = {}
+    for message in messages[:before_index]:
+        if message.get("role") != "assistant":
+            continue
+        for call in message.get("tool_calls") or []:
+            fn = call.get("function") or {}
+            if fn.get("name") not in _READ_TOOLS:
+                continue
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(args, dict) and args.get("path"):
+                key = f"{fn['name']}:{str(args['path']).lstrip('./')}"
+                call_paths[call.get("id")] = key
+    latest: dict[str, int] = {}
+    for message in messages[:before_index]:
+        if message.get("role") == "tool" and message.get("tool_call_id") in call_paths:
+            latest[call_paths[message["tool_call_id"]]] = id(message)
+    return set(latest.values())
+
+
+def _compact_resolved_tool_turns(
+    messages: list[dict], before_index: int, keep_latest_reads: bool = False
+) -> None:
     """Shrinks large read_file/list_files results in messages[:before_index]
     down to short summaries, in place, leaving assistant tool_calls
     (including write_file's) completely untouched.
@@ -409,8 +567,14 @@ def _compact_resolved_tool_turns(messages: list[dict], before_index: int) -> Non
     immediately after them -- required by the OpenAI-style tool-calling
     wire format this loop speaks to OpenRouter.
     """
+    # keep_latest_reads: an edit-in-place agent (the SEO pass) has to quote
+    # the current file text exactly, so the most recent read of each file
+    # stays verbatim; only superseded reads are compacted. Seen 2026-10-06:
+    # with every read compacted, the model re-read a 37 KB page six times
+    # and still wrote every edit from memory, so none of them matched.
+    keep = _latest_read_message_ids(messages, before_index) if keep_latest_reads else set()
     for message in messages[:before_index]:
-        if message.get("role") != "tool":
+        if message.get("role") != "tool" or id(message) in keep:
             continue
         content = message.get("content") or ""
         if len(content) > 300 and not content.startswith("(compacted"):
@@ -448,7 +612,25 @@ def _run_agent_loop(
     dispatch: dict,
     trace_path: Path | None = None,
     required_files: tuple[str, ...] = REQUIRED_OUTPUT_FILES,
+    tool_schemas: list[dict] = TOOL_SCHEMAS,
+    on_event: Callable[[dict], None] | None = None,
+    keep_latest_reads: bool = False,
+    max_iterations: int | None = None,
 ):
+    """`on_event`, when given, is called with {"type": "iteration", ...} at
+    the start of every model call and {"type": "tool", ...} after every
+    executed tool call -- used for live progress/activity tracking (see
+    seo_agent.run_seo_pass). It's observation only: an exception inside it
+    is swallowed, never allowed to break the generation run."""
+
+    def _emit(event: dict) -> None:
+        if on_event is None:
+            return
+        try:
+            on_event(event)
+        except Exception:  # noqa: BLE001 -- progress tracking must never break generation
+            pass
+
     caching_enabled = settings.generation_prompt_caching_enabled
     system_content: str | list[dict] = system_prompt
     user_content: str | list[dict] = user_message
@@ -503,19 +685,22 @@ def _run_agent_loop(
         if trace_path is not None:
             trace_path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
 
-    for iteration in range(1, settings.generation_max_iterations + 1):
+    max_iterations = max_iterations or settings.generation_max_iterations
+    last_content = ""
+    for iteration in range(1, max_iterations + 1):
+        _emit({"type": "iteration", "iteration": iteration, "max_iterations": max_iterations})
         current_iter_start = len(messages)
         # Compact every prior iteration's resolved tool turns, but leave the
         # iteration we're about to append fully intact. This is pure local
         # context hygiene -- independent of whether OpenRouter's upstream
         # cache_control is honored, so it always runs even when
         # caching_enabled is off.
-        _compact_resolved_tool_turns(messages, current_iter_start)
+        _compact_resolved_tool_turns(messages, current_iter_start, keep_latest_reads=keep_latest_reads)
 
         payload = {
             "model": model_name,
             "messages": messages,
-            "tools": TOOL_SCHEMAS,
+            "tools": tool_schemas,
             "tool_choice": "auto",
             "max_tokens": settings.generation_max_tokens,
         }
@@ -536,6 +721,8 @@ def _run_agent_loop(
 
         messages.append(message)
         tool_calls = message.get("tool_calls") or []
+        if message.get("content"):
+            last_content = message["content"]
 
         trace_entry = {
             "iteration": iteration,
@@ -676,6 +863,16 @@ def _run_agent_loop(
             trace_entry["tool_calls"].append(
                 {"name": name, "arguments": raw_args, "result": str(result)[:500]}
             )
+            _emit(
+                {
+                    "type": "tool",
+                    "iteration": iteration,
+                    "tool": name,
+                    "args": args if choice.get("finish_reason") != "length" and isinstance(args, dict) else {},
+                    "ok": not str(result).startswith(("Error", "Unknown tool")),
+                    "result": str(result)[:200],
+                }
+            )
 
             messages.append(
                 {
@@ -699,8 +896,11 @@ def _run_agent_loop(
                     "recover within the remaining iteration budget."
                 )
 
-    raise GenerationError(
-        f"Agent did not finish within {settings.generation_max_iterations} iterations"
+    raise IterationLimitError(
+        f"Agent did not finish within {max_iterations} iterations",
+        usage=total_usage,
+        iterations=max_iterations,
+        last_content=last_content,
     )
 
 

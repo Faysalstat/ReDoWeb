@@ -17,6 +17,7 @@ from ..schemas.project import (
     ProjectListItem,
     ProjectStatusResponse,
     ProjectSubmitResponse,
+    ProjectTierActions,
     ProjectTierFailure,
     TierRetryResponse,
 )
@@ -25,6 +26,7 @@ from ..services import (
     cost_settings_service,
     generation_status_service,
     storage_capacity_service,
+    tier_actions_service,
     tier_service,
     wallet_service,
 )
@@ -235,6 +237,13 @@ def get_project_status(
         purchased_tiers=wallet_service.purchased_download_tiers(db, current_user.id, [project.id]).get(
             project.id, []
         ),
+        page_count=tier_actions_service.latest_page_count(db, project.id),
+        tier_actions={
+            tier: ProjectTierActions(**actions.__dict__)
+            for tier, actions in tier_actions_service.tier_actions(
+                db, project, [gen.tier for gen in generations]
+            ).items()
+        },
     )
 
 

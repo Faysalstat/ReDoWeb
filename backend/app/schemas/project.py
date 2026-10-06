@@ -69,6 +69,23 @@ class GenerationApprovalResponse(BaseModel):
     shortfall_credits: int
 
 
+class ProjectTierActions(BaseModel):
+    """Post-purchase action state for one tier (see
+    services/tier_actions_service.py) -- drives the Generate all pages /
+    Run SEO buttons on load and while polling. Each status is
+    none | running | succeeded | failed."""
+
+    full_site_status: str = "none"
+    full_site_failure_reason: str | None = None
+    seo_available: bool = False
+    seo_status: str = "none"
+    seo_failure_reason: str | None = None
+    # Live SEO run progress (latest SEO job): status, step, label, percent,
+    # detail, the step checklist and the last few user-facing activity
+    # entries. The full log (incl. debug entries) is admin-only.
+    seo_progress: dict | None = None
+
+
 class ProjectStatusResponse(BaseModel):
     project_id: str
     status: str
@@ -94,3 +111,7 @@ class ProjectStatusResponse(BaseModel):
     # Tiers the user has already paid to download -- re-downloading these
     # is free (download_spend is idempotent per project+tier).
     purchased_tiers: list[str] = []
+    # Crawled page count -- "Generate all pages" is only offered when > 1.
+    page_count: int = 1
+    # Per finished tier: Generate all pages / Run SEO state.
+    tier_actions: dict[str, ProjectTierActions] = {}

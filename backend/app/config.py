@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     generation_model: str = "deepseek/deepseek-v4.1-flash"
     generation_max_tokens: int = 16000
     generation_max_iterations: int = 24
+    # SEO pass step budget, scaled to the site: base + per_page * pages,
+    # capped. A shared 24-step budget ran out on a real run (2026-10-06).
+    seo_max_iterations_base: int = 12
+    seo_max_iterations_per_page: int = 4
+    seo_max_iterations_cap: int = 80
     generation_max_consecutive_failures: int = 5
     generation_prompt_caching_enabled: bool = True
     # Per-call (one loop iteration, not total generation time) OpenRouter

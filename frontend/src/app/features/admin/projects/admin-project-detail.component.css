@@ -21,3 +21,40 @@
 .fact-value {
   font-size: 13px;
 }
+
+.run-log {
+  margin-top: var(--space-3);
+  font-size: 12px;
+}
+.run-log summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.run-log__steps {
+  margin: var(--space-2) 0;
+  padding-left: 18px;
+}
+.run-log__entries {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.run-log__entries td {
+  padding: 2px 8px 2px 0;
+  vertical-align: top;
+}
+.run-log__entries td:nth-child(1),
+.run-log__entries td:nth-child(2) {
+  white-space: nowrap;
+  color: var(--color-neutral-700);
+}
+.run-log__entries .is-debug td {
+  opacity: 0.7;
+}
+.run-log__entries .is-warning td:last-child {
+  color: var(--color-accent-2-800);
+}
+.run-log__entries .is-error td:last-child,
+.run-log__steps .is-failed {
+  color: var(--color-danger);
+}

@@ -67,6 +67,30 @@
         } @else if (job.failure_reason) {
           <p style="color: var(--color-danger); margin-top: var(--space-3); font-size: 13px">{{ job.failure_reason }}</p>
         }
+
+        @if (job.progress; as progress) {
+          <details class="run-log" [open]="progress.status === 'running'">
+            <summary>
+              Run log · {{ progress.label }} · {{ progress.percent }}%
+              @if (progress.seconds) { · {{ progress.seconds }}s }
+              ({{ progress.log?.length ?? 0 }} entries)
+            </summary>
+            <ol class="run-log__steps">
+              @for (step of progress.steps; track step.key) {
+                <li [class]="'is-' + step.status">{{ step.label }} <span class="label" style="display: inline">{{ step.status }}</span></li>
+              }
+            </ol>
+            <table class="run-log__entries">
+              @for (entry of progress.log ?? []; track $index) {
+                <tr [class]="'is-' + entry.level">
+                  <td>{{ entry.at | date: 'HH:mm:ss' }}</td>
+                  <td>{{ entry.level }}</td>
+                  <td>{{ entry.message }}</td>
+                </tr>
+              }
+            </table>
+          </details>
+        }
       </div>
     } @empty {
       <p class="sub">No generation jobs yet.</p>

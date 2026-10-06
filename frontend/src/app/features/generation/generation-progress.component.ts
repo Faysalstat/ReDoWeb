@@ -15,8 +15,11 @@ import {
 } from '../../core/project-status';
 import {
   InsufficientCreditsDetail,
+  JobProgress,
   ProjectGenerationSummary,
   ProjectStatusResponse,
+  ProjectTierActions,
+  TierActionStatus,
 } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { WalletService } from '../../core/wallet.service';
@@ -28,6 +31,7 @@ import {
   IconAlertTriangle,
   IconCheck,
   IconExternalLink,
+  IconLock,
   IconMaximize2,
   IconSparkles,
   IconX,
@@ -35,7 +39,15 @@ import {
 import { StepItemComponent, StepStatus } from '../../shared/ui/step-item/step-item.component';
 
 type Device = 'desktop' | 'phone';
-type DownloadState = 'idle' | 'starting' | 'building' | 'ready' | 'failed' | 'needs-credits';
+type BuyState = 'idle' | 'buying' | 'failed' | 'needs-credits';
+type DownloadState = 'idle' | 'downloading' | 'failed';
+type TierAction = 'full_site' | 'seo';
+
+const NO_TIER_ACTIONS: ProjectTierActions = {
+  full_site_status: 'none',
+  seo_available: false,
+  seo_status: 'none',
+};
 
 const POLL_INTERVAL_MS = 3000;
 const SUBSTEP_INTERVAL_MS = 2400;
@@ -81,6 +93,7 @@ const SUBSTEPS: Partial<Record<Stage, string[]>> = {
     IconCheck,
     IconMaximize2,
     IconExternalLink,
+    IconLock,
     IconSparkles,
     IconX,
   ],
@@ -101,21 +114,30 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   readonly isFullscreenPreview = signal(false);
   readonly device = signal<Device>('desktop');
   readonly tierLabel = tierLabel;
-  /** Per-tier download state -- 'idle' until the user clicks, 'starting'
-   * while POST /download is in flight, 'building' while a multi-page
-   * project's full-site job runs (polled), then 'ready'/'failed'. */
+  /** Per-tier Buy state -- 'buying' while POST /purchase is in flight,
+   * 'needs-credits' after a 402 (drives the top-up prompt). */
+  readonly buyStatus = signal<Record<string, BuyState>>({});
+  /** Per-tier ZIP download state (purchase already happened). */
   readonly downloadStatus = signal<Record<string, DownloadState>>({});
-  /** Set per tier when POST /download answers 402 -- drives the "needs N
+  /** Set per tier when POST /purchase answers 402 -- drives the "needs N
    * more credits" prompt and its exact Top Up amount. */
   readonly downloadShortfall = signal<Record<string, InsufficientCreditsDetail>>({});
+  /** Generate all pages / Run SEO click in flight, per tier. */
+  readonly actionStarting = signal<Record<string, TierAction | null>>({});
+  /** Last error from starting an action, per tier (the job's own failure
+   * reason comes from status().tier_actions instead). */
+  readonly actionError = signal<Record<string, string>>({});
   /** Download credit cost per enabled tier, from the public GET /tiers. */
   readonly tierCosts = signal<Record<string, number>>({});
   /** Tiers paid for during this visit, on top of status().purchased_tiers
    * (which only refreshes on the next poll). */
   private readonly paidThisSession = signal<string[]>([]);
-  /** ?download=<tier> -- set by the Top Up return URL so the download the
-   * user was trying to make resumes automatically after paying. */
+  /** ?download=<tier> -- History's "Download" link: downloads the ZIP
+   * automatically, but only for a tier that's already purchased. */
   private pendingAutoDownload: string | null = null;
+  /** ?buy=<tier> -- set by the Top Up return URL so the purchase the user
+   * was trying to make resumes automatically after paying. */
+  private pendingAutoBuy: string | null = null;
   /** State for the awaiting_cost_approval screen (see
    * docs/generation-cost-gate-plan.md) -- `approving` while the Continue
    * click's POST is in flight. */
@@ -133,7 +155,10 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
   private pollSubscription?: Subscription;
   private tickSubscription?: Subscription;
   private substepSubscription?: Subscription;
-  private downloadPollSubscription?: Subscription;
+  /** Follows running Generate all pages / Run SEO jobs. Separate from
+   * pollSubscription on purpose: that one stops at the terminal "ready"
+   * project status, which a purchased project already has. */
+  private actionPollSubscription?: Subscription;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -150,6 +175,69 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
 
   tierCost(tier: string): number | null {
     return this.tierCosts()[tier] ?? null;
+  }
+
+  tierActions(tier: string): ProjectTierActions {
+    return this.status()?.tier_actions?.[tier] ?? NO_TIER_ACTIONS;
+  }
+
+  /** "Generate all pages" only exists for multi-page sites. */
+  hasMorePages(): boolean {
+    return (this.status()?.page_count ?? 1) > 1;
+  }
+
+  pageCount(): number {
+    return this.status()?.page_count ?? 1;
+  }
+
+  fullSiteStatus(tier: string): TierActionStatus {
+    return this.tierActions(tier).full_site_status;
+  }
+
+  seoStatus(tier: string): TierActionStatus {
+    return this.tierActions(tier).seo_status;
+  }
+
+  /** Run SEO waits for "Generate all pages" on a multi-page site, so SEO
+   * always runs on the final site. A single-page site is already complete. */
+  seoNeedsAllPages(tier: string): boolean {
+    return this.hasMorePages() && this.fullSiteStatus(tier) !== 'succeeded';
+  }
+
+  canGenerateAllPages(tier: string): boolean {
+    const status = this.fullSiteStatus(tier);
+    return this.isPurchased(tier) && !this.actionStarting()[tier] && (status === 'none' || status === 'failed');
+  }
+
+  canRunSeo(tier: string): boolean {
+    const status = this.seoStatus(tier);
+    return (
+      this.isPurchased(tier) &&
+      this.tierActions(tier).seo_available &&
+      !this.seoNeedsAllPages(tier) &&
+      !this.actionStarting()[tier] &&
+      (status === 'none' || status === 'failed')
+    );
+  }
+
+  /** "3 of 6" for the running step of a job's progress checklist. */
+  stepPosition(progress: JobProgress): string {
+    const index = progress.steps.findIndex((step) => step.key === progress.step);
+    return `${index < 0 ? 1 : index + 1} of ${progress.steps.length}`;
+  }
+
+  /** What the ZIP holds right now -- mirrors the backend's download
+   * preference (SEO version, then all pages, then the home page). */
+  zipContents(tier: string): string {
+    const pages = this.hasMorePages() && this.fullSiteStatus(tier) === 'succeeded';
+    const seo = this.seoStatus(tier) === 'succeeded';
+    if (seo) {
+      return pages || !this.hasMorePages() ? 'Full site, SEO optimized' : 'Home page, SEO optimized';
+    }
+    if (!this.hasMorePages()) {
+      return 'Full site (1 page)';
+    }
+    return pages ? `All ${this.pageCount()} pages` : 'Home page only';
   }
 
   get isBusy(): boolean {
@@ -320,16 +408,16 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     this.navigateToCheckout(shortfall ?? null, null);
   }
 
-  /** Top Up from the download prompt -- comes back to this project with
-   * ?download=<tier> so the download resumes on return. */
-  topUpForDownload(tier: string): void {
+  /** Top Up from the Buy prompt -- comes back to this project with
+   * ?buy=<tier> so the purchase resumes on return. */
+  topUpForBuy(tier: string): void {
     this.navigateToCheckout(this.downloadShortfall()[tier]?.shortfall ?? null, tier);
   }
 
-  private navigateToCheckout(credits: number | null, resumeDownloadTier: string | null): void {
+  private navigateToCheckout(credits: number | null, resumeBuyTier: string | null): void {
     const projectId = this.route.snapshot.paramMap.get('id');
-    const returnUrl = resumeDownloadTier
-      ? `/projects/${projectId}?download=${encodeURIComponent(resumeDownloadTier)}`
+    const returnUrl = resumeBuyTier
+      ? `/projects/${projectId}?buy=${encodeURIComponent(resumeBuyTier)}`
       : `/projects/${projectId}`;
     const queryParams: Record<string, string | number> = { returnUrl };
     if (credits) {
@@ -345,6 +433,7 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
       return;
     }
     this.pendingAutoDownload = this.route.snapshot.queryParamMap.get('download');
+    this.pendingAutoBuy = this.route.snapshot.queryParamMap.get('buy');
     this.api.getTiers().subscribe({
       next: (res) =>
         this.tierCosts.set(Object.fromEntries(res.items.map((t) => [t.key, t.download_credit_cost]))),
@@ -359,34 +448,25 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     this.pollSubscription?.unsubscribe();
     this.tickSubscription?.unsubscribe();
     this.substepSubscription?.unsubscribe();
-    this.downloadPollSubscription?.unsubscribe();
+    this.actionPollSubscription?.unsubscribe();
   }
 
-  /** Starts (or resumes watching) a tier's download. Most projects are
-   * single-page and come back "ready" immediately, same as an instant zip
-   * download today; a multi-page project without a cached full-site build
-   * yet comes back "building" and this switches to polling
-   * getDownloadStatus, same timer/switchMap/takeWhile pattern startPolling
-   * above uses for the main generation poll. */
-  download(tier: string): void {
+  /** Buy a tier's design -- the only charge (idempotent per project+tier,
+   * so buying again costs nothing). Unlocks Download ZIP, Generate all
+   * pages and (Pro/Premium) Run SEO; starts nothing by itself. */
+  buy(tier: string): void {
     const projectId = this.route.snapshot.paramMap.get('id');
-    if (!projectId) {
+    if (!projectId || this.buyStatus()[tier] === 'buying') {
       return;
     }
-    this.setDownloadStatus(tier, 'starting');
-    this.api.startDownload(projectId, tier).subscribe({
-      next: (res) => {
-        // The charge (if any) has happened by now -- reflect it in the
-        // header and mark the tier paid so the button says so.
+    this.setBuyStatus(tier, 'buying');
+    this.api.purchaseTier(projectId, tier).subscribe({
+      next: () => {
         if (!this.paidThisSession().includes(tier)) {
           this.paidThisSession.set([...this.paidThisSession(), tier]);
         }
         this.wallet.refresh();
-        if (res.status === 'ready') {
-          this.fetchFile(projectId, tier);
-        } else {
-          this.pollDownload(projectId, tier);
-        }
+        this.setBuyStatus(tier, 'idle');
       },
       error: (err: HttpErrorResponse) => {
         const detail = err.error?.detail;
@@ -394,31 +474,22 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
           const short = detail as InsufficientCreditsDetail;
           this.downloadShortfall.set({ ...this.downloadShortfall(), [tier]: short });
           this.wallet.set(short.balance);
-          this.setDownloadStatus(tier, 'needs-credits');
+          this.setBuyStatus(tier, 'needs-credits');
         } else {
-          this.setDownloadStatus(tier, 'failed');
+          this.setBuyStatus(tier, 'failed');
         }
       },
     });
   }
 
-  private pollDownload(projectId: string, tier: string): void {
-    this.setDownloadStatus(tier, 'building');
-    this.downloadPollSubscription = timer(0, POLL_INTERVAL_MS)
-      .pipe(
-        switchMap(() => this.api.getDownloadStatus(projectId, tier)),
-        takeWhile((res) => res.status === 'building', true)
-      )
-      .subscribe((res) => {
-        if (res.status === 'ready') {
-          this.fetchFile(projectId, tier);
-        } else if (res.status === 'failed') {
-          this.setDownloadStatus(tier, 'failed');
-        }
-      });
-  }
-
-  private fetchFile(projectId: string, tier: string): void {
+  /** Downloads the best finished output right now (SEO version, then all
+   * pages, then the home page) -- no charge, the tier is already bought. */
+  download(tier: string): void {
+    const projectId = this.route.snapshot.paramMap.get('id');
+    if (!projectId || !this.isPurchased(tier)) {
+      return;
+    }
+    this.setDownloadStatus(tier, 'downloading');
     this.api.downloadFile(projectId, tier).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
@@ -427,10 +498,73 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
         anchor.download = `${projectId}-${tier}.zip`;
         anchor.click();
         URL.revokeObjectURL(url);
-        this.setDownloadStatus(tier, 'ready');
+        this.setDownloadStatus(tier, 'idle');
       },
       error: () => this.setDownloadStatus(tier, 'failed'),
     });
+  }
+
+  generateAllPages(tier: string): void {
+    if (this.canGenerateAllPages(tier)) {
+      this.startAction(tier, 'full_site');
+    }
+  }
+
+  runSeo(tier: string): void {
+    if (this.canRunSeo(tier)) {
+      this.startAction(tier, 'seo');
+    }
+  }
+
+  private startAction(tier: string, action: TierAction): void {
+    const projectId = this.route.snapshot.paramMap.get('id');
+    if (!projectId) {
+      return;
+    }
+    this.actionStarting.set({ ...this.actionStarting(), [tier]: action });
+    this.actionError.set({ ...this.actionError(), [tier]: '' });
+    const request =
+      action === 'full_site' ? this.api.startFullSite(projectId, tier) : this.api.startSeo(projectId, tier);
+    request.subscribe({
+      next: () => {
+        this.actionStarting.set({ ...this.actionStarting(), [tier]: null });
+        this.startActionPolling(projectId, true);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.actionStarting.set({ ...this.actionStarting(), [tier]: null });
+        const detail = err.error?.detail;
+        this.actionError.set({
+          ...this.actionError(),
+          [tier]: typeof detail === 'string' ? detail : 'Something went wrong — please try again.',
+        });
+        // A 409 usually means the state moved on (already running/done) --
+        // refresh so the buttons reflect it.
+        this.startActionPolling(projectId, true);
+      },
+    });
+  }
+
+  /** Polls the project while any tier's Generate all pages / Run SEO job is
+   * running. `force` polls at least once even if nothing looks running yet
+   * (right after a start click, before the next status shows the job). */
+  private startActionPolling(projectId: string, force = false): void {
+    if (!force && this.actionPollSubscription && !this.actionPollSubscription.closed) {
+      return;
+    }
+    this.actionPollSubscription?.unsubscribe();
+    this.actionPollSubscription = timer(0, POLL_INTERVAL_MS)
+      .pipe(
+        switchMap(() => this.api.getProjectStatus(projectId)),
+        takeWhile((res) => anyTierActionRunning(res), true)
+      )
+      .subscribe({
+        next: (res) => this.handleStatus(projectId, res),
+        error: () => {},
+      });
+  }
+
+  private setBuyStatus(tier: string, value: BuyState): void {
+    this.buyStatus.set({ ...this.buyStatus(), [tier]: value });
   }
 
   private setDownloadStatus(tier: string, value: DownloadState): void {
@@ -508,22 +642,36 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
 
     if (stage === 'ready') {
       this.stopLiveIndicators();
+      // A reload (or another tab) while Generate all pages / Run SEO runs:
+      // keep following it.
+      if (anyTierActionRunning(res)) {
+        this.startActionPolling(projectId);
+      }
     }
-    this.resumePendingDownload(res);
+    this.resumePendingActions(res);
   }
 
-  /** After a Top Up round-trip (?download=<tier>), start that download
-   * once its preview is available, then drop the param so a refresh
-   * doesn't download again. */
-  private resumePendingDownload(res: ProjectStatusResponse): void {
-    const tier = this.pendingAutoDownload;
-    if (!tier || !res.generations.some((gen) => gen.tier === tier)) {
-      return;
+  /** ?buy=<tier> (Top Up return) resumes the purchase; ?download=<tier>
+   * (History link) downloads the ZIP, but only for a tier already bought --
+   * otherwise it just selects the tier so its Buy button is in view. The
+   * param is dropped afterwards so a refresh doesn't repeat it. */
+  private resumePendingActions(res: ProjectStatusResponse): void {
+    const buyTier = this.pendingAutoBuy;
+    if (buyTier && res.generations.some((gen) => gen.tier === buyTier)) {
+      this.pendingAutoBuy = null;
+      this.selectedTier.set(buyTier);
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      this.buy(buyTier);
     }
-    this.pendingAutoDownload = null;
-    this.selectedTier.set(tier);
-    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
-    this.download(tier);
+    const downloadTier = this.pendingAutoDownload;
+    if (downloadTier && res.generations.some((gen) => gen.tier === downloadTier)) {
+      this.pendingAutoDownload = null;
+      this.selectedTier.set(downloadTier);
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      if (this.isPurchased(downloadTier)) {
+        this.download(downloadTier);
+      }
+    }
   }
 
   /** Mints (once) and caches the authed iframe-loadable preview URL for one
@@ -556,4 +704,10 @@ export class GenerationProgressComponent implements OnInit, OnDestroy {
     this.stage.set('error');
     this.stopLiveIndicators();
   }
+}
+
+function anyTierActionRunning(res: ProjectStatusResponse): boolean {
+  return Object.values(res.tier_actions ?? {}).some(
+    (actions) => actions.full_site_status === 'running' || actions.seo_status === 'running'
+  );
 }

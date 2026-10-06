@@ -226,29 +226,168 @@
 
             <div class="gp-topbar__actions">
               <button appButton variant="secondary" (click)="tryAgain()">Start over</button>
-              <button
-                appButton
-                variant="primary"
-                [disabled]="downloadStatus()[gen.tier] === 'starting' || downloadStatus()[gen.tier] === 'building'"
-                (click)="download(gen.tier)"
-              >
-                @switch (downloadStatus()[gen.tier]) {
-                  @case ('starting') { Starting… }
-                  @case ('building') { Preparing full site… }
-                  @default {
-                    @if (!isPurchased(gen.tier) && tierCost(gen.tier) !== null) {
-                      Download ZIP · {{ tierCost(gen.tier) }} credits
-                    } @else {
-                      Download ZIP
-                    }
+              @if (isPurchased(gen.tier)) {
+                <button
+                  appButton
+                  variant="primary"
+                  [disabled]="downloadStatus()[gen.tier] === 'downloading'"
+                  (click)="download(gen.tier)"
+                >
+                  {{ downloadStatus()[gen.tier] === 'downloading' ? 'Preparing ZIP…' : 'Download ZIP' }}
+                </button>
+              } @else {
+                <button
+                  appButton
+                  variant="primary"
+                  [disabled]="buyStatus()[gen.tier] === 'buying'"
+                  (click)="buy(gen.tier)"
+                >
+                  @if (buyStatus()[gen.tier] === 'buying') {
+                    Buying…
+                  } @else if (tierCost(gen.tier) !== null) {
+                    Buy design · {{ tierCost(gen.tier) }} credits
+                  } @else {
+                    Buy design
                   }
-                }
-              </button>
+                </button>
+              }
             </div>
           </div>
-          @if (isPurchased(gen.tier)) {
-            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2)">
-              Purchased · re-downloading this tier is free
+
+          <!-- Post-purchase actions: locked until the design is bought. -->
+          <section
+            class="gp-actions"
+            [class.is-locked]="!isPurchased(gen.tier)"
+            [attr.aria-label]="isPurchased(gen.tier) ? 'Your design' : 'Unlocks with purchase'"
+          >
+            <div class="gp-actions__head">
+              @if (isPurchased(gen.tier)) {
+                <span class="gp-actions__badge"><app-icon-check [size]="14" /> Purchased</span>
+                <span class="gp-actions__caption">ZIP contains: <b>{{ zipContents(gen.tier) }}</b></span>
+              } @else {
+                <span class="gp-actions__title"><app-icon-lock [size]="14" /> Unlocks with purchase</span>
+              }
+            </div>
+
+            <div class="gp-actions__row">
+              @if (!isPurchased(gen.tier)) {
+                <button appButton variant="secondary" disabled title="Buy this design to unlock">
+                  <app-icon-lock [size]="14" /> Download ZIP
+                </button>
+              }
+
+              @if (hasMorePages()) {
+                <div class="gp-action">
+                  <button
+                    appButton
+                    variant="secondary"
+                    [disabled]="!canGenerateAllPages(gen.tier)"
+                    [attr.title]="isPurchased(gen.tier) ? null : 'Buy this design to unlock'"
+                    (click)="generateAllPages(gen.tier)"
+                  >
+                    @if (!isPurchased(gen.tier)) {
+                      <app-icon-lock [size]="14" /> Generate all {{ pageCount() }} pages
+                    } @else {
+                      @switch (fullSiteStatus(gen.tier)) {
+                        @case ('running') { <span class="gp-spinner" aria-hidden="true"></span> Generating pages… }
+                        @case ('succeeded') { <app-icon-check [size]="14" /> All {{ pageCount() }} pages generated }
+                        @case ('failed') { Retry generating pages }
+                        @default {
+                          {{ actionStarting()[gen.tier] === 'full_site' ? 'Starting…' : 'Generate all ' + pageCount() + ' pages' }}
+                        }
+                      }
+                    }
+                  </button>
+                  @if (fullSiteStatus(gen.tier) === 'failed' && tierActions(gen.tier).full_site_failure_reason) {
+                    <p class="gp-action__error">{{ tierActions(gen.tier).full_site_failure_reason }}</p>
+                  }
+                </div>
+              }
+
+              @if (tierActions(gen.tier).seo_available) {
+                <div class="gp-action">
+                  <button
+                    appButton
+                    variant="secondary"
+                    [disabled]="!canRunSeo(gen.tier)"
+                    [attr.title]="!isPurchased(gen.tier) ? 'Buy this design to unlock' : seoNeedsAllPages(gen.tier) ? 'Generate all pages first' : null"
+                    (click)="runSeo(gen.tier)"
+                  >
+                    @if (!isPurchased(gen.tier)) {
+                      <app-icon-lock [size]="14" /> Run SEO agent
+                    } @else {
+                      @switch (seoStatus(gen.tier)) {
+                        @case ('running') { <span class="gp-spinner" aria-hidden="true"></span> Optimizing for search… }
+                        @case ('succeeded') { <app-icon-check [size]="14" /> SEO optimized }
+                        @case ('failed') { Retry SEO }
+                        @default {
+                          {{ actionStarting()[gen.tier] === 'seo' ? 'Starting…' : 'Run SEO agent' }}
+                        }
+                      }
+                    }
+                  </button>
+                  @if (isPurchased(gen.tier) && seoNeedsAllPages(gen.tier) && seoStatus(gen.tier) === 'none') {
+                    <p class="gp-action__hint">Generate all pages first</p>
+                  }
+                  @if (seoStatus(gen.tier) === 'failed' && tierActions(gen.tier).seo_failure_reason) {
+                    <p class="gp-action__error">{{ tierActions(gen.tier).seo_failure_reason }}</p>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- SEO agent run: live progress while running, run log afterwards. -->
+            @if (isPurchased(gen.tier) && tierActions(gen.tier).seo_progress; as sp) {
+              @if (sp.status === 'running') {
+                <div class="gp-run" aria-live="polite">
+                  <div class="gp-run__head">
+                    <span><b>{{ sp.label }}</b> · step {{ stepPosition(sp) }}</span>
+                    <span>{{ sp.percent }}%</span>
+                  </div>
+                  <div
+                    class="gp-run__bar"
+                    role="progressbar"
+                    aria-label="SEO optimization progress"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    [attr.aria-valuenow]="sp.percent"
+                  >
+                    <span [style.width.%]="sp.percent"></span>
+                  </div>
+                  @if (sp.detail) {
+                    <p class="gp-run__detail">{{ sp.detail }}</p>
+                  }
+                </div>
+              } @else {
+                <details class="gp-run gp-run--log">
+                  <summary>
+                    {{ sp.status === 'succeeded' ? 'What the SEO agent did' : 'What happened' }}
+                    @if (sp.detail) { · {{ sp.detail }} }
+                  </summary>
+                  <ol class="gp-run__steps">
+                    @for (step of sp.steps; track step.key) {
+                      <li [class]="'is-' + step.status">{{ step.label }}</li>
+                    }
+                  </ol>
+                  @if (sp.activity?.length) {
+                    <ul class="gp-run__activity">
+                      @for (entry of sp.activity; track $index) {
+                        <li [class]="'is-' + entry.level">{{ entry.message }}</li>
+                      }
+                    </ul>
+                  }
+                </details>
+              }
+            }
+
+            @if (actionError()[gen.tier]) {
+              <p class="gp-action__error" role="alert">{{ actionError()[gen.tier] }}</p>
+            }
+          </section>
+
+          @if (buyStatus()[gen.tier] === 'failed') {
+            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2); color: var(--color-danger)">
+              Something went wrong buying this design — try again.
             </p>
           }
           @if (downloadStatus()[gen.tier] === 'failed') {
@@ -256,13 +395,13 @@
               Something went wrong preparing your download — try again.
             </p>
           }
-          @if (downloadStatus()[gen.tier] === 'needs-credits' && downloadShortfall()[gen.tier]; as short) {
+          @if (buyStatus()[gen.tier] === 'needs-credits' && downloadShortfall()[gen.tier]; as short) {
             <div class="gp-topup" role="alert">
               <p>
-                Downloading the {{ tierLabel(gen.tier) }} tier needs <b>{{ short.required }} credits</b>; you
-                have {{ short.balance }}. Buy {{ short.shortfall }} more and your download will continue.
+                Buying the {{ tierLabel(gen.tier) }} design needs <b>{{ short.required }} credits</b>; you
+                have {{ short.balance }}. Buy {{ short.shortfall }} more and your purchase will continue.
               </p>
-              <button appButton variant="primary" (click)="topUpForDownload(gen.tier)">
+              <button appButton variant="primary" (click)="topUpForBuy(gen.tier)">
                 Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
               </button>
             </div>

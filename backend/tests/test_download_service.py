@@ -61,3 +61,34 @@ def test_build_download_zip_writes_into_project_downloads_dir(tmp_path, monkeypa
 
     assert archive == project_root / "downloads" / "pro.zip"
     assert zipfile.ZipFile(archive).namelist() == ["index.html"]
+
+
+def test_preview_zip_excludes_nested_full_and_seo_build_dirs(tmp_path):
+    """Download stays enabled while "Generate all pages" / "Run SEO" run, and
+    their outputs live INSIDE the preview dir -- a home-page-only ZIP must
+    never pick up a finished or half-built full/ or seo/ folder."""
+    out = _make_output(tmp_path)
+    (out / "full" / "images").mkdir(parents=True)
+    (out / "full" / "about-us.html").write_text("<html></html>")
+    (out / "full" / "images" / "x.png").write_bytes(b"png")
+    (out / "seo").mkdir()
+    (out / "seo" / "robots.txt").write_text("User-agent: *")
+    archive_path = tmp_path / "pro.zip"
+
+    download_service.write_site_zip(out, archive_path, excluded_dirs=download_service.NESTED_OUTPUT_DIRS)
+
+    names = set(zipfile.ZipFile(archive_path).namelist())
+    assert not any(name.startswith(("full/", "seo/")) for name in names)
+    assert "index.html" in names and "images/logo.png" in names
+
+
+def test_zip_of_full_dir_itself_is_unaffected_by_nested_exclusion(tmp_path):
+    full = tmp_path / "generated" / "pro" / "full"
+    full.mkdir(parents=True)
+    (full / "index.html").write_text("<html></html>")
+    (full / "about-us.html").write_text("<html></html>")
+    archive_path = tmp_path / "pro.zip"
+
+    download_service.write_site_zip(full, archive_path, excluded_dirs=download_service.NESTED_OUTPUT_DIRS)
+
+    assert set(zipfile.ZipFile(archive_path).namelist()) == {"index.html", "about-us.html"}

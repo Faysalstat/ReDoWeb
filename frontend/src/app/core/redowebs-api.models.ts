@@ -144,6 +144,54 @@ export interface ProjectStatusResponse {
   cost_gate?: GenerationCostGateInfo | null;
   /** Tiers already paid for -- re-downloading these is free. */
   purchased_tiers: string[];
+  /** Crawled page count -- "Generate all pages" is offered only when > 1. */
+  page_count: number;
+  /** Per finished tier: Generate all pages / Run SEO state. */
+  tier_actions: Record<string, ProjectTierActions>;
+}
+
+export type TierActionStatus = 'none' | 'running' | 'succeeded' | 'failed';
+
+/** Post-purchase action state for one tier (backend
+ * services/tier_actions_service.py). `seo_available` is the single source
+ * of truth for which tiers offer the SEO agent (Pro/Premium). */
+export interface ProjectTierActions {
+  full_site_status: TierActionStatus;
+  full_site_failure_reason?: string | null;
+  seo_available: boolean;
+  seo_status: TierActionStatus;
+  seo_failure_reason?: string | null;
+  /** Live progress of the latest SEO run (user-facing slice; the full log
+   * incl. debug entries is admin-only). */
+  seo_progress?: JobProgress | null;
+}
+
+export interface JobProgressStep {
+  key: string;
+  label: string;
+  status: 'pending' | 'running' | 'done' | 'failed';
+}
+
+export interface JobActivityEntry {
+  at: string;
+  level: 'debug' | 'info' | 'warning' | 'error';
+  message: string;
+}
+
+/** A long-running job's progress (backend services/job_progress.py). */
+export interface JobProgress {
+  status: 'running' | 'succeeded' | 'failed';
+  step?: string | null;
+  label: string;
+  percent: number;
+  detail: string;
+  steps: JobProgressStep[];
+  /** Last few user-facing entries (status response) -- or the full log as
+   * `log` on the admin project page. */
+  activity?: JobActivityEntry[];
+  log?: JobActivityEntry[];
+  seconds?: number;
+  updated_at?: string;
 }
 
 export interface ProjectListItem {
@@ -174,21 +222,23 @@ export interface PreviewTokenResponse {
   expires_in: number;
 }
 
-// --- Downloads (lazy full-site build on purchase) ---
+// --- Buy a design, then Download / Generate all pages / Run SEO ---
 
-export interface DownloadStartResponse {
-  status: 'ready' | 'building';
+export interface PurchaseResponse {
+  purchased: boolean;
   project_id: string;
   tier: string;
-  job_id?: string | null;
 }
 
-export interface DownloadStatusResponse {
-  status: 'ready' | 'building' | 'failed';
-  failure_reason?: string | null;
+/** POST /full-site and POST /seo -- the action is now running. */
+export interface ActionStartResponse {
+  status: 'running';
+  project_id: string;
+  tier: string;
+  job_id: string;
 }
 
-/** Body of a 402 from POST /projects/{id}/download -- enough to offer an
+/** Body of a 402 from POST /projects/{id}/purchase -- enough to offer an
  * exact top-up instead of a generic failure. */
 export interface InsufficientCreditsDetail {
   message: string;

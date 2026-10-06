@@ -22,6 +22,7 @@ from .tasks_blueprint import extract_blueprint_task
 from .tasks_crawl import run_crawl_task
 from .tasks_full_site import generate_full_site_task
 from .tasks_generate import generate_tier_task
+from .tasks_seo import run_seo_task
 
 POLL_INTERVAL_SECONDS = 1.0
 
@@ -30,6 +31,7 @@ TASK_HANDLERS = {
     "extract_blueprint": extract_blueprint_task,
     "generate_tier": generate_tier_task,
     "generate_full_site": generate_full_site_task,
+    "run_seo": run_seo_task,
 }
 
 # Short per-process tag so concurrent workers' interleaved stdout is

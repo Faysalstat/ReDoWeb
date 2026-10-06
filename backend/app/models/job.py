@@ -19,12 +19,18 @@ class GenerationJob(Base):
     )
     tier: Mapped[str] = mapped_column(String(32), nullable=False)
     # "preview" (the initial home-page-only tiered generation, every job
-    # before 2026-09-17) or "full_site" (the lazy, cached, purchase-triggered
-    # multi-page build -- see workers/tasks_full_site.py). downloads.py uses
-    # this to tell the two kinds of job apart for the same (project, tier).
+    # before 2026-09-17), "full_site" (the purchased "Generate all pages"
+    # multi-page build -- see workers/tasks_full_site.py) or "seo" (the
+    # purchased Pro/Premium SEO pass -- see workers/tasks_seo.py).
+    # downloads.py uses this to tell the kinds of job apart for the same
+    # (project, tier).
     scope: Mapped[str] = mapped_column(String(16), nullable=False, default="preview")
     overall_status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Live step/percent/activity log while the job runs (currently written
+    # by the SEO pass -- see services/job_progress.py). Kept after the job
+    # finishes, so it doubles as the run's audit log.
+    progress: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -54,6 +60,12 @@ class GenerationOutput(Base):
     og_tags_added: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     reveal_visibility_fixes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     sitemap_written: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # scope="seo" jobs only: audit before/after + every mechanical fix the
+    # SEO finalizer applied (see app/ai/seo_agent.py).
+    seo_report: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # scope="full_site" jobs only: what the deterministic design-consistency
+    # guards changed (see app/ai/site_consistency.py).
+    consistency_report: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     job: Mapped["GenerationJob"] = relationship(back_populates="output")
