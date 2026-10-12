@@ -3,6 +3,7 @@ these test our crediting rules (exactly-once, snapshot pricing, mismatch
 rejection, race handling), not PayPal itself."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -378,6 +379,175 @@ def test_unhandled_event_type_is_ignored(db_session, fake_paypal):
     assert billing_service.handle_webhook_event(db_session, {"event_type": "BILLING.PLAN.CREATED"}).startswith(
         "ignored"
     )
+
+
+# --- disputes --------------------------------------------------------------------
+
+
+def _dispute_event(event_type="CUSTOMER.DISPUTE.CREATED", capture_id="CAP-1"):
+    return {
+        "event_type": event_type,
+        "resource": {
+            "dispute_id": "PP-D-1",
+            "status": "OPEN",
+            "disputed_transactions": [{"seller_transaction_id": capture_id}],
+        },
+    }
+
+
+def test_dispute_is_noted_without_touching_status_or_balance(db_session, fake_paypal):
+    user = _make_user(db_session)
+    purchase = _create(db_session, user, _make_pack(db_session))
+    billing_service.capture_for_user(db_session, user.id, "ORDER-1")
+    db_session.commit()
+
+    result = billing_service.handle_webhook_event(db_session, _dispute_event())
+    db_session.commit()
+
+    assert "noted" in result
+    assert purchase.status == "completed"
+    assert "PP-D-1" in purchase.note
+    assert _balance(db_session, user) == 10
+    assert _purchase_txn_count(db_session) == 1
+
+
+def test_dispute_for_unknown_capture_is_ignored(db_session, fake_paypal):
+    assert billing_service.handle_webhook_event(db_session, _dispute_event(capture_id="NOPE")).startswith("ignored")
+
+
+# --- automatic reconciliation ----------------------------------------------------
+
+_NOW = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+
+
+def _approved_order() -> dict:
+    return {"id": "ORDER-1", "status": "APPROVED", "purchase_units": [{}]}
+
+
+def _reconcile(db_session):
+    return billing_service.reconcile_pending_purchases(
+        db_session, min_age=timedelta(minutes=5), max_age=timedelta(hours=72), limit=50, now=_NOW
+    )
+
+
+def _aged(db_session, purchase, age: timedelta) -> None:
+    purchase.created_at = _NOW - age
+    db_session.commit()
+
+
+def test_reconcile_captures_approved_order_and_grants_once(db_session, fake_paypal):
+    """Buyer approved, closed the tab, no webhook: the reconciler captures."""
+    user = _make_user(db_session)
+    purchase = _create(db_session, user, _make_pack(db_session))
+    _aged(db_session, purchase, timedelta(minutes=20))
+    fake_paypal["order_result"] = _approved_order()
+
+    report = _reconcile(db_session)
+
+    assert report.checked == 1 and report.outcomes == {"completed": 1}
+    db_session.refresh(purchase)
+    assert purchase.status == "completed"
+    assert _balance(db_session, user) == 10
+
+    second = _reconcile(db_session)
+    assert second.checked == 0
+    assert _purchase_txn_count(db_session) == 1
+    assert fake_paypal["captures"] == 1
+
+
+def test_reconcile_after_browser_capture_does_not_double_grant(db_session, fake_paypal):
+    user = _make_user(db_session)
+    purchase = _create(db_session, user, _make_pack(db_session))
+    _aged(db_session, purchase, timedelta(minutes=20))
+    billing_service.capture_for_user(db_session, user.id, "ORDER-1")
+    db_session.commit()
+
+    report = _reconcile(db_session)
+
+    assert report.checked == 0
+    assert _purchase_txn_count(db_session) == 1
+
+
+@pytest.mark.parametrize("age", [timedelta(minutes=1), timedelta(hours=73)])
+def test_reconcile_skips_too_young_and_too_old(db_session, fake_paypal, age):
+    user = _make_user(db_session)
+    purchase = _create(db_session, user, _make_pack(db_session))
+    _aged(db_session, purchase, age)
+    fake_paypal["order_result"] = _approved_order()
+
+    report = _reconcile(db_session)
+
+    assert report.checked == 0
+    db_session.refresh(purchase)
+    assert purchase.status == "pending"
+    assert fake_paypal["captures"] == 0
+
+
+def test_reconcile_never_touches_settled_purchases(db_session, fake_paypal):
+    user = _make_user(db_session)
+    for status, order_id in (("completed", "O-C"), ("refunded", "O-R"), ("failed", "O-F")):
+        db_session.add(
+            Purchase(
+                user_id=user.id, amount_usd_cents=1000, credits_granted=10, status=status, source="paypal",
+                paypal_order_id=order_id, created_at=_NOW - timedelta(hours=1),
+            )
+        )
+    db_session.add(
+        Purchase(
+            user_id=user.id, amount_usd_cents=1000, credits_granted=10, status="pending", source="mock",
+            paypal_order_id="MOCK-1", created_at=_NOW - timedelta(hours=1),
+        )
+    )
+    db_session.commit()
+    fake_paypal["order_result"] = AssertionError("must not ask PayPal")
+
+    report = _reconcile(db_session)
+
+    assert report.checked == 0 and report.errors == 0
+
+
+def test_reconcile_transient_error_is_skipped_and_batch_continues(db_session, fake_paypal, monkeypatch):
+    user = _make_user(db_session)
+    first = _create(db_session, user, _make_pack(db_session))
+    second = Purchase(
+        user_id=user.id, amount_usd_cents=1000, credits_granted=10, status="pending", source="paypal",
+        paypal_order_id="ORDER-2",
+    )
+    db_session.add(second)
+    db_session.commit()
+    _aged(db_session, first, timedelta(minutes=30))
+    _aged(db_session, second, timedelta(minutes=20))
+
+    def get_order(order_id):
+        if order_id == "ORDER-1":
+            raise PayPalError("timeout", transient=True)
+        return _order_payload(capture_id="CAP-2")
+
+    monkeypatch.setattr(paypal_client, "get_order", get_order)
+
+    report = _reconcile(db_session)
+
+    assert report.errors == 1
+    assert report.outcomes == {"completed": 1}
+    db_session.refresh(first)
+    db_session.refresh(second)
+    assert first.status == "pending"
+    assert second.status == "completed"
+    assert _balance(db_session, user) == 10
+
+
+def test_reconcile_never_approved_order_stays_pending(db_session, fake_paypal):
+    user = _make_user(db_session)
+    purchase = _create(db_session, user, _make_pack(db_session))
+    _aged(db_session, purchase, timedelta(minutes=20))
+    fake_paypal["order_result"] = {"id": "ORDER-1", "status": "CREATED", "purchase_units": [{}]}
+
+    report = _reconcile(db_session)
+
+    assert report.outcomes == {"pending": 1}
+    db_session.refresh(purchase)
+    assert purchase.status == "pending"
+    assert _purchase_txn_count(db_session) == 0
 
 
 # --- pure helpers ----------------------------------------------------------------

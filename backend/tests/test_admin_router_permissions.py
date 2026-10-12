@@ -39,6 +39,7 @@ ADMIN_ROUTES = [
     ("GET", "/api/v1/admin/earnings"),
     ("GET", "/api/v1/admin/overview"),
     ("GET", "/api/v1/admin/projects"),
+    ("POST", "/api/v1/admin/projects/11111111-1111-1111-1111-111111111111/delete"),
     ("GET", "/api/v1/admin/cost-gate/threshold"),
     ("PUT", "/api/v1/admin/cost-gate/threshold"),
     ("GET", "/api/v1/admin/cost-gate/usd-per-credit"),

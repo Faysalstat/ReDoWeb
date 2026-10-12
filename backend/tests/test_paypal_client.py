@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -138,25 +140,40 @@ _SIG_HEADERS = {
 
 def test_verify_webhook_signature_success(monkeypatch):
     http = _FakeHttp(monkeypatch, [_response(200, {"verification_status": "SUCCESS"})])
-    event = {"id": "WH-EVT-1", "event_type": "PAYMENT.CAPTURE.COMPLETED"}
+    raw = b'{"id":"WH-EVT-1","event_type":"PAYMENT.CAPTURE.COMPLETED"}'
 
-    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, event) is True
-    body = http.calls[0]["json"]
+    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, raw) is True
+    body = json.loads(http.calls[0]["content"])
     assert body["webhook_id"] == "WH-1"
-    assert body["webhook_event"] == event
+    assert body["webhook_event"] == {"id": "WH-EVT-1", "event_type": "PAYMENT.CAPTURE.COMPLETED"}
     assert body["transmission_id"] == "t-1"
+
+
+def test_verify_webhook_signature_sends_event_bytes_verbatim(monkeypatch):
+    """PayPal checks the signature against the event we send back, so it
+    must be the received bytes, not a re-encoding: here non-ASCII text, a
+    float-looking amount, spacing and key order would all change under
+    json.loads + json.dumps."""
+    http = _FakeHttp(monkeypatch, [_response(200, {"verification_status": "SUCCESS"})])
+    raw = '{"id": "WH-2",  "resource": {"amount": 10.50, "payer": "Zoë Ångström"}, "a": 1}'.encode("utf-8")
+
+    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, raw) is True
+    sent = http.calls[0]["content"]
+    assert raw in sent
+    assert "json" not in http.calls[0]
+    assert json.loads(sent)["webhook_event"]["resource"]["payer"] == "Zoë Ångström"
 
 
 def test_verify_webhook_signature_failure(monkeypatch):
     _FakeHttp(monkeypatch, [_response(200, {"verification_status": "FAILURE"})])
 
-    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, {"id": "x"}) is False
+    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, b'{"id":"x"}') is False
 
 
 def test_verify_webhook_signature_rejects_missing_headers_without_calling_paypal(monkeypatch):
     http = _FakeHttp(monkeypatch, [])
 
-    assert paypal_client.verify_webhook_signature({"paypal-auth-algo": "x"}, {"id": "x"}) is False
+    assert paypal_client.verify_webhook_signature({"paypal-auth-algo": "x"}, b'{"id":"x"}') is False
     assert http.calls == []
 
 
@@ -165,7 +182,7 @@ def test_verify_webhook_signature_rejects_when_webhook_id_unset(monkeypatch):
     get_settings.cache_clear()
     http = _FakeHttp(monkeypatch, [])
 
-    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, {"id": "x"}) is False
+    assert paypal_client.verify_webhook_signature(_SIG_HEADERS, b'{"id":"x"}') is False
     assert http.calls == []
 
 

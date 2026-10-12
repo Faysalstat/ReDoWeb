@@ -13,7 +13,9 @@ set -uo pipefail
 
 python -m app.workers.queue_worker &
 worker_pid=$!
-uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8123}" &
+# --no-access-log: app/observability/middleware.py writes one richer
+# http.request line per request (route, status, duration, user, trace id).
+uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8123}" --no-access-log &
 api_pid=$!
 
 stop_children() {

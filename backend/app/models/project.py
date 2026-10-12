@@ -25,6 +25,19 @@ class Project(Base):
     # quoted even if an admin disables a tier while the project waits.
     estimated_generation_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     pending_tier_keys: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Set by storage_cleanup_service once the project is past the retention
+    # window: its crawl snapshot and every UNPURCHASED tier preview are gone
+    # from disk (purchased designs are kept). Unpurchased tiers can no
+    # longer be bought or retried after this.
+    previews_expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Admin soft delete (services/project_deletion_service.py): every file on
+    # disk is removed, but this row and all its history (jobs, costs, ledger,
+    # submission log) stay. Hidden from the owner (404) once set.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by_admin_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    deletion_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     tos_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     submitted_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -32,7 +45,8 @@ class Project(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    owner: Mapped["User"] = relationship()
+    # foreign_keys is required: deleted_by_admin_id is a second FK to users.
+    owner: Mapped["User"] = relationship(foreign_keys=[user_id])
     crawl_snapshots: Mapped[list["CrawlSnapshot"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

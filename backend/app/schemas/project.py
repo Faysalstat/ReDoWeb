@@ -16,6 +16,8 @@ class ProjectListItem(BaseModel):
     tier: str | None = None
     # Tiers the user has already paid to download (free re-download).
     purchased_tiers: list[str] = []
+    # Past the storage retention window: unpurchased previews are deleted.
+    previews_expired: bool = False
 
 
 class ProjectBlueprintSummary(BaseModel):
@@ -111,6 +113,12 @@ class ProjectStatusResponse(BaseModel):
     # Tiers the user has already paid to download -- re-downloading these
     # is free (download_spend is idempotent per project+tier).
     purchased_tiers: list[str] = []
+    # Set once storage_cleanup_service has removed this project's crawl data
+    # and every UNPURCHASED tier preview (purchased designs are kept) --
+    # `generations` then lists purchased tiers only, `tier_failures` is
+    # empty, and Buy/Retry answer 410.
+    previews_expired: bool = False
+    previews_expired_at: datetime | None = None
     # Crawled page count -- "Generate all pages" is only offered when > 1.
     page_count: int = 1
     # Per finished tier: Generate all pages / Run SEO state.

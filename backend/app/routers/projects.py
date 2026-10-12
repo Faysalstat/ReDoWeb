@@ -107,7 +107,8 @@ def list_projects(
 ) -> list[ProjectListItem]:
     projects = (
         db.query(Project)
-        .filter(Project.user_id == current_user.id)
+        # Admin soft-deleted projects are hidden from their owner.
+        .filter(Project.user_id == current_user.id, Project.deleted_at.is_(None))
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -133,6 +134,7 @@ def list_projects(
             created_at=p.created_at,
             tier=latest_tier_by_project.get(p.id),
             purchased_tiers=purchased.get(p.id, []),
+            previews_expired=p.previews_expired_at is not None,
         )
         for p in projects
     ]
@@ -143,7 +145,7 @@ def get_project_status(
     project_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> ProjectStatusResponse:
     project = db.get(Project, uuid.UUID(project_id))
-    if project is None or project.user_id != current_user.id:
+    if project is None or project.user_id != current_user.id or project.deleted_at is not None:
         # Same 404 for "doesn't exist" and "not yours" -- don't leak existence
         # of other users' projects.
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
@@ -199,9 +201,19 @@ def get_project_status(
         )
     generations.sort(key=lambda gen: tier_order.get(gen.tier, len(tier_order)))
 
+    purchased_tiers = wallet_service.purchased_download_tiers(db, current_user.id, [project.id]).get(
+        project.id, []
+    )
+    previews_expired = project.previews_expired_at is not None
+    if previews_expired:
+        # storage_cleanup_service deleted every unpurchased tier's files --
+        # only purchased designs are still on disk to show.
+        generations = [gen for gen in generations if gen.tier in purchased_tiers]
+
     # A tier that failed is reported on its own rather than failing the whole
     # project -- the tiers that did succeed stay previewable above, and each
-    # failure is separately retryable (see retry_tier below).
+    # failure is separately retryable (see retry_tier below) -- until the
+    # project expires, after which a retry is no longer possible.
     outcomes = generation_status_service.get_preview_tier_outcomes(db, project.id)
     # Plural: fan-out means more than one tier can be "running" at once, not
     # just the tail of a chain -- see tier_service.get_enabled_tiers() usage
@@ -210,7 +222,7 @@ def get_project_status(
     tier_failures = [
         ProjectTierFailure(tier=tier.key, failure_reason=outcomes[tier.key].failure_reason)
         for tier in enabled_tiers
-        if _outcome_status(outcomes, tier.key) == "failed"
+        if _outcome_status(outcomes, tier.key) == "failed" and not previews_expired
     ]
 
     cost_gate = None
@@ -234,9 +246,9 @@ def get_project_status(
         current_tiers=current_tiers,
         tier_failures=tier_failures,
         cost_gate=cost_gate,
-        purchased_tiers=wallet_service.purchased_download_tiers(db, current_user.id, [project.id]).get(
-            project.id, []
-        ),
+        purchased_tiers=purchased_tiers,
+        previews_expired=previews_expired,
+        previews_expired_at=project.previews_expired_at,
         page_count=tier_actions_service.latest_page_count(db, project.id),
         tier_actions={
             tier: ProjectTierActions(**actions.__dict__)
@@ -259,7 +271,7 @@ def approve_generation(
     authoritative, row-locked charge, unchanged; this is purely a
     balance-sufficiency pre-check against the estimate."""
     project = db.get(Project, uuid.UUID(project_id))
-    if project is None or project.user_id != current_user.id:
+    if project is None or project.user_id != current_user.id or project.deleted_at is not None:
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
     if project.status != "awaiting_cost_approval":
         raise HTTPException(status_code=409, detail="No pending generation approval for this project")
@@ -302,10 +314,14 @@ def retry_tier(
     that's still running, or that already succeeded, is a 409.
     """
     project = db.get(Project, uuid.UUID(project_id))
-    if project is None or project.user_id != current_user.id:
+    if project is None or project.user_id != current_user.id or project.deleted_at is not None:
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
     if not tier_service.is_tier_enabled(tier, db):
         raise HTTPException(status_code=404, detail=f"No enabled tier named {tier!r}")
+
+    if project.previews_expired_at is not None:
+        # The crawl snapshot the retry would copy images from is gone.
+        raise HTTPException(status_code=410, detail="This project has expired -- submit the site again")
 
     outcomes = generation_status_service.get_preview_tier_outcomes(db, project.id)
     if _outcome_status(outcomes, tier) != "failed":

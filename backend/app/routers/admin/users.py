@@ -92,6 +92,7 @@ def get_user_detail(user_id: str, db: Session = Depends(get_db)) -> AdminUserDet
                 owner_email=result.user.email,
                 tier=item.tier,
                 created_at=item.created_at,
+                deleted_at=item.deleted_at,
             )
             for item in result.projects.items
         ],

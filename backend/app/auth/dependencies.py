@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..db.session import get_db
 from ..models import User
+from ..observability import context as log_context
 from .jwt import InvalidTokenError, decode_access_token
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -25,6 +26,8 @@ def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
+    # Tags this request's remaining log lines (and its http.request line).
+    log_context.bind(user_id=user.id)
     return user
 
 

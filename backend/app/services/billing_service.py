@@ -16,8 +16,8 @@ create_order() leaves no pending row behind once the router rolls back.
 
 import logging
 import uuid
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from ..models import CreditPack, Purchase
 from ..payments import mock_gateway, paypal_client
-from ..payments.paypal_client import CURRENCY, PayPalError
+from ..payments.paypal_client import CURRENCY, PayPalError, PayPalNotConfiguredError
 from . import wallet_service
 
 logger = logging.getLogger(__name__)
@@ -150,6 +150,16 @@ def _gateway(purchase: Purchase):
     return mock_gateway if purchase.source == mock_gateway.SOURCE else paypal_client
 
 
+def _purchase_fields(purchase: Purchase) -> dict:
+    """Correlation fields for every billing log line (docs/LOGGING.md)."""
+    return {
+        "purchase_id": str(purchase.id),
+        "user_id": str(purchase.user_id),
+        "paypal_order_id": purchase.paypal_order_id,
+        "source": purchase.source,
+    }
+
+
 def _lock_purchase_by_order(db: Session, order_id: str) -> Purchase | None:
     return (
         db.query(Purchase)
@@ -209,6 +219,14 @@ def create_order(db: Session, user_id: uuid.UUID, pack_id: uuid.UUID) -> Purchas
         description=f"{pack.credits} ReDoWebs credits ({pack.name})",
     )
     db.flush()
+    logger.info(
+        "purchase %s: order %s created (%d credits, %d cents)",
+        purchase.id,
+        purchase.paypal_order_id,
+        purchase.credits_granted,
+        purchase.amount_usd_cents,
+        extra={**_purchase_fields(purchase), "event": "billing.order_created"},
+    )
     return purchase
 
 
@@ -252,6 +270,7 @@ def _capture_and_fulfill(db: Session, purchase: Purchase) -> CaptureOutcome:
     if settled is not None:
         return settled
 
+    fields = _purchase_fields(purchase)
     try:
         order = _gateway(purchase).capture_order(purchase.paypal_order_id)
     except PayPalError as exc:
@@ -259,13 +278,29 @@ def _capture_and_fulfill(db: Session, purchase: Purchase) -> CaptureOutcome:
             try:
                 order = _gateway(purchase).get_order(purchase.paypal_order_id)
             except PayPalError as fetch_exc:
-                logger.warning("purchase %s: order already captured but fetch failed: %s", purchase.id, fetch_exc)
+                logger.warning(
+                    "purchase %s: order already captured but fetch failed: %s",
+                    purchase.id,
+                    fetch_exc,
+                    extra={**fields, "event": "billing.capture_pending", "reason": "already_captured_fetch_failed"},
+                )
                 return CaptureOutcome("pending", 0, "Payment received, confirming with PayPal")
         elif exc.transient:
-            logger.warning("purchase %s: capture got no clean answer from PayPal: %s", purchase.id, exc)
+            logger.warning(
+                "purchase %s: capture got no clean answer from PayPal: %s",
+                purchase.id,
+                exc,
+                extra={**fields, "event": "billing.capture_pending", "reason": "transient", "status": exc.status_code},
+            )
             return CaptureOutcome("pending", 0, "PayPal did not respond in time; your payment will be confirmed shortly")
         else:
-            logger.info("purchase %s: capture rejected (%s): %s", purchase.id, exc.issue, exc)
+            logger.info(
+                "purchase %s: capture rejected (%s): %s",
+                purchase.id,
+                exc.issue,
+                exc,
+                extra={**fields, "event": "billing.capture_failed", "issue": exc.issue, "status": exc.status_code},
+            )
             return CaptureOutcome("failed", 0, exc.issue or str(exc))
 
     return _apply_capture(db, purchase, extract_capture(order))
@@ -279,6 +314,7 @@ def _apply_capture(db: Session, purchase: Purchase, capture: CaptureInfo | None)
     status, reason = validate_capture(capture, purchase.amount_usd_cents)
     if capture is not None:
         purchase.paypal_capture_id = capture.id
+    fields = {**_purchase_fields(purchase), "paypal_capture_id": purchase.paypal_capture_id}
 
     if status == "completed":
         wallet_service.grant_purchase_credits(
@@ -290,10 +326,22 @@ def _apply_capture(db: Session, purchase: Purchase, capture: CaptureInfo | None)
         )
         purchase.status = "completed"
         db.flush()
+        logger.info(
+            "purchase %s completed: %d credits granted",
+            purchase.id,
+            purchase.credits_granted,
+            extra={**fields, "event": "billing.capture_completed", "credits": purchase.credits_granted},
+        )
         return CaptureOutcome("completed", purchase.credits_granted)
 
     if status == "pending":
         db.flush()
+        logger.info(
+            "purchase %s still pending: %s",
+            purchase.id,
+            reason,
+            extra={**fields, "event": "billing.capture_pending", "reason": reason},
+        )
         return CaptureOutcome("pending", 0, reason)
 
     purchase.status = status
@@ -301,7 +349,15 @@ def _apply_capture(db: Session, purchase: Purchase, capture: CaptureInfo | None)
     if status == "refunded":
         mark_refunded(purchase, reason)
     db.flush()
-    logger.warning("purchase %s marked %s: %s", purchase.id, status, reason)
+    # A COMPLETED capture that failed validation means PayPal took money we
+    # won't credit -- the one case an admin must resolve by hand.
+    mismatch = status == "failed" and capture is not None and capture.status == "COMPLETED"
+    event = "billing.amount_mismatch" if mismatch else f"billing.capture_{status}"
+    if status == "refunded":
+        event = "billing.refund_marked"
+    logger.warning(
+        "purchase %s marked %s: %s", purchase.id, status, reason, extra={**fields, "event": event, "reason": reason}
+    )
     return CaptureOutcome(status, 0, reason)
 
 
@@ -393,6 +449,106 @@ def recheck_purchase(db: Session, purchase: Purchase) -> RecheckOutcome:
     return RecheckOutcome(CaptureOutcome("pending", 0, f"PayPal order status {order_status or 'unknown'}"))
 
 
+# --- automatic reconciliation ----------------------------------------------------
+
+
+@dataclass
+class ReconcileReport:
+    checked: int = 0
+    # Locked by an in-flight capture/webhook, or settled since the scan.
+    skipped: int = 0
+    errors: int = 0
+    outcomes: dict[str, int] = field(default_factory=dict)
+
+
+def reconcile_pending_purchases(
+    db: Session,
+    *,
+    min_age: timedelta,
+    max_age: timedelta,
+    limit: int,
+    now: datetime | None = None,
+) -> ReconcileReport:
+    """Re-checks stale `pending` PayPal purchases with PayPal -- the safety
+    net under the safety net: a buyer who approved and closed the tab is
+    normally rescued by the CHECKOUT.ORDER.APPROVED webhook, but if the
+    webhook is missing (always, locally) or misconfigured, this captures and
+    credits them anyway instead of waiting for an admin to press Re-check.
+
+    Reuses recheck_purchase() (same `purchase:{id}` ledger key, so it can
+    never double-grant). Only `pending` rows are considered: `completed`/
+    `refunded` are never touched (refunds stay marked-only), and `failed`
+    means PayPal denied it or the amount didn't match -- re-asking every
+    interval wouldn't change that. Rows are locked FOR UPDATE SKIP LOCKED so
+    an in-flight browser capture is never blocked, and each purchase is its
+    own transaction so one PayPal error doesn't abort the batch.
+
+    Unlike the rest of this module, this commits (it's a batch job, called
+    only from workers/billing_reconcile.py)."""
+    now = now or datetime.now(timezone.utc)
+    ids = list(
+        db.scalars(
+            select(Purchase.id)
+            .where(
+                Purchase.status == "pending",
+                Purchase.source == "paypal",
+                Purchase.paypal_order_id.is_not(None),
+                Purchase.created_at <= now - min_age,
+                Purchase.created_at >= now - max_age,
+            )
+            .order_by(Purchase.created_at)
+            .limit(limit)
+        ).all()
+    )
+    db.rollback()
+
+    report = ReconcileReport()
+    for purchase_id in ids:
+        try:
+            purchase = (
+                db.query(Purchase)
+                .filter(Purchase.id == purchase_id, Purchase.status == "pending")
+                .with_for_update(skip_locked=True)
+                .one_or_none()
+            )
+            if purchase is None:
+                db.rollback()
+                report.skipped += 1
+                continue
+            fields = _purchase_fields(purchase)
+            result = recheck_purchase(db, purchase).outcome
+            db.commit()
+        except PayPalNotConfiguredError:
+            db.rollback()
+            raise
+        except Exception as exc:
+            db.rollback()
+            report.errors += 1
+            logger.warning(
+                "reconcile: purchase %s could not be re-checked: %s",
+                purchase_id,
+                exc,
+                extra={
+                    "event": "billing.reconcile_error",
+                    "purchase_id": str(purchase_id),
+                    "error_type": type(exc).__name__,
+                    "transient": getattr(exc, "transient", None),
+                },
+            )
+            continue
+
+        report.checked += 1
+        report.outcomes[result.status] = report.outcomes.get(result.status, 0) + 1
+        if result.status != "pending":
+            logger.info(
+                "reconcile: purchase %s -> %s",
+                purchase_id,
+                result.status,
+                extra={**fields, "event": "billing.reconciled", "status": result.status, "reason": result.reason},
+            )
+    return report
+
+
 # --- webhooks ------------------------------------------------------------------
 
 
@@ -440,7 +596,57 @@ def handle_webhook_event(db: Session, event: dict) -> str:
         # refund reconciliation is manual, via the admin adjustment tool).
         mark_refunded(purchase, f"{event_type} received; credits not reversed automatically")
         db.flush()
-        logger.warning("purchase %s refunded/reversed at PayPal; review the user's balance", purchase.id)
+        logger.warning(
+            "purchase %s refunded/reversed at PayPal; review the user's balance",
+            purchase.id,
+            extra={**_purchase_fields(purchase), "event": "billing.refund_marked", "paypal_event": event_type},
+        )
         return f"{event_type} -> refunded"
 
+    if event_type in DISPUTE_EVENTS:
+        return _note_dispute(db, event_type, resource)
+
     return f"ignored: {event_type or 'no event_type'}"
+
+
+DISPUTE_EVENTS = ("CUSTOMER.DISPUTE.CREATED", "CUSTOMER.DISPUTE.UPDATED", "CUSTOMER.DISPUTE.RESOLVED")
+
+
+def _note_dispute(db: Session, event_type: str, resource: dict) -> str:
+    """Records a dispute/chargeback on the purchase it concerns, so it's
+    visible on the admin Payments page instead of only in PayPal's
+    dashboard. Status and credits are deliberately left alone -- like
+    refunds, resolution is a manual admin decision (PRD)."""
+    dispute_id = resource.get("dispute_id") or resource.get("id") or "unknown"
+    detail = resource.get("status") or ""
+    outcome = (resource.get("dispute_outcome") or {}).get("outcome_code")
+    for txn in resource.get("disputed_transactions") or []:
+        purchase = _lock_purchase_by_capture(db, (txn or {}).get("seller_transaction_id"))
+        if purchase is None:
+            continue
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        line = f"[{stamp}] PayPal {event_type} {dispute_id} {detail}{f' ({outcome})' if outcome else ''}".strip()
+        purchase.note = f"{purchase.note}\n{line}" if purchase.note else line
+        db.flush()
+        logger.warning(
+            "purchase %s: %s %s",
+            purchase.id,
+            event_type,
+            dispute_id,
+            extra={
+                **_purchase_fields(purchase),
+                "event": "billing.dispute",
+                "paypal_event": event_type,
+                "dispute_id": dispute_id,
+                "dispute_status": detail,
+                "dispute_outcome": outcome,
+            },
+        )
+        return f"{event_type} -> noted on purchase {purchase.id}"
+    logger.warning(
+        "%s %s matches no purchase",
+        event_type,
+        dispute_id,
+        extra={"event": "billing.dispute", "paypal_event": event_type, "dispute_id": dispute_id, "matched": False},
+    )
+    return "ignored: dispute for unknown purchase"

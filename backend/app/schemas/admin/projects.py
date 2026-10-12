@@ -10,6 +10,7 @@ class AdminProjectListItem(BaseModel):
     owner_email: str
     tier: str | None = None
     created_at: datetime
+    deleted_at: datetime | None = None
 
 
 class AdminProjectListResponse(BaseModel):
@@ -76,3 +77,21 @@ class AdminProjectDetailResponse(BaseModel):
     generation_jobs: list[AdminGenerationJobSummary]
     # Tiers the owner paid to download, from the download_spend ledger rows.
     paid_tiers: list[AdminPaidTier] = []
+    # Admin soft delete (files gone, history kept) -- see
+    # services/project_deletion_service.py.
+    deleted_at: datetime | None = None
+    deleted_by_email: str | None = None
+    deletion_reason: str | None = None
+    # Retention cleanup removed unpurchased previews -- see
+    # services/storage_cleanup_service.py.
+    previews_expired_at: datetime | None = None
+
+
+class AdminDeleteProjectRequest(BaseModel):
+    reason: str | None = None
+
+
+class AdminDeleteProjectResponse(BaseModel):
+    project_id: str
+    deleted_at: datetime
+    bytes_freed: int

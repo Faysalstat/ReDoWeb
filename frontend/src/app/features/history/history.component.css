@@ -69,3 +69,76 @@
   }
 }
 
+
+/* "Preview expired" chip -- replaces View when nothing is left to open. */
+.expired-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-accent-2-400);
+  border-radius: calc(var(--radius-md) * 0.75);
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-800);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.expired-chip:hover {
+  background: var(--color-accent-2-200);
+  border-color: var(--color-accent-2-500);
+}
+.expired-chip:focus-visible {
+  outline: 2px solid var(--color-accent-2-500);
+  outline-offset: 2px;
+}
+
+/* Warning pop-up (native <dialog>). Padding lives on the inner body so a
+   click on the dialog element itself is always a backdrop click. */
+.expired-dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--color-divider-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.expired-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.expired-dialog__body {
+  padding: var(--space-6);
+}
+.expired-dialog__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-500);
+}
+.expired-dialog__title {
+  margin-top: var(--space-4);
+  font-size: 20px;
+}
+.expired-dialog__text {
+  margin-top: var(--space-2);
+  font-size: 14px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+}
+.expired-dialog__url {
+  color: var(--color-text);
+  word-break: break-all;
+}
+.expired-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}

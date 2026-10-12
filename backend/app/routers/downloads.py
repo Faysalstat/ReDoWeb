@@ -33,7 +33,7 @@ def _get_owned_project(db: Session, project_id: str, current_user: User) -> Proj
         project = db.get(Project, uuid.UUID(project_id))
     except ValueError:
         project = None
-    if project is None or project.user_id != current_user.id:
+    if project is None or project.user_id != current_user.id or project.deleted_at is not None:
         # Same 404 for "doesn't exist" and "not yours" as GET /projects/{id}.
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
     return project
@@ -78,9 +78,22 @@ def _lock_project(db: Session, project: Project) -> None:
     db.query(Project).filter(Project.id == project.id).with_for_update().one()
 
 
+PREVIEW_EXPIRED_DETAIL = "This preview has expired and can no longer be bought -- submit the site again"
+
+
 def _purchase(db: Session, project: Project, tier: str) -> None:
     tier_info = _require_active_tier(tier)
     preview_job = _succeeded_preview_job(db, project, tier)
+    # Row lock shared with storage_cleanup_service, so a Buy click and the
+    # retention cleanup can't interleave: either this purchase commits first
+    # (cleanup then sees it and keeps the tier) or it waits and sees the
+    # expiry below. populate_existing re-reads previews_expired_at.
+    project = (
+        db.query(Project).filter(Project.id == project.id).with_for_update().populate_existing().one()
+    )
+    if project.previews_expired_at is not None and not tier_actions_service.is_purchased(db, project, tier):
+        db.rollback()
+        raise HTTPException(status_code=410, detail=PREVIEW_EXPIRED_DETAIL)
     # Idempotency key is scoped to (project, tier), not per request -- buying
     # an already-bought tier costs nothing.
     try:

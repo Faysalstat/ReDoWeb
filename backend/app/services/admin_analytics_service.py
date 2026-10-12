@@ -107,6 +107,7 @@ class ProjectListItem:
     owner_email: str
     tier: str | None
     created_at: datetime
+    deleted_at: datetime | None = None
 
 
 @dataclass
@@ -179,6 +180,7 @@ def list_projects(
             owner_email=email,
             tier=latest_tier_by_project.get(project.id),
             created_at=project.created_at,
+            deleted_at=project.deleted_at,
         )
         for project, email in rows
     ]
