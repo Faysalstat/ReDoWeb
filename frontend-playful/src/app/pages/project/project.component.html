@@ -1,0 +1,450 @@
+<div class="pg-wrap pj">
+  <div class="pj__crumbs">
+    <a routerLink="/history" class="pj__back">← My projects</a>
+    @if (status(); as s) {
+      <span class="pg-chip pj__source" [title]="s.source_url">{{ s.source_url }}</span>
+    }
+  </div>
+
+  <!-- ============ IN PROGRESS ============ -->
+  @if (isBusy) {
+    <section class="busy">
+      <div class="pg-card pg-card--pop busy__main">
+        <span class="pg-kicker">{{ statusLabelFor(stage()) }}</span>
+
+        <div class="busy__pct-row">
+          <p class="busy__pct">{{ progressPercent }}<span>%</span></p>
+          <p class="busy__time pg-muted">{{ formattedElapsed }} elapsed<br />usually 15–30 minutes</p>
+        </div>
+
+        <div class="pg-meter" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="progressPercent">
+          <span [style.width.%]="progressPercent"></span>
+        </div>
+
+        <!-- Board-game path -->
+        <ol class="path">
+          @for (st of stages; track st.key; let i = $index; let last = $last) {
+            <li class="path__step" [class]="'is-' + stepStatus(st.key)">
+              <span class="path__node" [attr.data-i]="i">
+                @if (stepStatus(st.key) === 'done') {
+                  <app-icon-check [size]="20" />
+                } @else {
+                  {{ i + 1 }}
+                }
+              </span>
+              @if (!last) {
+                <span class="path__link" aria-hidden="true"></span>
+              }
+              <span class="path__label">{{ st.label }}</span>
+              <span class="path__desc pg-muted">{{ st.description }}</span>
+              <span class="pg-sr-only">— {{ stepStatus(st.key) }}</span>
+            </li>
+          }
+        </ol>
+
+        <p class="busy__bubble pg-bubble" aria-live="polite">
+          <span class="busy__typing" aria-hidden="true"><i></i><i></i><i></i></span>
+          {{ subStatus() || 'Working on it…' }}
+        </p>
+      </div>
+
+      <aside class="busy__aside">
+        <div class="pg-card note">
+          <span class="pg-icon-badge pg-card__float"><app-icon-sparkles [size]="20" /></span>
+          <h3 class="note__title">What's happening</h3>
+          <p class="pg-muted">
+            We never touch your live site. We're only reading it to build the replacement. You can close this tab
+            and come back from your <a routerLink="/history">History</a> any time.
+          </p>
+        </div>
+        <div class="pg-card note note--live">
+          <span class="note__live" aria-hidden="true"></span>
+          <p>Working on <b>{{ status()?.source_url }}</b></p>
+        </div>
+      </aside>
+    </section>
+  }
+
+  <!-- ============ FAILED / REJECTED ============ -->
+  @if (stage() === 'error') {
+    <section class="center">
+      <div class="pg-card center__card">
+        <span class="pg-icon-badge pg-icon-badge--pink center__icon"><app-icon-x [size]="28" /></span>
+        <h1 class="center__title">{{ errorHeading() }}</h1>
+        <p class="pg-muted">{{ errorMessage() }}</p>
+
+        @if (status()?.tier_failures?.length) {
+          <div class="retry">
+            <p class="pg-label">Retry a single tier</p>
+            <p class="pg-muted retry__note">
+              Your site was already crawled and analysed. Retrying reuses that work: no re-crawl, no extra credits.
+            </p>
+            @for (failure of status()!.tier_failures; track failure.tier) {
+              <div class="retry__row">
+                <b>{{ tierLabel(failure.tier) }}</b>
+                <button class="pg-btn pg-btn--sm pg-btn--secondary" [disabled]="isRetrying(failure.tier)" (click)="retryTier(failure.tier)">
+                  {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                </button>
+                @if (failure.failure_reason) {
+                  <p class="retry__reason pg-muted">{{ failure.failure_reason }}</p>
+                }
+              </div>
+            }
+            @if (retryError()) {
+              <p class="pg-err" role="alert">{{ retryError() }}</p>
+            }
+          </div>
+        }
+
+        <button class="pg-btn" (click)="tryAgain()">Start over with a new site</button>
+      </div>
+    </section>
+  }
+
+  <!-- ============ AWAITING COST APPROVAL ============ -->
+  @if (stage() === 'awaiting_approval') {
+    @if (status()?.cost_gate; as gate) {
+      <section class="center">
+        <div class="pg-card pg-card--featured center__card">
+          <span class="pg-icon-badge pg-icon-badge--amber center__icon"><app-icon-alert-triangle [size]="28" /></span>
+          <h1 class="center__title">This page is bigger than usual</h1>
+          <p class="pg-muted">
+            Generating every enabled tier for this page is estimated at about
+            <b>${{ gate.estimated_cost_usd.toFixed(2) }}</b>, more than usual for a single page. We've paused so you
+            can confirm first.
+          </p>
+
+          <div class="stats3">
+            <div><b>${{ gate.estimated_cost_usd.toFixed(2) }}</b><span>Estimated cost</span></div>
+            <div><b>{{ gate.required_credits }}</b><span>Credits required</span></div>
+            <div><b>{{ gate.current_balance }}</b><span>Your balance</span></div>
+          </div>
+
+          @if (gate.shortfall_credits > 0) {
+            <p class="pg-err">
+              You need {{ gate.shortfall_credits }} more credit{{ gate.shortfall_credits === 1 ? '' : 's' }} to continue.
+            </p>
+            <button class="pg-btn" (click)="goToTopUp()">Top up credits</button>
+          } @else {
+            <button class="pg-btn" [disabled]="approving()" (click)="approveGeneration()">
+              {{ approving() ? 'Starting…' : 'Continue: spend credits and generate' }}
+            </button>
+          }
+          @if (approveError()) {
+            <p class="pg-err" role="alert">{{ approveError() }}</p>
+          }
+          <a routerLink="/" class="center__cancel">Cancel and go back</a>
+        </div>
+      </section>
+    }
+  }
+
+  <!-- ============ READY ============ -->
+  @if (stage() === 'ready') {
+    @if (status(); as s) {
+      @if (activeGeneration(); as gen) {
+        <header class="top">
+          <div class="top__id">
+            <span class="pg-chip pg-chip--mint"><app-icon-check [size]="13" /> Redesign complete</span>
+            <h1 class="top__title">{{ s.blueprint?.site_name || 'Your modernized site' }}</h1>
+            <p class="pg-muted">{{ tierLabel(gen.tier) }} tier · generated in {{ formattedElapsed }}</p>
+          </div>
+          <div class="top__actions">
+            <button class="pg-btn pg-btn--secondary" (click)="tryAgain()">Start over</button>
+            @if (isPurchased(gen.tier)) {
+              <button class="pg-btn" [disabled]="downloadStatus()[gen.tier] === 'downloading'" (click)="download(gen.tier)">
+                {{ downloadStatus()[gen.tier] === 'downloading' ? 'Preparing ZIP…' : 'Download ZIP' }}
+              </button>
+            } @else {
+              <button class="pg-btn pg-btn--pink" [disabled]="buyStatus()[gen.tier] === 'buying'" (click)="buy(gen.tier)">
+                @if (buyStatus()[gen.tier] === 'buying') {
+                  Buying…
+                } @else if (tierCost(gen.tier) !== null) {
+                  Buy design · {{ tierCost(gen.tier) }} credits
+                } @else {
+                  Buy design
+                }
+              </button>
+            }
+          </div>
+        </header>
+
+        @if (buyStatus()[gen.tier] === 'failed') {
+          <p class="pg-err" role="alert">Something went wrong buying this design. Please try again.</p>
+        }
+        @if (downloadStatus()[gen.tier] === 'failed') {
+          <p class="pg-err" role="alert">Something went wrong preparing your download. Please try again.</p>
+        }
+        @if (buyStatus()[gen.tier] === 'needs-credits' && downloadShortfall()[gen.tier]; as short) {
+          <div class="topup" role="alert">
+            <p>
+              The {{ tierLabel(gen.tier) }} design needs <b>{{ short.required }} credits</b> and you have
+              {{ short.balance }}. Top up {{ short.shortfall }} and your purchase will carry on automatically.
+            </p>
+            <button class="pg-btn pg-btn--amber" (click)="topUpForBuy(gen.tier)">
+              Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
+            </button>
+          </div>
+        }
+
+        <!-- Post-purchase actions -->
+        <section class="acts" [class.is-locked]="!isPurchased(gen.tier)" [attr.aria-label]="isPurchased(gen.tier) ? 'Your design' : 'Unlocks with purchase'">
+          <div class="acts__head">
+            @if (isPurchased(gen.tier)) {
+              <span class="pg-chip pg-chip--mint"><app-icon-check [size]="13" /> Purchased</span>
+              <span class="pg-muted">ZIP contains: <b>{{ zipContents(gen.tier) }}</b></span>
+            } @else {
+              <span class="pg-chip"><app-icon-lock [size]="13" /> Unlocks with purchase</span>
+            }
+          </div>
+
+          <div class="acts__grid">
+            <div class="act">
+              <span class="pg-icon-badge act__icon">1</span>
+              <div class="act__body">
+                <b>Download ZIP</b>
+                <span class="pg-muted">The finished HTML &amp; CSS, ready to host.</span>
+              </div>
+              @if (isPurchased(gen.tier)) {
+                <button class="pg-btn pg-btn--sm pg-btn--secondary" [disabled]="downloadStatus()[gen.tier] === 'downloading'" (click)="download(gen.tier)">
+                  {{ downloadStatus()[gen.tier] === 'downloading' ? 'Preparing…' : 'Download' }}
+                </button>
+              } @else {
+                <span class="pg-chip act__lock"><app-icon-lock [size]="12" /> Locked</span>
+              }
+            </div>
+
+            @if (hasMorePages()) {
+              <div class="act">
+                <span class="pg-icon-badge pg-icon-badge--pink act__icon">2</span>
+                <div class="act__body">
+                  <b>Generate all {{ pageCount() }} pages</b>
+                  <span class="pg-muted">Builds every other page in the same style. No extra charge.</span>
+                  @if (fullSiteStatus(gen.tier) === 'failed' && tierActions(gen.tier).full_site_failure_reason) {
+                    <span class="pg-err">{{ tierActions(gen.tier).full_site_failure_reason }}</span>
+                  }
+                </div>
+                @if (!isPurchased(gen.tier)) {
+                  <span class="pg-chip act__lock"><app-icon-lock [size]="12" /> Locked</span>
+                } @else {
+                  @switch (fullSiteStatus(gen.tier)) {
+                    @case ('running') { <span class="pg-chip pg-chip--amber"><span class="pg-spin" aria-hidden="true"></span> Generating…</span> }
+                    @case ('succeeded') { <span class="pg-chip pg-chip--mint"><app-icon-check [size]="12" /> Done</span> }
+                    @default {
+                      <button class="pg-btn pg-btn--sm pg-btn--secondary" [disabled]="!canGenerateAllPages(gen.tier)" (click)="generateAllPages(gen.tier)">
+                        @if (actionStarting()[gen.tier] === 'full_site') { Starting… }
+                        @else if (fullSiteStatus(gen.tier) === 'failed') { Retry }
+                        @else { Generate }
+                      </button>
+                    }
+                  }
+                }
+              </div>
+            }
+
+            @if (tierActions(gen.tier).seo_available) {
+              <div class="act">
+                <span class="pg-icon-badge pg-icon-badge--amber act__icon">{{ hasMorePages() ? 3 : 2 }}</span>
+                <div class="act__body">
+                  <b>Run SEO agent</b>
+                  <span class="pg-muted">
+                    @if (isPurchased(gen.tier) && seoNeedsAllPages(gen.tier) && seoStatus(gen.tier) === 'none') {
+                      Generate all pages first, so SEO runs on the final site.
+                    } @else {
+                      Titles, descriptions, headings, alt text, sitemap.
+                    }
+                  </span>
+                  @if (seoStatus(gen.tier) === 'failed' && tierActions(gen.tier).seo_failure_reason) {
+                    <span class="pg-err">{{ tierActions(gen.tier).seo_failure_reason }}</span>
+                  }
+                </div>
+                @if (!isPurchased(gen.tier)) {
+                  <span class="pg-chip act__lock"><app-icon-lock [size]="12" /> Locked</span>
+                } @else {
+                  @switch (seoStatus(gen.tier)) {
+                    @case ('running') { <span class="pg-chip pg-chip--amber"><span class="pg-spin" aria-hidden="true"></span> Optimizing…</span> }
+                    @case ('succeeded') { <span class="pg-chip pg-chip--mint"><app-icon-check [size]="12" /> Done</span> }
+                    @default {
+                      <button class="pg-btn pg-btn--sm pg-btn--secondary" [disabled]="!canRunSeo(gen.tier)" (click)="runSeo(gen.tier)">
+                        @if (actionStarting()[gen.tier] === 'seo') { Starting… }
+                        @else if (seoStatus(gen.tier) === 'failed') { Retry }
+                        @else { Run }
+                      </button>
+                    }
+                  }
+                }
+              </div>
+            }
+          </div>
+
+          <!-- SEO run: live progress, then the log -->
+          @if (isPurchased(gen.tier) && tierActions(gen.tier).seo_progress; as sp) {
+            @if (sp.status === 'running') {
+              <div class="run" aria-live="polite">
+                <div class="run__head">
+                  <span><b>{{ sp.label }}</b> · step {{ stepPosition(sp) }}</span>
+                  <b>{{ sp.percent }}%</b>
+                </div>
+                <div class="pg-meter pg-meter--sm" role="progressbar" aria-label="SEO optimization progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="sp.percent">
+                  <span [style.width.%]="sp.percent"></span>
+                </div>
+                @if (sp.detail) {
+                  <p class="pg-muted run__detail">{{ sp.detail }}</p>
+                }
+              </div>
+            } @else {
+              <details class="run run--log">
+                <summary>
+                  {{ sp.status === 'succeeded' ? 'What the SEO agent did' : 'What happened' }}
+                  @if (sp.detail) { · {{ sp.detail }} }
+                </summary>
+                <ol class="run__steps">
+                  @for (step of sp.steps; track step.key) {
+                    <li [class]="'is-' + step.status">{{ step.label }}</li>
+                  }
+                </ol>
+                @if (sp.activity?.length) {
+                  <ul class="run__activity">
+                    @for (entry of sp.activity; track $index) {
+                      <li [class]="'is-' + entry.level">{{ entry.message }}</li>
+                    }
+                  </ul>
+                }
+              </details>
+            }
+          }
+
+          @if (actionError()[gen.tier]) {
+            <p class="pg-err" role="alert">{{ actionError()[gen.tier] }}</p>
+          }
+        </section>
+
+        <!-- Preview + details -->
+        <div class="ready">
+          <div class="ready__preview">
+            <div class="toolbar">
+              @if (s.generations.length > 1) {
+                <div class="pg-seg" role="group" aria-label="Tier">
+                  @for (item of s.generations; track item.tier) {
+                    <button type="button" [attr.aria-pressed]="selectedTier() === item.tier" (click)="selectTier(item.tier)">
+                      {{ tierLabel(item.tier) }}
+                    </button>
+                  }
+                </div>
+              }
+              <a class="toolbar__orig" [href]="s.source_url" target="_blank" rel="noopener">View original ↗</a>
+              <div class="pg-seg toolbar__device" role="group" aria-label="Device">
+                <button type="button" [attr.aria-pressed]="device() === 'desktop'" (click)="device.set('desktop')">Desktop</button>
+                <button type="button" [attr.aria-pressed]="device() === 'phone'" (click)="device.set('phone')">Phone</button>
+              </div>
+            </div>
+
+            <div class="stage pg-dots">
+              <div class="stage__inner" [style.maxWidth.px]="frameWidth">
+                <pg-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()">
+                  <button toolbar-actions type="button" class="ibtn" title="Full page preview" aria-label="Full page preview" (click)="toggleFullscreenPreview()">
+                    <app-icon-maximize2 [size]="14" />
+                  </button>
+                  <button toolbar-actions type="button" class="ibtn" title="Open in new tab" aria-label="Open in new tab" (click)="openPreviewInNewTab()">
+                    <app-icon-external-link [size]="14" />
+                  </button>
+                </pg-browser-frame>
+              </div>
+            </div>
+          </div>
+
+          <aside class="ready__aside">
+            <div class="pg-card side">
+              <p class="pg-label">Generation details</p>
+              <div class="stats2">
+                <div><b class="c-accent">{{ tierLabel(gen.tier) }}</b><span>Tier</span></div>
+                <div><b [title]="gen.template_used">{{ templateName(gen.template_used) }}</b><span>Template</span></div>
+                <div>
+                  <b [class.c-danger]="gen.contrast_warnings.length > 0" [class.c-mint]="gen.contrast_warnings.length === 0">{{ gen.contrast_warnings.length }}</b>
+                  <span>Accessibility notes</span>
+                </div>
+                <div><b>1</b><span>Page rebuilt</span></div>
+              </div>
+            </div>
+
+            @if (s.tier_failures.length > 0) {
+              <div class="pg-card side">
+                <p class="pg-label">Tiers that didn't finish</p>
+                <p class="pg-muted side__note">Retrying rebuilds only that tier from the existing blueprint, at no extra cost.</p>
+                @for (failure of s.tier_failures; track failure.tier) {
+                  <div class="retry__row">
+                    <b>{{ tierLabel(failure.tier) }}</b>
+                    <button class="pg-btn pg-btn--sm pg-btn--secondary" [disabled]="isRetrying(failure.tier)" (click)="retryTier(failure.tier)">
+                      {{ isRetrying(failure.tier) ? 'Starting…' : 'Retry' }}
+                    </button>
+                    @if (failure.failure_reason) {
+                      <p class="retry__reason pg-muted">{{ failure.failure_reason }}</p>
+                    }
+                  </div>
+                }
+                @if (retryError()) {
+                  <p class="pg-err" role="alert">{{ retryError() }}</p>
+                }
+              </div>
+            }
+
+            <div class="pg-card side">
+              <p class="pg-label">What changed</p>
+              <ul class="pg-checks">
+                @for (item of whatChanged; track item) {
+                  <li><span class="pg-icon-badge pg-icon-badge--mint pg-tick"><app-icon-check [size]="11" /></span>{{ item }}</li>
+                }
+                <li>
+                  @if (gen.contrast_warnings.length === 0) {
+                    <span class="pg-icon-badge pg-icon-badge--mint pg-tick"><app-icon-check [size]="11" /></span>
+                    No color-contrast issues found
+                  } @else {
+                    <span class="pg-icon-badge pg-icon-badge--amber pg-tick"><app-icon-alert-triangle [size]="11" /></span>
+                    {{ gen.contrast_warnings.length }} contrast issue{{ gen.contrast_warnings.length === 1 ? '' : 's' }} flagged below
+                  }
+                </li>
+              </ul>
+            </div>
+
+            @if (gen.contrast_warnings.length > 0) {
+              <div class="pg-card side">
+                <p class="pg-label">Accessibility notes</p>
+                <ul class="side__warn">
+                  @for (warning of gen.contrast_warnings; track warning) {
+                    <li>{{ warning }}</li>
+                  }
+                </ul>
+              </div>
+            }
+
+            <div class="pg-card side side--cta">
+              @if (isPurchased(gen.tier)) {
+                <p class="pg-label">You own this design</p>
+                <p>Download it again any time at no cost. It's also in your <a routerLink="/history">History</a>.</p>
+              } @else {
+                <p class="pg-label">Previews are free</p>
+                <p>
+                  Downloading the source
+                  @if (tierCost(gen.tier) !== null) { costs <b>{{ tierCost(gen.tier) }} credits</b> } @else { spends credits }
+                  @if (wallet.balance() !== null) { and you have {{ wallet.balance() }}. } @else { . }
+                  <a routerLink="/checkout">Buy credits</a>
+                </p>
+              }
+            </div>
+          </aside>
+        </div>
+      }
+    }
+  }
+</div>
+
+@if (isFullscreenPreview()) {
+  <pg-browser-frame [url]="activePreviewUrl()" [previewUrl]="safePreviewUrl()" [fullscreen]="true" iframeTitle="Full page website preview">
+    <button toolbar-actions type="button" class="pg-btn pg-btn--sm pg-btn--secondary" (click)="openPreviewInNewTab()">
+      <app-icon-external-link [size]="14" /> New tab
+    </button>
+    <button toolbar-actions type="button" class="pg-btn pg-btn--sm" (click)="toggleFullscreenPreview()">
+      <app-icon-x [size]="14" /> Close
+    </button>
+  </pg-browser-frame>
+}

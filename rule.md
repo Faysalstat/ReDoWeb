@@ -1,2 +1,2 @@
-- Folder structure docs, frontend ,backend, standalone ( for docker compose files)
+- Folder structure docs, frontend ,backend, standalone ( for docker compose files), frontend-playful ( independent experimental Angular frontend, Playful Geometric design )
 - Make no AI api call without my permission

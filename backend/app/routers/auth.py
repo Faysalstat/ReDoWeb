@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlencode
 
 import httpx
@@ -17,11 +18,18 @@ from ..schemas.auth import UserOut
 from ..services import auth_service
 from ..services.auth_service import AuthError
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 OAUTH_STATE_COOKIE_NAME = "oauth_state"
 GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+# google-auth allows zero clock skew by default, so a server clock even a
+# second behind Google's rejects every fresh id_token as "Token used too
+# early" (seen 2026-10-12 on a dev machine 2-3s behind). 10s is the usual
+# allowance; the token's signature and audience are still fully checked.
+GOOGLE_ID_TOKEN_CLOCK_SKEW_SECONDS = 10
 
 
 def _user_out(user: User) -> UserOut:
@@ -49,9 +57,18 @@ def _exchange_code_for_claims(code: str) -> dict:
         token_response.raise_for_status()
         id_token_str = token_response.json()["id_token"]
         return google_id_token.verify_oauth2_token(
-            id_token_str, google_requests.Request(), audience=settings.google_client_id
+            id_token_str,
+            google_requests.Request(),
+            audience=settings.google_client_id,
+            clock_skew_in_seconds=GOOGLE_ID_TOKEN_CLOCK_SKEW_SECONDS,
         )
     except (httpx.HTTPError, KeyError, ValueError) as exc:
+        logger.warning(
+            "Google code exchange failed: %s: %s",
+            type(exc).__name__,
+            exc,
+            extra={"event": "auth.google_exchange_failed"},
+        )
         raise AuthError("Google sign-in failed") from exc
 
 

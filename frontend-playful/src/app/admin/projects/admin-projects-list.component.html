@@ -1,0 +1,65 @@
+<div>
+  <div class="row row--between">
+    <div>
+      <h1 class="display display--sm">Projects</h1>
+      <p class="sub">Every submitted site across all users, newest first.</p>
+    </div>
+  </div>
+
+  <div class="field" style="max-width: 320px; margin-top: var(--space-4)">
+    <label for="project-search">Search by URL</label>
+    <input
+      id="project-search"
+      class="input"
+      type="text"
+      placeholder="example.com"
+      [value]="search()"
+      (input)="onSearchChange($any($event.target).value)"
+    />
+  </div>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-6)">{{ errorMessage() }}</p>
+  } @else {
+    <table class="table" style="margin-top: calc(1.2 * var(--leading))">
+      <thead>
+        <tr>
+          <th>Site</th>
+          <th>Owner</th>
+          <th>Tier</th>
+          <th>Status</th>
+          <th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (project of projects(); track project.project_id) {
+          <tr>
+            <td><a [routerLink]="['/admin/projects', project.project_id]" [title]="project.source_url">{{ project.source_url }}</a></td>
+            <td>{{ project.owner_email }}</td>
+            <td>
+              @if (project.tier) {
+                <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
+              }
+            </td>
+            <td>{{ project.status }}</td>
+            <td>{{ project.created_at | date: 'medium' }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5">No projects found.</td></tr>
+        }
+      </tbody>
+    </table>
+
+    <div class="row row--between" style="margin-top: var(--space-4)">
+      <span class="label">{{ total() }} total</span>
+      <div class="row">
+        <button type="button" appButton variant="secondary" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
+        <button type="button" appButton variant="secondary" [disabled]="page() * pageSize >= total()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+  }
+</div>

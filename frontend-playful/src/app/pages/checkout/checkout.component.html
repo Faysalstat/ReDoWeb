@@ -1,0 +1,121 @@
+<div class="pg-wrap co">
+  <section class="co__main">
+    <span class="pg-kicker"><app-icon-lock [size]="12" /> Secure checkout</span>
+    <h1 class="co__title">Buy credits</h1>
+    @if (requestedCredits) {
+      <p class="co__need">
+        You need <b>{{ requestedCredits }} more credit{{ requestedCredits === 1 ? '' : 's' }}</b> to continue.
+      </p>
+    }
+
+    @switch (state()) {
+      @case ('loading') {
+        <p class="pg-muted">Loading checkout…</p>
+      }
+      @case ('unavailable') {
+        <div class="pg-card co__notice">
+          <b>Payments aren't available right now.</b>
+          <p class="pg-muted">Checkout hasn't been switched on yet. Please check back soon.</p>
+        </div>
+      }
+      @case ('no-packs') {
+        <div class="pg-card co__notice">
+          <b>No credit packs are on sale yet.</b>
+          <p class="pg-muted">Please check back soon. Previews stay free in the meantime.</p>
+        </div>
+      }
+      @case ('success') {
+        <div class="pg-card co__notice co__notice--ok pg-pop-in" role="status">
+          <span class="pg-icon-badge pg-icon-badge--mint co__notice-icon"><app-icon-check [size]="26" /></span>
+          <b class="co__notice-title">Payment complete! {{ creditsAdded() }} credits added.</b>
+          <p>Your balance is now <b>{{ wallet.balance() }} credits</b>.</p>
+          <button class="pg-btn" type="button" (click)="continue()">Continue</button>
+        </div>
+      }
+      @case ('pending') {
+        <div class="pg-card co__notice" role="status">
+          <b class="co__notice-title">Payment received. Confirming with PayPal…</b>
+          <p class="pg-muted">{{ message() }} Your credits will appear automatically once PayPal confirms it. You don't need to pay again.</p>
+          <button class="pg-btn pg-btn--secondary" type="button" (click)="continue()">Continue</button>
+        </div>
+      }
+    }
+
+    @if (state() === 'ready' || state() === 'processing' || state() === 'error' || state() === 'cancelled') {
+      <fieldset class="co__packs" [disabled]="state() === 'processing'">
+        <legend class="pg-label">Choose a pack</legend>
+        @for (pack of packs(); track pack.id; let i = $index) {
+          <label class="pack" [class.is-on]="pack.id === selectedPackId()" [style.--c]="accents[i % accents.length]">
+            <input type="radio" name="pack" [value]="pack.id" [checked]="pack.id === selectedPackId()" (change)="select(pack.id)" />
+            <span class="pack__dot" aria-hidden="true">{{ pack.credits }}</span>
+            <span class="pack__main">
+              <span class="pack__name">{{ pack.name }}</span>
+              <span class="pack__meta pg-muted">{{ pack.credits }} credits · {{ perCredit(pack) }} per credit</span>
+            </span>
+            <span class="pack__price">{{ price(pack.price_usd_cents) }}</span>
+          </label>
+        }
+      </fieldset>
+
+      @if (message()) {
+        <p class="co__msg" [class.co__msg--err]="state() === 'error'" role="alert">
+          {{ message() }}
+          @if (state() === 'error') {
+            <button type="button" class="co__link" (click)="tryAgain()">Try again</button>
+          }
+        </p>
+      }
+      @if (state() === 'processing') {
+        <p class="co__processing" role="status"><span class="pg-spin" aria-hidden="true"></span> Processing payment… please don't close this tab.</p>
+      }
+    }
+
+    @if (mockMode() && (state() === 'ready' || state() === 'error' || state() === 'cancelled')) {
+      <div class="co__mock">
+        <span class="pg-chip pg-chip--amber">Test mode</span>
+        <p>No real payment. Every purchase succeeds and the credits are added straight away.</p>
+        <button class="pg-btn pg-btn--block" type="button" (click)="payWithMock()">
+          Complete test payment
+          @if (selectedPack(); as pack) { · {{ price(pack.price_usd_cents) }} }
+        </button>
+      </div>
+    }
+
+    <!-- Kept in the DOM (not inside @if) so PayPal's rendered buttons
+         survive state changes; hidden whenever paying isn't possible. -->
+    <div #paypalButtons class="co__buttons" [hidden]="mockMode() || !(state() === 'ready' || state() === 'error' || state() === 'cancelled')"></div>
+
+    <p class="co__fine pg-muted">
+      Pay with your PayPal account or any debit or credit card, no PayPal account needed. Card details are entered with
+      PayPal; ReDoWebs never sees them. Credits are added as soon as the payment completes.
+    </p>
+  </section>
+
+  <aside class="co__aside">
+    <div class="pg-card pg-card--featured co__order">
+      <p class="pg-label">Your order</p>
+      @if (selectedPack(); as pack) {
+        <div class="co__rows">
+          <div class="co__row"><b>{{ pack.name }}</b><span>{{ pack.credits }} credits</span></div>
+          @if (wallet.balance() !== null) {
+            <div class="co__row"><span>Current balance</span><span>{{ wallet.balance() }}</span></div>
+            <div class="co__row"><span>Balance after</span><b class="co__after">{{ balanceAfter() }}</b></div>
+          }
+        </div>
+        <div class="co__total"><span>Due today</span><b>{{ price(pack.price_usd_cents) }}</b></div>
+      } @else {
+        <p class="pg-muted">Pick a pack to see your order.</p>
+      }
+    </div>
+
+    <div class="pg-card co__know">
+      <p class="pg-label">Good to know</p>
+      <ul class="pg-checks">
+        @for (item of goodToKnow; track item) {
+          <li><span class="pg-icon-badge pg-icon-badge--mint pg-tick"><app-icon-check [size]="11" /></span>{{ item }}</li>
+        }
+      </ul>
+      <a routerLink="/pricing">See pricing</a>
+    </div>
+  </aside>
+</div>

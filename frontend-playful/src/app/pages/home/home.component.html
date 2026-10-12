@@ -1,0 +1,247 @@
+<!-- HERO: text left over a huge amber sun, before/after art right -->
+<section class="hero">
+  <div class="pg-wrap hero__grid">
+    <div class="hero__copy">
+      <span class="hero__sun pg-shape" aria-hidden="true"></span>
+
+      <span class="pg-kicker pg-pop-in">
+        <span class="hero__kicker-dot" aria-hidden="true"></span>
+        AI website makeovers
+      </span>
+
+      <h1 class="hero__title">
+        Turn your tired old website into something
+        <span class="pg-squiggle">delightful.</span>
+      </h1>
+
+      <p class="hero__sub">
+        Paste your URL. We read your site, learn your brand, and rebuild it with a fresh, modern design. Your real
+        content stays. Nothing about your business gets made up.
+      </p>
+
+      <form id="submit" class="pg-card pg-card--pop hero__form" (ngSubmit)="submit()">
+        <label class="pg-label" for="pg-url">Your website</label>
+        <div class="hero__row">
+          <input
+            id="pg-url"
+            name="url"
+            type="url"
+            required
+            autocomplete="url"
+            placeholder="https://yourbusiness.com"
+            class="pg-input"
+            [(ngModel)]="url"
+          />
+          <button class="pg-btn hero__go" type="submit" [disabled]="!canSubmit">
+            @if (isSubmitting()) {
+              <span class="hero__spinner" aria-hidden="true"></span>
+              Starting…
+            } @else {
+              Redesign it
+              <span class="pg-btn__icon"><app-icon-arrow-right [size]="14" /></span>
+            }
+          </button>
+        </div>
+
+        <label class="pg-check">
+          <input type="checkbox" name="tos" [(ngModel)]="tosAccepted" />
+          <span>I own this website, or I'm allowed to have it redesigned.</span>
+        </label>
+
+        @if (errorMessage()) {
+          <p class="hero__error" role="alert">
+            <span class="pg-icon-badge pg-icon-badge--pink hero__error-icon"><app-icon-alert-triangle [size]="14" /></span>
+            {{ errorMessage() }}
+          </p>
+        }
+
+        <p class="hero__note">
+          Free preview · no card needed
+          @if (wallet.balance(); as b) {
+            · <b>{{ b }} credit{{ b === 1 ? '' : 's' }}</b> in your wallet
+          } @else if (wallet.balance() === 0) {
+            · <b>0 credits</b> in your wallet
+          }
+        </p>
+      </form>
+    </div>
+
+    <!-- Illustration: decorative only -->
+    <div class="art" aria-hidden="true">
+      <div class="art__dots pg-dots pg-blob"></div>
+      <div class="art__blob pg-blob"></div>
+
+      <div class="art__frame art__frame--old">
+        <div class="art__chrome"><i></i><i></i><i></i></div>
+        <div class="art__old">
+          <div class="bar" style="width: 70%"></div>
+          <div class="bar bar--thin" style="width: 45%"></div>
+          <div class="art__old-img"></div>
+          <div class="bar bar--thin" style="width: 90%"></div>
+          <div class="bar bar--thin" style="width: 80%"></div>
+        </div>
+        <span class="pg-chip art__tag art__tag--old">Before</span>
+      </div>
+
+      <div class="art__frame art__frame--new">
+        <div class="art__chrome"><i></i><i></i><i></i></div>
+        <div class="art__new">
+          <div class="art__nav">
+            <span class="dot"></span>
+            <span class="pill"></span><span class="pill"></span><span class="pill pill--cta"></span>
+          </div>
+          <div class="art__hero">
+            <div>
+              <div class="bar bar--violet" style="width: 88%"></div>
+              <div class="bar bar--violet" style="width: 62%"></div>
+              <div class="bar bar--thin" style="width: 80%; margin-top: 8px"></div>
+              <span class="btn-mini"></span>
+            </div>
+            <div class="art__pic pg-arch"></div>
+          </div>
+          <div class="art__cards">
+            <span style="--c: var(--pg-accent)"></span>
+            <span style="--c: var(--pg-pink)"></span>
+            <span style="--c: var(--pg-amber)"></span>
+          </div>
+        </div>
+        <span class="pg-chip pg-chip--mint art__tag art__tag--new">
+          <app-icon-sparkles [size]="14" /> After
+        </span>
+      </div>
+
+      <svg class="pg-shape pg-float art__tri" viewBox="0 0 40 36"><path d="M20 2 L38 34 H2 Z" fill="#F472B6" stroke="#1E293B" stroke-width="2.5" stroke-linejoin="round" /></svg>
+      <svg class="pg-shape pg-float art__ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#34D399" stroke-width="7" /></svg>
+      <svg class="pg-shape art__zig" viewBox="0 0 80 20"><path d="M2 14 L14 4 L26 14 L38 4 L50 14 L62 4 L74 14" fill="none" stroke="#8B5CF6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+    </div>
+  </div>
+
+  <ul class="pg-wrap stats">
+    @for (s of stats; track s.label; let i = $index) {
+      <li class="stats__item" [style.--c]="statColors[i % statColors.length]">
+        <span class="stats__num">{{ s.value }}</span>
+        <span class="stats__label">{{ s.label }}</span>
+      </li>
+    }
+  </ul>
+</section>
+
+<!-- MARQUEE -->
+<div class="pg-marquee" aria-hidden="true">
+  <div class="pg-marquee__track">
+    @for (pass of [0, 1]; track pass) {
+      @for (word of marquee; track word; let i = $index) {
+        <span class="mq__item">
+          {{ word }}
+          <svg class="mq__sep" viewBox="0 0 20 20" [attr.data-i]="i % 3">
+            @switch (i % 3) {
+              @case (0) { <circle cx="10" cy="10" r="7" fill="#FBBF24" /> }
+              @case (1) { <path d="M10 2 L18 17 H2 Z" fill="#F472B6" /> }
+              @default { <rect x="3" y="3" width="14" height="14" rx="2" fill="#34D399" transform="rotate(20 10 10)" /> }
+            }
+          </svg>
+        </span>
+      }
+    }
+  </div>
+</div>
+
+<!-- HOW IT WORKS: three sticker cards joined by a dashed path -->
+<section id="how-it-works" class="pg-section how">
+  <div class="pg-wrap">
+    <div class="section-head">
+      <span class="pg-kicker">How it works</span>
+      <h2 class="section-title">Three steps. <span class="pg-squiggle" style="--pg-squiggle-color: var(--pg-amber)">Zero</span> design homework.</h2>
+    </div>
+
+    <div class="how__grid">
+      <svg class="how__path pg-shape pg-shape--hide-sm" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M60 70 C 250 -20, 330 150, 500 60 S 760 -10, 940 70" fill="none" stroke="#1E293B" stroke-width="2.5" stroke-dasharray="10 10" stroke-linecap="round" />
+      </svg>
+
+      @for (step of steps; track step.n; let i = $index) {
+        <article class="pg-card pg-card--wiggle how__card" [style.--d]="i * 120 + 'ms'">
+          <span class="pg-icon-badge pg-card__float how__icon" [class]="stepColors[i]">
+            @switch (stepIcons[i]) {
+              @case ('globe') { <app-icon-globe [size]="22" /> }
+              @case ('palette') { <app-icon-palette [size]="22" /> }
+              @default { <app-icon-eye [size]="22" /> }
+            }
+          </span>
+          <span class="how__num">{{ step.n }}</span>
+          <h3 class="how__title">{{ step.title }}</h3>
+          <p class="pg-muted">{{ step.copy }}</p>
+        </article>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- LIVE LOOK: decorative pipeline demo -->
+<section id="in-action" class="pg-section demo-band">
+  <div class="pg-wrap">
+    <pg-pipeline-demo />
+  </div>
+</section>
+
+<!-- PROMISE: no fabrication -->
+<section class="pg-section promise">
+  <div class="pg-wrap promise__grid">
+    <div class="promise__badge-wrap" aria-hidden="true">
+      <div class="promise__badge pg-blob">
+        <app-icon-shield-check [size]="72" />
+      </div>
+      <span class="pg-shape promise__dot"></span>
+      <span class="pg-shape promise__square"></span>
+    </div>
+    <div>
+      <span class="pg-kicker">Our promise</span>
+      <h2 class="section-title promise__title">Your facts stay <span class="pg-squiggle" style="--pg-squiggle-color: var(--pg-mint)">yours.</span></h2>
+      <p class="promise__sub">
+        The AI can freshen your headlines and layout, but anything that's a claim about your business only appears if
+        it was already on your site. We never invent:
+      </p>
+      <ul class="promise__list">
+        @for (item of neverInvented; track item) {
+          <li class="pg-chip">
+            <span class="pg-icon-badge pg-icon-badge--mint promise__tick"><app-icon-check [size]="11" /></span>
+            {{ item }}
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="pg-section pricing pg-dots">
+  <div class="pg-wrap">
+    <div class="section-head">
+      <span class="pg-kicker">Pricing</span>
+      <h2 class="section-title">Pay once. <span class="pg-squiggle" style="--pg-squiggle-color: var(--pg-pink)">No</span> subscriptions.</h2>
+      <p class="section-sub pg-muted">
+        Buy a credit pack when you love what you see. Every tier comes with a free live preview first.
+      </p>
+    </div>
+    <pg-pack-grid />
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="pg-section cta">
+  <div class="pg-wrap">
+    <div class="cta__box">
+      <span class="pg-shape cta__c1" aria-hidden="true"></span>
+      <span class="pg-shape cta__c2 pg-shape--hide-sm" aria-hidden="true"></span>
+      <h2 class="cta__title">See it before you buy it.</h2>
+      <p class="cta__sub">Your redesign preview is free. You only spend credits to download it.</p>
+      <div class="cta__actions">
+        <button type="button" class="pg-btn pg-btn--amber" (click)="scrollTo('submit')">
+          Paste my URL
+          <span class="pg-btn__icon"><app-icon-arrow-right [size]="14" /></span>
+        </button>
+        <a class="pg-btn pg-btn--secondary cta__ghost" routerLink="/pricing">See pricing</a>
+      </div>
+    </div>
+  </div>
+</section>

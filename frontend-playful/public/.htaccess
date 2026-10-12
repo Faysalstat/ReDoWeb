@@ -1,0 +1,19 @@
+# Apache (cPanel) SPA fallback: serve real files as-is, send every other
+# path to index.html so Angular's router handles deep links like /history
+# or /admin on reload instead of Apache returning 404.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# index.html must never be cached, or users keep loading old hashed bundles
+# after a redeploy. The hashed JS/CSS files themselves are safe to cache.
+<IfModule mod_headers.c>
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

@@ -1,0 +1,75 @@
+<div>
+  <h1 class="display display--sm">Prompt templates</h1>
+  <p class="sub">Design-strategy templates used at random during generation. Uploaded files are written directly into the prompts folder.</p>
+
+  @if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-4)">{{ errorMessage() }}</p>
+  }
+
+  <div class="panel" style="margin-top: calc(1.2 * var(--leading))">
+    <div class="panel__head"><strong>Upload a new template</strong></div>
+    <div class="panel__body">
+      <div class="row" style="gap: var(--space-3); flex-wrap: wrap; align-items: flex-end">
+        <div class="field" style="width: 160px">
+          <label for="category">Category</label>
+          <select id="category" class="input" [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
+            @for (cat of knownCategories; track cat) {
+              <option [value]="cat">{{ cat }}</option>
+            }
+            <option [value]="newCategoryOption">+ New category…</option>
+          </select>
+        </div>
+        @if (selectedCategory() === newCategoryOption) {
+          <div class="field" style="width: 160px">
+            <label for="custom-category">New category name</label>
+            <input id="custom-category" class="input" type="text" [ngModel]="customCategory()" (ngModelChange)="customCategory.set($event)" />
+          </div>
+        }
+        <div class="field" style="width: 200px">
+          <label for="template-name">Template name</label>
+          <input id="template-name" class="input" type="text" placeholder="e.g. brutalist" [ngModel]="templateName()" (ngModelChange)="templateName.set($event)" />
+        </div>
+        <div class="field">
+          <label for="template-file">File (.txt)</label>
+          <input id="template-file" class="input" type="file" accept=".txt" (change)="onFileSelected($event)" />
+        </div>
+        <button type="button" appButton variant="primary" [disabled]="uploading()" (click)="upload()">
+          {{ uploading() ? 'Uploading…' : 'Upload' }}
+        </button>
+      </div>
+      @if (uploadError()) {
+        <p style="color: var(--color-danger); margin-top: var(--space-2); font-size: 13px">{{ uploadError() }}</p>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else {
+    <table class="table" style="margin-top: calc(1.2 * var(--leading))">
+      <thead>
+        <tr><th>Filename</th><th>Category</th><th>Status</th><th>Uploaded</th><th></th></tr>
+      </thead>
+      <tbody>
+        @for (row of templates(); track row.filename) {
+          <tr>
+            <td>{{ row.filename }}</td>
+            <td>{{ row.category }}</td>
+            <td>{{ row.is_active ? 'Active' : 'Disabled' }}</td>
+            <td>{{ row.uploaded_at ? (row.uploaded_at | date: 'medium') : '—' }}</td>
+            <td class="row" style="gap: var(--space-2)">
+              <button type="button" appButton variant="secondary" [disabled]="togglingFilename() === row.filename" (click)="toggleActive(row)">
+                {{ row.is_active ? 'Disable' : 'Enable' }}
+              </button>
+              <button type="button" appButton variant="ghost" (click)="deleteTemplate(row)">Delete</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5">No templates found.</td></tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

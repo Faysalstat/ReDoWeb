@@ -1,0 +1,320 @@
+/* Admin theme — "quiet playful".
+   The admin pages (src/app/admin/) were copied from the classic frontend with
+   their markup intact, so they speak the classic class vocabulary (.btn,
+   .card, .table, .cells, .metric__num, …) and token names (--color-*).
+   Inside `.pg-admin` (set by AdminShellComponent) those tokens are re-mapped
+   onto the playful palette and those classes are re-skinned with the playful
+   primitives: 2px borders, hard shadows, pills, rotating accent colours.
+   Data density is kept; no wiggle or pop-in on tables. */
+
+.pg-admin {
+  /* --- classic token names -> playful palette (light) --- */
+  --color-bg: var(--pg-bg);
+  --color-bg-soft: var(--pg-muted);
+  --color-surface: var(--pg-card);
+  --color-text: var(--pg-fg);
+  --color-accent: var(--pg-accent);
+  --color-accent-2: var(--pg-pink);
+  --color-danger: var(--pg-danger);
+  --color-success: #059669;
+  --color-live: var(--pg-mint);
+  --color-divider: var(--pg-border);
+  --color-divider-strong: var(--pg-border-strong);
+
+  --color-neutral-100: #f8fafc;
+  --color-neutral-200: #f1f5f9;
+  --color-neutral-300: #e2e8f0;
+  --color-neutral-400: #cbd5e1;
+  --color-neutral-500: #94a3b8;
+  --color-neutral-600: #64748b;
+  --color-neutral-700: #64748b;
+  --color-neutral-800: #475569;
+  --color-neutral-900: #0f172a;
+
+  --color-accent-100: #ede9fe;
+  --color-accent-200: #ddd6fe;
+  --color-accent-300: #c4b5fd;
+  --color-accent-400: #a78bfa;
+  --color-accent-500: #8b5cf6;
+  --color-accent-600: #7c3aed;
+  --color-accent-700: #6d28d9;
+  --color-accent-800: #5b21b6;
+  --color-accent-900: #4c1d95;
+
+  --color-accent-2-100: #fce7f3;
+  --color-accent-2-200: #fbcfe8;
+  --color-accent-2-300: #f9a8d4;
+  --color-accent-2-400: #f472b6;
+  --color-accent-2-500: #ec4899;
+  --color-accent-2-600: #db2777;
+  --color-accent-2-700: #be185d;
+  --color-accent-2-800: #9d174d;
+  --color-accent-2-900: #831843;
+
+  --font-heading: var(--pg-font-heading);
+  --font-heading-weight: 800;
+  --font-body: var(--pg-font-body);
+  --font-label: var(--pg-font-body);
+  --font-logo: var(--pg-font-heading);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 4px 4px 0 0 var(--pg-border);
+  --shadow-md: 4px 4px 0 0 var(--pg-fg);
+  --shadow-lg: 8px 8px 0 0 var(--pg-fg);
+  --leading: 26px;
+  --measure: 64ch;
+
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* --- base type (classic relied on global element styles) --- */
+.pg-admin p {
+  margin: 0 0 var(--space-3);
+}
+.pg-admin h1 { font-size: 2.2rem; }
+.pg-admin h2 { font-size: 1.6rem; }
+.pg-admin h3 { font-size: 1.25rem; }
+.pg-admin h4 { font-size: 1.05rem; }
+.pg-admin .text-muted { color: var(--pg-muted-fg); }
+.pg-admin .tnum { font-variant-numeric: tabular-nums; }
+.pg-admin .hr { height: 0; border: 0; border-top: 2px dashed var(--pg-border); margin: var(--space-4) 0; }
+
+.pg-admin .display {
+  font-family: var(--pg-font-heading);
+  font-weight: 800;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.pg-admin .display--sm { font-size: clamp(1.7rem, 3vw, 2.3rem); }
+.pg-admin .sub { margin: 8px 0 0; max-width: var(--measure); font-size: 15px; color: var(--pg-muted-fg); }
+.pg-admin .kicker,
+.pg-admin .label {
+  display: block;
+  font-family: var(--pg-font-body);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pg-fg);
+}
+.pg-admin .kicker { color: var(--pg-accent); }
+
+/* --- layout helpers --- */
+.pg-admin .row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.pg-admin .row--between { justify-content: space-between; }
+.pg-admin .stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.pg-admin .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+
+/* --- buttons (appButton host classes) --- */
+.pg-admin .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 16px;
+  border: 2px solid var(--pg-fg);
+  border-radius: var(--pg-radius-full);
+  background: var(--pg-card);
+  color: var(--pg-fg);
+  font: 700 14px/1 var(--pg-font-body);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--pg-dur) var(--pg-bounce), box-shadow var(--pg-dur) var(--pg-bounce), background-color 150ms;
+}
+.pg-admin .btn svg { display: block; }
+.pg-admin .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
+.pg-admin .btn-primary { background: var(--pg-accent); color: #fff; box-shadow: 3px 3px 0 var(--pg-fg); }
+.pg-admin .btn-primary:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--pg-fg); }
+.pg-admin .btn-primary:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pg-fg); }
+.pg-admin .btn-secondary:hover:not(:disabled) { background: var(--pg-amber); }
+.pg-admin .btn-ghost { border-color: transparent; background: transparent; color: var(--pg-accent); padding-inline: 8px; }
+.pg-admin .btn-ghost:hover:not(:disabled) { background: var(--pg-accent-soft); }
+.pg-admin .btn-accent-2 { background: var(--pg-card); color: var(--pg-danger); border-color: var(--pg-danger); box-shadow: 3px 3px 0 var(--pg-danger); }
+.pg-admin .btn-accent-2:hover:not(:disabled) { background: var(--pg-danger-soft); }
+.pg-admin .btn-icon { width: 38px; padding: 0; }
+.pg-admin .btn-block { width: 100%; justify-content: flex-start; margin-top: var(--space-2); }
+
+/* --- forms --- */
+.pg-admin .field > label { display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-fg); }
+.pg-admin .input {
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 12px;
+  font: 500 14px/1.3 var(--pg-font-body);
+  color: var(--pg-fg);
+  background: var(--pg-card);
+  border: 2px solid var(--pg-border-strong);
+  border-radius: var(--pg-radius-sm);
+  box-shadow: 3px 3px 0 transparent;
+  transition: border-color 150ms, box-shadow var(--pg-dur) var(--pg-bounce);
+}
+.pg-admin .input:hover { border-color: var(--pg-muted-fg); }
+.pg-admin .input:focus,
+.pg-admin .input:focus-visible { outline: none; border-color: var(--pg-accent); box-shadow: 3px 3px 0 var(--pg-accent); }
+.pg-admin textarea.input { min-height: 90px; resize: vertical; }
+.pg-admin .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.pg-admin .radio input,
+.pg-admin .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.pg-admin .radio .dot { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 2px solid var(--pg-fg); background: var(--pg-card); }
+.pg-admin .radio input:checked + .dot { background: var(--pg-accent); box-shadow: inset 0 0 0 3px var(--pg-card); }
+.pg-admin .seg { display: inline-flex; gap: 3px; padding: 3px; border: 2px solid var(--pg-fg); border-radius: var(--pg-radius-full); background: var(--pg-card); }
+.pg-admin .seg-opt { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--pg-radius-full); font-size: 13px; font-weight: 700; cursor: pointer; }
+.pg-admin .seg-opt:has(input:checked) { background: var(--pg-fg); color: var(--pg-bg); }
+.pg-admin .seg-opt:not(:has(input:checked)):hover { background: var(--pg-muted); }
+.pg-admin .seg-opt:has(input:focus-visible) { outline: 3px solid var(--pg-ring); outline-offset: 2px; }
+
+/* --- cards, panels, rows --- */
+.pg-admin .card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  padding: 20px;
+  background: var(--pg-card);
+  border: 2px solid var(--pg-fg) !important; /* classic CardComponent sets an inline variant border */
+  border-radius: var(--pg-radius-md);
+  box-shadow: 6px 6px 0 var(--pg-border);
+}
+.pg-admin .card-kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--pg-accent); }
+.pg-admin .card-title { font: 700 1.1rem/1.25 var(--pg-font-heading); }
+.pg-admin .card-body { margin: 0; font-size: 13.5px; flex: 1; }
+.pg-admin .panel { background: var(--pg-card); border: 2px solid var(--pg-fg); border-radius: var(--pg-radius-md); box-shadow: 6px 6px 0 var(--pg-border); overflow: hidden; }
+.pg-admin .panel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 12px 16px; background: var(--pg-muted); border-bottom: 2px solid var(--pg-fg); }
+.pg-admin .panel__body { padding: 16px; }
+.pg-admin .rows { border-top: 2px solid var(--pg-fg); }
+.pg-admin .rows__item { padding: 14px 0; border-bottom: 2px dashed var(--pg-border); }
+
+/* --- KPI cells: separate sticker tiles with a rotating colour bar.
+   The colour is set on each direct grid child (a tile, or a link wrapping
+   one) and inherited, so linked tiles keep their place in the rotation. --- */
+.pg-admin .cells { display: grid; gap: 16px; }
+.pg-admin .panel > .cells { padding: 16px; }
+.pg-admin .cells--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pg-admin .cells--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pg-admin .cells--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pg-admin .cells--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.pg-admin .cells > * { --c: var(--pg-accent); }
+.pg-admin .cells > :nth-child(4n + 2) { --c: var(--pg-pink); }
+.pg-admin .cells > :nth-child(4n + 3) { --c: var(--pg-amber); }
+.pg-admin .cells > :nth-child(4n + 4) { --c: var(--pg-mint); }
+.pg-admin .cells > a { display: block; color: inherit; text-decoration: none; }
+.pg-admin .cells > a > .cell { height: 100%; transition: transform var(--pg-dur) var(--pg-bounce), box-shadow var(--pg-dur) var(--pg-bounce); }
+.pg-admin .cells > a:hover > .cell { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--c); }
+.pg-admin .cell {
+  position: relative;
+  display: block;
+  padding: 22px 18px 18px;
+  background: var(--pg-card);
+  border: 2px solid var(--pg-fg);
+  border-radius: var(--pg-radius-md);
+  box-shadow: 4px 4px 0 var(--c, var(--pg-accent));
+  overflow: hidden;
+}
+.pg-admin .cell::before { content: ''; position: absolute; inset: 0 0 auto; height: 8px; background: var(--c, var(--pg-accent)); border-bottom: 2px solid var(--pg-fg); }
+.pg-admin .metric__num { margin: 0; font: 800 1.9rem/1.1 var(--pg-font-heading); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pg-admin .metric__num--accent { color: var(--pg-accent); }
+.pg-admin .metric__num--accent-2 { color: #db2777; }
+.pg-admin .metric__num--success { color: #059669; }
+.pg-admin .metric__num--danger { color: var(--pg-danger); }
+.pg-admin .metric__num--sm { font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-admin .metric__num--text { font: 600 14px/1.3 var(--pg-font-body); white-space: normal; word-break: break-word; }
+.pg-admin .metric__label { margin: 8px 0 0; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-muted-fg); }
+.pg-admin .metric__note { color: var(--pg-muted-fg); }
+
+/* --- tags / badges --- */
+.pg-admin .tag,
+.pg-admin .tag-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border: 2px solid var(--pg-fg);
+  border-radius: var(--pg-radius-full);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.pg-admin .tag-accent { background: var(--pg-accent-soft); color: var(--pg-fg); }
+.pg-admin .tag-accent-2 { background: var(--pg-amber-soft); color: var(--pg-fg); }
+.pg-admin .tag-neutral { background: var(--pg-muted); color: var(--pg-fg); }
+.pg-admin .tag-outline { background: var(--pg-mint-soft); color: var(--pg-fg); }
+.pg-admin .tag-danger { background: var(--pg-danger-soft); color: var(--pg-danger); border-color: var(--pg-danger); }
+
+/* --- tables --- */
+.pg-admin .table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  background: var(--pg-card);
+  border: 2px solid var(--pg-fg);
+  border-radius: var(--pg-radius-md);
+  overflow: hidden;
+  box-shadow: 6px 6px 0 var(--pg-border);
+}
+.pg-admin .table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--pg-muted);
+  border-bottom: 2px solid var(--pg-fg);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pg-fg);
+  white-space: nowrap;
+}
+.pg-admin .table td { padding: 10px 12px; border-bottom: 1px solid var(--pg-border); vertical-align: middle; }
+.pg-admin .table tbody tr:last-child td { border-bottom: 0; }
+.pg-admin .table tbody tr:hover td { background: color-mix(in srgb, var(--pg-amber-soft) 60%, transparent); }
+
+/* --- dialog --- */
+.pg-admin .dialog-backdrop { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 16px; background: rgb(30 41 59 / 0.45); }
+.pg-admin .dialog {
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: var(--pg-card);
+  border: 2px solid var(--pg-fg);
+  border-radius: var(--pg-radius-lg);
+  box-shadow: 8px 8px 0 var(--pg-fg);
+  animation: pg-pop-in 350ms var(--pg-bounce) both;
+}
+.pg-admin .dialog-title { font: 800 1.3rem/1.2 var(--pg-font-heading); }
+.pg-admin .dialog-body { font-size: 14px; }
+.pg-admin .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* --- progress meter --- */
+.pg-admin .meter { height: 10px; border: 2px solid var(--pg-fg); border-radius: var(--pg-radius-full); background: var(--pg-card); overflow: hidden; }
+.pg-admin .meter__fill { height: 100%; background: var(--pg-accent); }
+
+@media (max-width: 1040px) {
+  .pg-admin .cells--4,
+  .pg-admin .cells--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 880px) {
+  .pg-admin .cells--3,
+  .pg-admin .grid-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .pg-admin .cells--2,
+  .pg-admin .cells--4,
+  .pg-admin .cells--5 { grid-template-columns: 1fr; }
+  .pg-admin .table { display: block; overflow-x: auto; white-space: nowrap; }
+}
