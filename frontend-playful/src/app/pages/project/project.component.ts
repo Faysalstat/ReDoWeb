@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
@@ -331,9 +331,19 @@ export class ProjectComponent implements OnInit, OnDestroy {
     return 'pending';
   }
 
-  safePreviewUrl(): SafeResourceUrl {
-    return this.sanitizer.bypassSecurityTrustResourceUrl(this.activePreviewUrl());
-  }
+  /** Memoized on purpose: the iframe's [src] is compared by reference, and
+   * bypassSecurityTrustResourceUrl() returns a new object on every call --
+   * as a plain method, every change-detection pass (timers, the status
+   * polls, mouse events) handed the iframe a "new" URL and reloaded the
+   * preview. As a computed it only changes when the URL itself does
+   * (tier switch, preview token fetched). */
+  private readonly activePreviewUrlValue = computed(() => this.activePreviewUrl());
+  readonly safePreviewUrl = computed<SafeResourceUrl>(() =>
+    // Reads the string computed above, which only notifies when the URL
+    // string really changes -- not when another tier's token lands in the
+    // previewUrls map.
+    this.sanitizer.bypassSecurityTrustResourceUrl(this.activePreviewUrlValue())
+  );
 
   toggleFullscreenPreview(): void {
     this.isFullscreenPreview.set(!this.isFullscreenPreview());

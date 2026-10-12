@@ -1,20 +1,20 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { isTerminal, stagePercent, statusBadgeVariant, statusLabel, tierLabel } from '../../core/project-status';
 import { ProjectListItem } from '../../core/redowebs-api.models';
 import { RedoWebsApiService } from '../../core/redowebs-api.service';
 import { chipClass } from '../../ui/chip';
-import { IconArrowRight, IconCheck, IconGlobe } from '../../ui/icons';
+import { IconAlertTriangle, IconArrowRight, IconCheck, IconGlobe } from '../../ui/icons';
 
 /** /history: every project the user has submitted, newest first, as a stack
  * of sticker cards. */
 @Component({
   selector: 'pg-history',
   standalone: true,
-  imports: [RouterLink, DatePipe, IconArrowRight, IconCheck, IconGlobe],
+  imports: [RouterLink, DatePipe, IconAlertTriangle, IconArrowRight, IconCheck, IconGlobe],
   template: `
     <div class="pg-wrap hs">
       <header class="hs__head">
@@ -83,15 +83,40 @@ import { IconArrowRight, IconCheck, IconGlobe } from '../../ui/icons';
                     Download{{ project.purchased_tiers.length > 1 ? ' ' + tierLabel(tier) : '' }}
                   </a>
                 }
-                <a class="pg-btn pg-btn--sm pg-btn--secondary" [routerLink]="['/projects', project.project_id]">
-                  {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
-                </a>
+                @if (isPreviewExpired(project)) {
+                  <!-- Nothing left to view: the retention cleanup removed every unpurchased preview. -->
+                  <button type="button" class="pg-chip pg-chip--amber hs__expired" aria-haspopup="dialog" (click)="openExpiredNotice(project)">
+                    <app-icon-alert-triangle [size]="13" /> Preview expired
+                  </button>
+                } @else {
+                  <a class="pg-btn pg-btn--sm pg-btn--secondary" [routerLink]="['/projects', project.project_id]">
+                    {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
+                  </a>
+                }
               </div>
             </li>
           }
         </ul>
       }
     </div>
+
+    <!-- Native <dialog>: showModal() gives the backdrop, focus trap and Esc-to-close. -->
+    <dialog #expiredDialog class="hs__dialog" aria-labelledby="hs-expired-title" (click)="onExpiredDialogClick($event, expiredDialog)">
+      <div class="hs__dialog-body">
+        <span class="pg-icon-badge pg-icon-badge--amber hs__dialog-icon"><app-icon-alert-triangle [size]="24" /></span>
+        <h2 id="hs-expired-title" class="hs__dialog-title">This preview has expired</h2>
+        <p class="pg-muted">
+          We keep previews of designs that weren't bought for a limited time, then remove them to save space. The
+          redesigns for <b class="hs__dialog-url">{{ expiredProject()?.source_url }}</b> are no longer available, so
+          they can't be viewed or bought.
+        </p>
+        <p class="pg-muted">Submit the site again to get fresh redesigns.</p>
+        <div class="hs__dialog-actions">
+          <button type="button" class="pg-btn pg-btn--sm pg-btn--secondary" (click)="expiredDialog.close()">Close</button>
+          <a class="pg-btn pg-btn--sm" routerLink="/" (click)="expiredDialog.close()">Start a new redesign</a>
+        </div>
+      </div>
+    </dialog>
   `,
   styles: [
     `
@@ -121,6 +146,19 @@ import { IconArrowRight, IconCheck, IconGlobe } from '../../ui/icons';
       .hs__empty-icon { --_size: 72px; }
       .hs__dot { width: 120px; height: 120px; border-radius: 50%; background: var(--pg-pink-soft); border: 2px solid var(--pg-fg); top: -40px; left: -30px; }
       .hs__sq { width: 70px; height: 70px; background: var(--pg-mint-soft); border: 2px solid var(--pg-fg); border-radius: 14px; bottom: -20px; right: 30px; transform: rotate(18deg); }
+      .hs__expired { min-height: 38px; padding: 6px 14px 6px 10px; cursor: pointer; font-size: var(--pg-text-sm); }
+      .hs__expired:hover { background: var(--pg-amber); }
+      .hs__dialog {
+        width: min(480px, calc(100vw - 32px)); padding: 0; border: 2px solid var(--pg-fg); border-radius: var(--pg-radius-lg);
+        background: var(--pg-card); color: var(--pg-fg); box-shadow: 8px 8px 0 var(--pg-fg); overflow: visible;
+      }
+      .hs__dialog[open] { animation: pg-pop-in 350ms var(--pg-bounce) both; }
+      .hs__dialog::backdrop { background: rgb(30 41 59 / 0.45); }
+      .hs__dialog-body { position: relative; display: grid; gap: 12px; padding: 44px 26px 24px; font-family: var(--pg-font-body); }
+      .hs__dialog-icon { --_size: 56px; position: absolute; top: 0; left: 26px; transform: translateY(-50%); }
+      .hs__dialog-title { font-size: var(--pg-text-xl); }
+      .hs__dialog-url { color: var(--pg-fg); overflow-wrap: anywhere; }
+      .hs__dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 8px; }
       @media (max-width: 1100px) {
         .hs__row { grid-template-columns: minmax(0, 1fr) minmax(0, 260px); }
         .hs__actions { grid-column: 1 / -1; }
@@ -144,6 +182,30 @@ export class HistoryComponent implements OnInit {
   readonly isTerminal = isTerminal;
   readonly tierLabel = tierLabel;
   readonly accents = ['var(--pg-accent)', 'var(--pg-pink)', 'var(--pg-amber)', 'var(--pg-mint)'];
+
+  readonly expiredProject = signal<ProjectListItem | null>(null);
+  private readonly expiredDialog = viewChild.required<ElementRef<HTMLDialogElement>>('expiredDialog');
+
+  /** The retention cleanup removed every preview and none was bought, so
+   * there's nothing left to open -- the row shows a warning chip instead
+   * of View. A project with a purchased design keeps View (that design is
+   * never deleted). */
+  isPreviewExpired(project: ProjectListItem): boolean {
+    return !!project.previews_expired && project.purchased_tiers.length === 0;
+  }
+
+  openExpiredNotice(project: ProjectListItem): void {
+    this.expiredProject.set(project);
+    this.expiredDialog().nativeElement.showModal();
+  }
+
+  /** Clicking the backdrop (the <dialog> element itself, outside its
+   * content box) closes it, like a regular modal. */
+  onExpiredDialogClick(event: MouseEvent, dialog: HTMLDialogElement): void {
+    if (event.target === dialog) {
+      dialog.close();
+    }
+  }
 
   ngOnInit(): void {
     this.api.listProjects().subscribe({

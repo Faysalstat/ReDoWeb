@@ -30,6 +30,9 @@ It uses the same port and the same URLs as `frontend/`, so the backend's CORS se
 
 ## Status
 
+Last synced with the classic frontend on 2026-10-12, after the `payment-imp` merge. That merge added preview expiry (History chip + dialog and the project page's expired states), the memoized preview URL that stops the iframe reloading, and the admin soft delete.
+
+
 Every route from `frontend/` is built:
 
 | Route | Page |

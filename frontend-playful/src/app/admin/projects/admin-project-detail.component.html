@@ -17,6 +17,21 @@
       }
     </p>
 
+    @if (d.deleted_at) {
+      <p class="sub" style="color: var(--color-danger)">
+        <app-badge variant="danger">Deleted</app-badge>
+        {{ d.deleted_at | date: 'medium' }}{{ d.deleted_by_email ? ' by ' + d.deleted_by_email : '' }}
+        @if (d.deletion_reason) { · {{ d.deletion_reason }} }
+        — files removed, history kept, hidden from the owner.
+      </p>
+    } @else if (d.previews_expired_at) {
+      <p class="sub">
+        <app-badge variant="muted">Previews expired</app-badge>
+        {{ d.previews_expired_at | date: 'medium' }} — unpurchased previews and crawl data were removed by the
+        retention cleanup.
+      </p>
+    }
+
     @if (d.blueprint) {
       <p class="sub">Blueprint v{{ d.blueprint.version }}{{ d.blueprint.site_name ? ' · ' + d.blueprint.site_name : '' }}</p>
     }
@@ -94,6 +109,46 @@
       </div>
     } @empty {
       <p class="sub">No generation jobs yet.</p>
+    }
+
+    @if (!d.deleted_at) {
+      <div class="job-card" style="margin-top: calc(1.5 * var(--leading)); border-color: var(--color-danger)">
+        <p class="display" style="font-size: 20px; margin-bottom: var(--space-2)">Delete project</p>
+        <p class="sub" style="max-width: none">
+          Removes every file of this project from disk and hides it from the owner. Its history (jobs, costs,
+          payments, submission log) is kept. Cannot be undone.
+          @if (d.paid_tiers.length > 0) {
+            <strong style="color: var(--color-danger)">
+              The owner paid for {{ d.paid_tiers.length === 1 ? 'a design' : 'designs' }} on this project — they
+              are deleted too and nothing is refunded automatically.
+            </strong>
+          }
+        </p>
+        <div class="row" style="gap: var(--space-3); margin-top: var(--space-3); flex-wrap: wrap">
+          <input
+            class="input"
+            style="flex: 1; min-width: 220px"
+            placeholder="Reason (optional, e.g. abuse report, user request)"
+            [(ngModel)]="deleteReason"
+            [disabled]="deleting()"
+          />
+          <button
+            appButton
+            variant="secondary"
+            style="color: var(--color-danger)"
+            [disabled]="deleting()"
+            (click)="deleteProject()"
+          >
+            {{ deleting() ? 'Deleting…' : 'Delete project' }}
+          </button>
+        </div>
+        @if (deleteError()) {
+          <p style="color: var(--color-danger); margin-top: var(--space-2); font-size: 13px">{{ deleteError() }}</p>
+        }
+      </div>
+    }
+    @if (deleteResult()) {
+      <p class="sub" style="margin-top: var(--space-3)">{{ deleteResult() }}</p>
     }
   }
 </div>

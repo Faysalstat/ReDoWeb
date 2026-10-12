@@ -150,7 +150,6 @@
             <p class="pg-muted">{{ tierLabel(gen.tier) }} tier · generated in {{ formattedElapsed }}</p>
           </div>
           <div class="top__actions">
-            <button class="pg-btn pg-btn--secondary" (click)="tryAgain()">Start over</button>
             @if (isPurchased(gen.tier)) {
               <button class="pg-btn" [disabled]="downloadStatus()[gen.tier] === 'downloading'" (click)="download(gen.tier)">
                 {{ downloadStatus()[gen.tier] === 'downloading' ? 'Preparing ZIP…' : 'Download ZIP' }}
@@ -185,6 +184,13 @@
               Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
             </button>
           </div>
+        }
+
+        @if (s.previews_expired) {
+          <p class="expired-note">
+            <span class="pg-icon-badge pg-icon-badge--amber expired-note__icon"><app-icon-alert-triangle [size]="13" /></span>
+            Previews of the designs you didn't buy have expired and were removed. Your purchased design is kept.
+          </p>
         }
 
         <!-- Post-purchase actions -->
@@ -433,6 +439,19 @@
             </div>
           </aside>
         </div>
+      } @else if (s.previews_expired) {
+        <!-- Retention cleanup removed every unpurchased preview and nothing was bought. -->
+        <section class="center">
+          <div class="pg-card center__card">
+            <span class="pg-icon-badge pg-icon-badge--amber center__icon"><app-icon-alert-triangle [size]="28" /></span>
+            <h1 class="center__title">This preview has expired</h1>
+            <p class="pg-muted">
+              We keep previews of designs that weren't bought for a limited time to save space. Submit the site again
+              to get fresh redesigns.
+            </p>
+            <button class="pg-btn" (click)="tryAgain()">Start over with this or another site</button>
+          </div>
+        </section>
       }
     }
   }

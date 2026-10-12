@@ -2,7 +2,10 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { FormsModule } from '@angular/forms';
+
 import { BadgeComponent, BadgeVariant } from '../ui/badge/badge.component';
+import { ButtonComponent } from '../ui/button/button.component';
 import { SpinnerComponent } from '../ui/spinner/spinner.component';
 import { AdminApiService } from '../core/admin-api.service';
 import { AdminProjectDetailResponse } from '../core/admin-api.models';
@@ -24,7 +27,7 @@ const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
 @Component({
   selector: 'app-admin-project-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, SpinnerComponent, BadgeComponent],
+  imports: [RouterLink, DatePipe, FormsModule, SpinnerComponent, BadgeComponent, ButtonComponent],
   templateUrl: './admin-project-detail.component.html',
   styleUrl: './admin-project-detail.component.css',
 })
@@ -33,12 +36,57 @@ export class AdminProjectDetailComponent implements OnInit {
   readonly loading = signal(true);
   readonly errorMessage = signal('');
 
+  deleteReason = '';
+  readonly deleting = signal(false);
+  readonly deleteError = signal('');
+  readonly deleteResult = signal('');
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: AdminApiService
   ) {}
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  /** Soft delete: every file on disk goes (purchased designs too, no
+   * automatic refund), the project's history stays, and the owner no
+   * longer sees it. */
+  deleteProject(): void {
+    const d = this.detail();
+    if (!d || this.deleting()) return;
+    const paid = d.paid_tiers.reduce((sum, t) => sum + t.credits, 0);
+    const warning =
+      d.paid_tiers.length > 0
+        ? `\n\nThe owner PAID ${paid} credits for: ${d.paid_tiers.map((t) => t.tier).join(', ')}. ` +
+          'Those designs will be deleted too and nothing is refunded automatically — ' +
+          "use a credit adjustment on the user's page if you want to refund."
+        : '';
+    if (
+      !confirm(
+        `Delete ${d.source_url}?\n\nAll of this project's files are removed and the owner will no longer see it. ` +
+          `Its history (jobs, costs, payments) is kept. This cannot be undone.${warning}`
+      )
+    ) {
+      return;
+    }
+    this.deleting.set(true);
+    this.deleteError.set('');
+    this.api.deleteProject(d.project_id, this.deleteReason.trim() || null).subscribe({
+      next: (res) => {
+        this.deleting.set(false);
+        this.deleteResult.set(`Deleted — freed ${(res.bytes_freed / 1024 ** 2).toFixed(1)} MB.`);
+        this.load();
+      },
+      error: (err) => {
+        this.deleting.set(false);
+        this.deleteError.set(err?.error?.detail || 'Failed to delete project.');
+      },
+    });
+  }
+
+  private load(): void {
     const projectId = this.route.snapshot.paramMap.get('id') ?? '';
     this.loading.set(true);
     this.api.getProjectDetail(projectId).subscribe({

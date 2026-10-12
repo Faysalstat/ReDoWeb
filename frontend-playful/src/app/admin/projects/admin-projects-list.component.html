@@ -45,7 +45,12 @@
                 <app-badge [variant]="tierBadgeVariant(project.tier)">{{ project.tier }}</app-badge>
               }
             </td>
-            <td>{{ project.status }}</td>
+            <td>
+              {{ project.status }}
+              @if (project.deleted_at) {
+                <app-badge variant="danger">Deleted</app-badge>
+              }
+            </td>
             <td>{{ project.created_at | date: 'medium' }}</td>
           </tr>
         } @empty {

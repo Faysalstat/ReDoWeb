@@ -21,6 +21,7 @@ import { SafeResourceUrl } from '@angular/platform-browser';
   styles: [
     `
       .bf {
+        min-width: 0;
         background: var(--pg-card);
         border: var(--pg-bw) solid var(--pg-fg);
         border-radius: var(--pg-radius-md);
@@ -64,7 +65,10 @@ import { SafeResourceUrl } from '@angular/platform-browser';
         background: var(--pg-mint);
       }
       .bf__url {
-        flex: 1;
+        /* width: 0 + flex-basis 0: a long preview URL (with its token) must
+           never set the frame's minimum width -- it's ellipsised instead. */
+        flex: 1 1 0;
+        width: 0;
         min-width: 0;
         padding: 5px 14px;
         border: var(--pg-bw) solid var(--pg-fg);
