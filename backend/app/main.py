@@ -6,6 +6,7 @@ from slowapi.errors import RateLimitExceeded
 
 from .config import get_settings
 from .logging_config import configure_logging
+from .observability.middleware import RequestContextMiddleware
 from .rate_limit import limiter
 from .routers import (
     admin,
@@ -22,7 +23,7 @@ from .routers import (
     tiers,
 )
 
-configure_logging()
+configure_logging(service="api")
 
 app = FastAPI(title="ReDoWebs API", version="0.1.0")
 
@@ -38,7 +39,13 @@ app.add_middleware(
     allow_credentials=True,  # required so the refresh-token httpOnly cookie is sent cross-origin
     allow_methods=["*"],
     allow_headers=["*"],
+    # Lets the frontend read the id it can show a user as an error reference.
+    expose_headers=["X-Request-ID"],
 )
+# Added last so it's the outermost layer: every request, including CORS
+# preflights and errors raised by the layers inside it, gets a request id
+# and one http.request log line.
+app.add_middleware(RequestContextMiddleware)
 
 app.include_router(auth.router)
 app.include_router(credits.router)

@@ -54,6 +54,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
+from ..observability.context import submit_with_context
 from .blueprint_schema import (
     AboutSection,
     AdditionalSection,
@@ -452,7 +453,8 @@ def review_blueprint(
 
     with ThreadPoolExecutor(max_workers=_worker_count(len(target_indices), include_meta)) as executor:
         meta_future = (
-            executor.submit(
+            submit_with_context(
+                executor,
                 vision_json_chat,
                 meta_system_prompt,
                 f"Heuristic site name guess: {scraped.meta.site_name}\n\n{meta_digest}",
@@ -463,10 +465,11 @@ def review_blueprint(
             else None
         )
         content_futures = [
-            executor.submit(_review_page, scraped.pages[i], scraped, i, model) for i in target_indices
+            submit_with_context(executor, _review_page, scraped.pages[i], scraped, i, model) for i in target_indices
         ]
         gap_futures = [
-            executor.submit(
+            submit_with_context(
+                executor,
                 _review_page_gaps,
                 project_root,
                 storage_paths_by_url.get(scraped.pages[i].page_url),

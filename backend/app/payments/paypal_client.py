@@ -9,6 +9,7 @@ the operation may or may not have happened, so the purchase must stay
 pending) from a real rejection.
 """
 
+import json
 import threading
 import time
 from collections.abc import Mapping
@@ -131,9 +132,18 @@ def _error_from_response(response: httpx.Response) -> PayPalError:
     )
 
 
-def _call(method: str, path: str, *, json_body: dict | None = None, request_id: str | None = None) -> dict:
+def _call(
+    method: str,
+    path: str,
+    *,
+    json_body: dict | None = None,
+    raw_body: bytes | None = None,
+    request_id: str | None = None,
+) -> dict:
     """One authenticated call. A 401 (token revoked/expired early) clears
-    the cache and retries exactly once with a fresh token."""
+    the cache and retries exactly once with a fresh token. `raw_body` sends
+    pre-encoded JSON bytes as-is (webhook verification needs the event
+    byte-for-byte); otherwise `json_body` is encoded by httpx."""
     settings = get_settings()
     for attempt in range(2):
         headers = {
@@ -149,6 +159,8 @@ def _call(method: str, path: str, *, json_body: dict | None = None, request_id: 
         try:
             if method == "GET":
                 response = httpx.get(url, headers=headers, timeout=settings.paypal_timeout_seconds)
+            elif raw_body is not None:
+                response = httpx.post(url, headers=headers, content=raw_body, timeout=settings.paypal_timeout_seconds)
             else:
                 response = httpx.post(
                     url, headers=headers, json=json_body or {}, timeout=settings.paypal_timeout_seconds
@@ -209,22 +221,29 @@ _SIGNATURE_HEADERS = {
 }
 
 
-def verify_webhook_signature(headers: Mapping[str, str], event: dict) -> bool:
+def verify_webhook_signature(headers: Mapping[str, str], raw_body: bytes) -> bool:
     """Asks PayPal whether this webhook delivery is genuine. Returns False
     (never raises) for a missing webhook id or missing signature headers,
-    so the router can answer 400 uniformly. `event` must be the parsed body
-    exactly as received -- PayPal re-checks it against the signature."""
+    so the router can answer 400 uniformly.
+
+    `raw_body` must be the request body exactly as received. PayPal checks
+    the signature against the event it's sent back, so the event is spliced
+    into the verify request byte-for-byte rather than parsed and re-encoded
+    -- re-encoding can change unicode escaping/number formatting and make
+    genuine events fail verification intermittently, which would silently
+    disable the webhook safety net."""
     webhook_id = get_settings().paypal_webhook_id
     if not webhook_id:
         return False
     lowered = {k.lower(): v for k, v in headers.items()}
-    body: dict[str, Any] = {}
+    envelope: dict[str, Any] = {}
     for field, header in _SIGNATURE_HEADERS.items():
         value = lowered.get(header)
         if not value:
             return False
-        body[field] = value
-    body["webhook_id"] = webhook_id
-    body["webhook_event"] = event
-    result = _call("POST", "/v1/notifications/verify-webhook-signature", json_body=body)
+        envelope[field] = value
+    envelope["webhook_id"] = webhook_id
+    encoded = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+    body = encoded[:-1] + b',"webhook_event":' + raw_body.strip() + b"}"
+    result = _call("POST", "/v1/notifications/verify-webhook-signature", raw_body=body)
     return result.get("verification_status") == "SUCCESS"

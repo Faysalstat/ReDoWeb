@@ -75,7 +75,7 @@ REDOWEBS_PAYPAL_WEBHOOK_ID=<id shown after registering https://<backend-domain>/
 RAILWAY_RUN_UID=0
 REDOWEBS_LOG_FORMAT=json
 ```
-- `REDOWEBS_LOG_FORMAT=json`: one JSON object per log line (`level`, `logger`, `message`, plus `traceback` on errors), so Railway's log view can filter by level (`@level:error`) and a traceback stays a single entry. Local dev keeps the default `text`. `REDOWEBS_LOG_LEVEL` (default `INFO`) is also available.
+- `REDOWEBS_LOG_FORMAT=json`: one JSON object per log line (`level`, `logger`, `message`, plus `traceback` on errors), so Railway's log view can filter by level (`@level:error`) and a traceback stays a single entry. Local dev keeps the default `text`. `REDOWEBS_LOG_LEVEL` (default `INFO`) is also available. Since 2026-10-06 each line also carries `trace_id`/`project_id`/`tier`/`user_id`/`event` fields (filter with `@trace_id:<id>`), and setting `REDOWEBS_AXIOM_TOKEN` additionally ships logs to a free 30-day Axiom archive — see [LOGGING.md](LOGGING.md).
 - The `postgresql+psycopg://` prefix is required — Railway's own `DATABASE_URL` uses `postgresql://`, which picks the wrong SQLAlchemy driver.
 - `REDOWEBS_MIN_FREE_DISK_GB`: the default (2.0) exceeds a Trial volume and would reject every submission. On Hobby (5 GB) raise to ~1.
 - `RAILWAY_RUN_UID=0`: the Dockerfile runs as non-root `appuser`, which can't write to Railway volumes otherwise.
@@ -125,6 +125,38 @@ logs are interleaved there).
 - If either the API or the worker dies, `start.sh` stops the other and exits
   non-zero so Railway restarts the whole container (container-level restart
   only — the app's task-level no-auto-retry policy is unchanged).
+
+## Disk retention (keeps the Hobby 5 GB volume from filling up)
+
+Added 2026-10-06 (`services/storage_cleanup_service.py`). Projects average
+~20 MB on disk (up to ~40 MB), so without cleanup the 5 GB volume holds
+roughly 150–250 projects. Once a project is older than
+`REDOWEBS_STORAGE_RETENTION_DAYS` (default **45**; `0` turns it off):
+
+| Deleted | Kept |
+|---|---|
+| Every **unpurchased** tier preview (`generated/{tier}/`) | Purchased tiers' preview, `full/` and `seo/` output |
+| The crawl snapshot (`snapshot/`) — except on a paid multi-page project whose "Generate all pages" hasn't succeeded yet (it reads images from there) | `blueprint/`, `metadata.json` (tiny; full-site/SEO need them) |
+| Cached download ZIPs (`downloads/`, rebuilt on every download) | Every DB row |
+
+After that the project is marked `previews_expired_at`: unpurchased tiers
+can't be bought (410) or retried (410), the UI shows "preview expired", and a
+project still waiting for cost approval is marked failed. Projects with a job
+started in the last 24 h, or still mid-pipeline and active within the
+window, are skipped.
+
+It runs inside the queue worker (first run 5 min after start, then every
+`REDOWEBS_STORAGE_CLEANUP_INTERVAL_HOURS`, default 24), only between jobs,
+guarded by a Postgres advisory lock so several workers never double up. Run
+it by hand — always try `--dry-run` first:
+
+```bash
+python -m app.workers.storage_cleanup --dry-run   # report only
+python -m app.workers.storage_cleanup             # delete
+```
+
+Requires migration `b2d6f8a4c1e7` (applied automatically by the pre-deploy
+`alembic upgrade head`).
 
 ## Code changes made for this deployment (2026-10-03)
 

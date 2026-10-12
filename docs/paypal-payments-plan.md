@@ -1,5 +1,7 @@
 > **Admin follow-up:** purchase operations (Payments page, Re-check / Take back credits / Mark as failed, Tiers & pricing) are designed in `docs/admin-payments-plan.md`.
 >
+> **Status (2026-10-09): implemented + hardened, awaiting the sandbox run.** See *Hardening (2026-10-09)*, *Sandbox runbook* and *Going-live checklist* at the end.
+>
 > **Status (2026-10-05): implemented.** Backend, frontend and tests are built per this plan; not yet run against a real PayPal sandbox (waiting on sandbox credentials) or a live Postgres (`alembic upgrade head` for migration `b7d3f1a8c2e6` still to run). See docs/PROGRESS.md. Two refinements made during implementation: a `failed` purchase is not terminal (a later valid COMPLETED capture still grants, since PayPal lets a buyer retry a declined order with another card), and Pay Later/Venmo are disabled so the buttons offer only PayPal + card.
 
 # Plan: PayPal credit-pack payments + admin-configurable packs and download costs
@@ -256,3 +258,110 @@ Document all of these in `docs/INSTALLATION.md` and `docs/RAILWAY.md`.
    4. History shows the Purchased badge.
 5. **Webhook (optional locally):** register the webhook in the sandbox app against an ngrok URL or the Railway deployment, set `REDOWEBS_PAYPAL_WEBHOOK_ID`, and use the PayPal webhook simulator. Then approve a payment, close the tab before capture, and confirm the webhook path grants the credits.
 6. Check the admin earnings page: PayPal revenue counts only completed purchases.
+
+## Hardening (2026-10-09)
+
+An industry-practice review of the built code before the first sandbox run found it sound. It confirmed:
+- server-side pricing;
+- capture only for `COMPLETED` with an exact amount and currency match;
+- the row lock plus the `purchase:{id}` ledger key;
+- `PayPal-Request-Id`;
+- `ORDER_ALREADY_CAPTURED` handled as success;
+- ambiguous outcomes left `pending`;
+- the decline → `actions.restart()` path;
+- signature-gated webhooks.
+
+It also found four gaps, now closed:
+
+1. **Automatic reconciliation of stale pending purchases.**
+   - **The gap:** a buyer who approved and then closed the tab was only rescued by the webhook. Locally there is never a webhook, and in production a misconfigured one fails silently, so the credits waited for an admin Re-check.
+   - **The fix:** `billing_service.reconcile_pending_purchases()` and `workers/billing_reconcile.py`, run by the queue worker every `billing_reconcile_interval_minutes` (10). The first run is 60 s after start.
+   - **Scope:** it re-checks `source="paypal"` purchases that are still `pending` and aged between `billing_reconcile_min_age_minutes` (5) and `billing_reconcile_max_age_hours` (72). It reuses `recheck_purchase()` and the same ledger key, so it can never double-grant.
+   - **Safety:** rows are locked `FOR UPDATE SKIP LOCKED`, so it never blocks a live capture. Each purchase is its own transaction.
+   - **What it never touches:** `failed` purchases (PayPal denied them, or the amount didn't match), and `completed`/`refunded` ones (refunds stay marked only).
+   - **Manual run:** `python -m app.workers.billing_reconcile`. It does nothing while PayPal isn't configured.
+2. **Webhook verification uses the raw body.**
+   - **The gap:** the router used to parse the event and send a re-encoded copy to PayPal's verify API. PayPal checks the signature against what it receives, so re-encoding (unicode escapes, number formatting, spacing) could make genuine events fail verification intermittently.
+   - **The fix:** `verify_webhook_signature(headers, raw_body: bytes)` splices the received bytes verbatim into the verify request. The router reads them through an async dependency, so the handler stays sync. A non-JSON body gets a 400 before any PayPal call.
+3. **Payment logs carry stable `billing.*` event names** (catalogue in `docs/LOGGING.md`). That makes alerting on `billing.amount_mismatch`, `billing.dispute` and `billing.webhook_rejected` possible.
+4. **Disputes are recorded.** `CUSTOMER.DISPUTE.CREATED/UPDATED/RESOLVED` events append a dated line to the purchase's `note`, so it shows on the admin Payments page.
+   - The purchase is matched through `disputed_transactions[].seller_transaction_id`, which is the capture ID.
+   - Status and credits are unchanged; resolution stays a manual admin decision.
+
+Also added:
+- The capture endpoint is rate-limited like order creation (`rate_limit_checkout`).
+
+Also fixed:
+- **Not PayPal-specific:** `queue_worker.py` used `TRACE_KEY`/`log_context` without importing them, a `NameError` on the first claimed job, left over from the logging work.
+
+**Accepted trade-offs, recorded rather than changed:**
+- The row lock is held during the PayPal call (bounded by `paypal_timeout_seconds`; one purchase per lock).
+- The webhook is processed synchronously (PayPal retries; idempotent).
+- There is no webhook-event dedup table (idempotency lives on the purchase and ledger; event IDs are logged).
+- `application_context` is deprecated in favour of `payment_source.paypal.experience_context`; revisit at go-live.
+
+## Sandbox runbook
+
+**Setup:**
+
+1. Check that `pytest` and `ng build` are green.
+2. Run `alembic upgrade head`.
+3. Set in `backend/.env`:
+   - `REDOWEBS_PAYMENTS_MODE=paypal`
+   - `REDOWEBS_PAYPAL_CLIENT_ID` and `REDOWEBS_PAYPAL_CLIENT_SECRET` (sandbox app)
+   - `REDOWEBS_PAYPAL_ENV=sandbox`
+
+   Restart the API **and** the queue worker.
+4. Sandbox business account:
+   - turn on "PayPal account optional";
+   - auto-accept USD;
+   - turn on Negative Testing.
+
+   Then generate test cards in the developer dashboard.
+5. Launch pricing comes from migration `d4a7c2e9f1b3` (2026-10-10), so no admin setup is needed:
+   - tier costs: Basic 20, Premium 50, Pro 60 credits;
+   - active packs: 20 credits $20, 50 credits $50, 60 credits $60.
+
+   Check that admin → Tiers & pricing shows exactly these values.
+6. Check that `GET /api/v1/billing/config` returns `enabled=true`, `mode=paypal`, `env=sandbox`.
+
+**Test matrix (locally, no webhook):**
+
+| # | Scenario | Expected |
+|---|---|---|
+| 1 | `/checkout` | Only the PayPal and Card buttons |
+| 2 | Pay with the sandbox buyer account | `completed`, header balance updates, `paypal_capture_id` set, one `purchase:{id}` ledger row, `billing.capture_completed` logged |
+| 3 | Pay by test card | Same as #2 |
+| 4 | Cancel the popup | Purchase `pending`, no ledger row |
+| 5 | Declined card (negative testing) | Funding re-offered; another card succeeds; credited once |
+| 6 | Re-POST capture for a completed order | No second ledger row |
+| 7 | Purchase a tier with too few credits | 402 shortfall → Top Up → back on the project → purchase succeeds |
+| 8 | Closed tab: approve, but block `/capture` in DevTools | Credited within ~15 min by the reconciler (`billing.reconciled`), or at once via admin Re-check; one ledger row |
+| 9 | Refund in the sandbox dashboard, then admin Re-check | `refunded`, balance unchanged; Take back credits removes them once, capped at the balance |
+| 10 | Billing history, admin Payments, Earnings | Revenue counts only `completed` PayPal purchases |
+
+**Railway (sandbox):**
+
+1. Set the same variables.
+2. Register `https://<backend>/api/v1/billing/paypal/webhook` on the sandbox app, for these events:
+   - `CHECKOUT.ORDER.APPROVED`
+   - `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED`
+   - `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.UPDATED`, `CUSTOMER.DISPUTE.RESOLVED`
+3. Set `REDOWEBS_PAYPAL_WEBHOOK_ID` and redeploy.
+4. Repeat #2, #3 and #8. The webhook should now credit within seconds (`billing.webhook_processed`).
+5. A forged POST should get a 400 with no ledger row (`billing.webhook_rejected reason=bad_signature`).
+6. Simulator events should verify.
+
+## Going-live checklist (needs the user's sign-off)
+
+- [ ] Sandbox runbook fully passed, locally and on Railway.
+- [ ] Live REST app created; live client ID and secret set on Railway; `REDOWEBS_PAYPAL_ENV=live`.
+- [ ] Live business account:
+  - its country can **receive** payments;
+  - "PayPal account optional" is on;
+  - USD auto-accept is on.
+- [ ] Live webhook registered with the same events; `REDOWEBS_PAYPAL_WEBHOOK_ID` set to the **live** webhook's ID.
+- [ ] Real pack prices set and the placeholder packs disabled. Check that PayPal's fixed fee doesn't eat the smallest pack.
+- [ ] Axiom monitors on `billing.amount_mismatch`, `billing.dispute` and `billing.webhook_rejected`.
+- [ ] Decide whether to move `application_context` → `experience_context` first.
+- [ ] One small real purchase end to end; refund it from the PayPal dashboard; admin Re-check shows `refunded`.

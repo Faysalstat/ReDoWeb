@@ -27,6 +27,7 @@ import {
   AdminModelPricingUpdateRequest,
   AdminModelPricingRow,
   AdminOverviewResponse,
+  AdminDeleteProjectResponse,
   AdminProjectDetailResponse,
   AdminProjectListResponse,
   AdminPromptTemplateListResponse,
@@ -79,6 +80,11 @@ export class AdminApiService {
 
   getProjectDetail(projectId: string): Observable<AdminProjectDetailResponse> {
     return this.http.get<AdminProjectDetailResponse>(`${ADMIN_BASE}/projects/${projectId}`);
+  }
+
+  /** Soft delete: removes all files, keeps the project's history. */
+  deleteProject(projectId: string, reason: string | null): Observable<AdminDeleteProjectResponse> {
+    return this.http.post<AdminDeleteProjectResponse>(`${ADMIN_BASE}/projects/${projectId}/delete`, { reason });
   }
 
   // -- Users ----------------------------------------------------------------

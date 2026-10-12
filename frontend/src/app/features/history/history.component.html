@@ -71,9 +71,22 @@
                   Download{{ project.purchased_tiers.length > 1 ? ' ' + tierLabel(tier) : '' }}
                 </a>
               }
-              <a appButton variant="secondary" [routerLink]="['/projects', project.project_id]">
-                {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
-              </a>
+              @if (isPreviewExpired(project)) {
+                <!-- Nothing left to view: the retention cleanup removed every unpurchased preview. -->
+                <button
+                  type="button"
+                  class="expired-chip"
+                  aria-haspopup="dialog"
+                  (click)="openExpiredNotice(project)"
+                >
+                  <app-icon-alert-triangle [size]="14" />
+                  Preview expired
+                </button>
+              } @else {
+                <a appButton variant="secondary" [routerLink]="['/projects', project.project_id]">
+                  {{ isTerminal(project.status) ? 'View' : 'Watch progress' }}
+                </a>
+              }
             </div>
           </div>
         }
@@ -81,3 +94,29 @@
     }
   </section>
 </div>
+
+<!-- Native <dialog>: showModal() gives the backdrop, focus trap and Esc-to-close. -->
+<dialog
+  #expiredDialog
+  class="expired-dialog"
+  aria-labelledby="expired-dialog-title"
+  (click)="onExpiredDialogClick($event, expiredDialog)"
+>
+  <div class="expired-dialog__body">
+    <div class="expired-dialog__icon">
+      <app-icon-alert-triangle [size]="22" />
+    </div>
+    <h2 id="expired-dialog-title" class="expired-dialog__title">This preview has expired</h2>
+    <p class="expired-dialog__text">
+      We keep previews of designs that weren't bought for a limited time, then remove them to save
+      space. The redesigns for
+      <strong class="expired-dialog__url">{{ expiredProject()?.source_url }}</strong>
+      are no longer available, so they can't be viewed or bought.
+    </p>
+    <p class="expired-dialog__text">Submit the site again to get fresh redesigns.</p>
+    <div class="expired-dialog__actions">
+      <button appButton variant="secondary" type="button" (click)="expiredDialog.close()">Close</button>
+      <a appButton variant="primary" routerLink="/" (click)="expiredDialog.close()">Start a new redesign</a>
+    </div>
+  </div>
+</dialog>

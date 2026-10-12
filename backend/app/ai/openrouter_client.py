@@ -3,6 +3,7 @@ import concurrent.futures
 import io
 import itertools
 import json
+import logging
 import mimetypes
 import time
 from pathlib import Path
@@ -12,6 +13,8 @@ from PIL import Image
 
 from ..config import get_settings
 from .errors import OpenRouterError
+
+logger = logging.getLogger("app.ai.openrouter")
 
 _call_counter = itertools.count(1)
 
@@ -87,21 +90,87 @@ def _post_with_retry(url: str, headers: dict, json_payload: dict, soft_timeout: 
                     delay = max(delay, float(retry_after))
                 except ValueError:
                     pass
-            print(
-                f"    [retry] OpenRouter {exc.response.status_code} on attempt "
-                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
-            )
+            _log_retry(attempt, delay, status=exc.response.status_code)
             time.sleep(delay)
         except (httpx.ConnectError, httpx.ReadTimeout) as exc:
             if is_last_attempt:
                 raise
             delay = _BACKOFF_SECONDS[attempt]
-            print(
-                f"    [retry] OpenRouter {type(exc).__name__} on attempt "
-                f"{attempt + 1}/{_MAX_ATTEMPTS}, retrying in {delay:.0f}s"
-            )
+            _log_retry(attempt, delay, error_type=type(exc).__name__)
             time.sleep(delay)
     raise AssertionError("unreachable -- loop always returns or raises")  # pragma: no cover
+
+
+def _log_retry(attempt: int, delay: float, **fields) -> None:
+    reason = fields.get("status") or fields.get("error_type")
+    logger.warning(
+        "OpenRouter %s on attempt %d/%d, retrying in %.0fs",
+        reason,
+        attempt + 1,
+        _MAX_ATTEMPTS,
+        delay,
+        extra={"event": "ai.call.retry", "attempt": attempt + 1, "delay_s": delay, **fields},
+    )
+
+
+def _log_call_finished(
+    call_type: str,
+    call_num: int,
+    model: str | None,
+    started: float,
+    data: dict | None,
+    error: Exception | None = None,
+    **fields,
+) -> None:
+    """One line per OpenRouter call: model, tokens, cost, latency and
+    finish_reason on success; error type/message on failure. WARNING (not
+    ERROR) on failure because the caller decides whether it's fatal -- e.g.
+    the vision meta call degrades to heuristics. Prompt text is never logged
+    at INFO; the agent loop's _debug_trace.json keeps the full conversation."""
+    duration_ms = round((time.monotonic() - started) * 1000)
+    if error is not None:
+        logger.warning(
+            "%s #%d failed after %d ms: %s",
+            call_type,
+            call_num,
+            duration_ms,
+            type(error).__name__,
+            extra={
+                "event": "ai.call.failed",
+                "call_type": call_type,
+                "model": model,
+                "duration_ms": duration_ms,
+                "error_type": type(error).__name__,
+                "error": str(error)[:500],
+                **fields,
+            },
+        )
+        return
+    usage = (data or {}).get("usage") or {}
+    choices = (data or {}).get("choices") or [{}]
+    first_choice = choices[0] if isinstance(choices[0], dict) else {}
+    finish_reason = first_choice.get("finish_reason")
+    logger.info(
+        "%s #%d %s ok in %d ms (%s in / %s out tokens, finish=%s)",
+        call_type,
+        call_num,
+        model,
+        duration_ms,
+        usage.get("prompt_tokens"),
+        usage.get("completion_tokens"),
+        finish_reason,
+        extra={
+            "event": "ai.call.completed",
+            "call_type": call_type,
+            "model": model,
+            "duration_ms": duration_ms,
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "cost_usd": usage.get("cost"),
+            "finish_reason": finish_reason,
+            **fields,
+        },
+    )
 
 
 def _content_preview(content, limit: int = 300) -> str:
@@ -203,13 +272,19 @@ def vision_json_chat(
     }
 
     call_num = next(_call_counter)
-    print(
-        f"\n[AI CALL #{call_num}] vision_json_chat -> model={vision_model} "
-        f"| images={len(image_paths)}"
-    )
-    print(f"    system: {_content_preview(system_prompt, 200)}")
-    print(f"    user:   {_content_preview(user_text, 300)}")
+    call_fields = {"images": len(image_paths)}
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "vision_json_chat #%d -> %s | images=%d\n    system: %s\n    user:   %s",
+            call_num,
+            vision_model,
+            len(image_paths),
+            _content_preview(system_prompt, 200),
+            _content_preview(user_text, 300),
+            extra={"event": "ai.call.started"},
+        )
 
+    started = time.monotonic()
     try:
         response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
@@ -222,13 +297,21 @@ def vision_json_chat(
             soft_timeout=60.0,
         )
     except httpx.HTTPStatusError as exc:
+        _log_call_finished(
+            "vision_json_chat", call_num, vision_model, started, None, exc,
+            status=exc.response.status_code, **call_fields,
+        )
         raise OpenRouterError(
             f"OpenRouter request failed: {exc} | body: {exc.response.text}"
         ) from exc
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, OpenRouterError) as exc:
+        _log_call_finished("vision_json_chat", call_num, vision_model, started, None, exc, **call_fields)
+        if isinstance(exc, OpenRouterError):
+            raise
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
     data = response.json()
+    _log_call_finished("vision_json_chat", call_num, vision_model, started, data, **call_fields)
     try:
         choice = data["choices"][0]
         message_content = choice["message"]["content"]
@@ -272,16 +355,23 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
     system_message = next((m for m in messages if m.get("role") == "system"), None)
     latest_message = messages[-1] if messages else None
 
-    call_num = next(_call_counter)
-    print(
-        f"\n[AI CALL #{call_num}] chat_completion -> model={payload.get('model')} "
-        f"| messages_in_context={len(messages)} | tools={len(payload.get('tools') or [])}"
-    )
-    if system_message is not None:
-        print(f"    system: {_content_preview(system_message.get('content'), 200)}")
-    if latest_message is not None:
-        print(f"    latest: {_message_preview(latest_message, 300)}")
+    model = payload.get("model")
+    call_fields = {"messages_in_context": len(messages), "tools": len(payload.get("tools") or [])}
 
+    call_num = next(_call_counter)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "chat_completion #%d -> %s | messages_in_context=%d | tools=%d\n    system: %s\n    latest: %s",
+            call_num,
+            model,
+            call_fields["messages_in_context"],
+            call_fields["tools"],
+            _content_preview(system_message.get("content"), 200) if system_message else "",
+            _message_preview(latest_message, 300) if latest_message else "",
+            extra={"event": "ai.call.started"},
+        )
+
+    started = time.monotonic()
     try:
         response = _post_with_retry(
             f"{settings.openrouter_base_url}/chat/completions",
@@ -294,10 +384,19 @@ def chat_completion(payload: dict, timeout: float = 120.0) -> dict:
             soft_timeout=timeout,
         )
     except httpx.HTTPStatusError as exc:
+        _log_call_finished(
+            "chat_completion", call_num, model, started, None, exc,
+            status=exc.response.status_code, **call_fields,
+        )
         raise OpenRouterError(
             f"OpenRouter request failed: {exc} | body: {exc.response.text}"
         ) from exc
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, OpenRouterError) as exc:
+        _log_call_finished("chat_completion", call_num, model, started, None, exc, **call_fields)
+        if isinstance(exc, OpenRouterError):
+            raise
         raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
-    return response.json()
+    data = response.json()
+    _log_call_finished("chat_completion", call_num, model, started, data, **call_fields)
+    return data

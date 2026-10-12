@@ -31,7 +31,9 @@ def create_preview_token(
     current_user: User = Depends(get_current_user),
 ) -> PreviewTokenResponse:
     project = db.get(Project, uuid.UUID(project_id))
-    if project is None or (project.user_id != current_user.id and not current_user.is_admin):
+    if project is None or (
+        (project.user_id != current_user.id or project.deleted_at is not None) and not current_user.is_admin
+    ):
         # Same 404 for "doesn't exist" and "not yours", matching
         # GET /projects/{id}'s existing no-leak convention -- this single
         # check covers both the regular owner-previews-their-own-project

@@ -179,3 +179,33 @@ def test_verified_webhook_fulfils_purchase(client, session_factory, monkeypatch)
     with session_factory() as db:
         assert db.query(Purchase).one().status == "completed"
         assert db.query(CreditWallet).filter(CreditWallet.user_id == user_id).one().balance == 10
+
+
+def test_webhook_verification_gets_the_raw_body_bytes(client, session_factory, monkeypatch):
+    _seed(session_factory)
+    seen = {}
+
+    def _verify(headers, raw_body):
+        seen["raw"] = raw_body
+        return False
+
+    monkeypatch.setattr(paypal_client, "verify_webhook_signature", _verify)
+    raw = '{"event_type":  "X", "resource": {"payer": "Zoë"}, "amount": 10.50}'.encode("utf-8")
+
+    response = client.post(
+        "/api/v1/billing/paypal/webhook", content=raw, headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == 400
+    assert seen["raw"] == raw
+
+
+def test_webhook_with_non_json_body_is_rejected_before_verification(client, session_factory, monkeypatch):
+    _seed(session_factory)
+    monkeypatch.setattr(paypal_client, "verify_webhook_signature", lambda h, b: pytest.fail("must not verify"))
+
+    response = client.post(
+        "/api/v1/billing/paypal/webhook", content=b"not json", headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == 400

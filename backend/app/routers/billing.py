@@ -4,9 +4,10 @@ Config and pack listing are public (the /pricing page and the home page's
 pricing section are public routes); creating/capturing orders needs a
 login; the webhook is authenticated by PayPal's signature, not a JWT."""
 
+import json
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..auth.dependencies import get_current_user
@@ -83,7 +84,9 @@ def create_paypal_order(
 
 
 @router.post("/paypal/orders/{order_id}/capture", response_model=CaptureResponse)
+@limiter.limit(get_settings().rate_limit_checkout)
 def capture_paypal_order(
+    request: Request,
     order_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -121,23 +124,57 @@ def list_my_purchases(
     )
 
 
+async def _raw_body(request: Request) -> bytes:
+    """The webhook body exactly as received -- an async dependency so the
+    handler itself can stay sync (see paypal_webhook)."""
+    return await request.body()
+
+
 @router.post("/paypal/webhook")
-def paypal_webhook(request: Request, event: dict = Body(...), db: Session = Depends(get_db)) -> dict:
+def paypal_webhook(request: Request, raw_body: bytes = Depends(_raw_body), db: Session = Depends(get_db)) -> dict:
     """400 on an unverified event (nothing is ever granted). 503 when PayPal
     itself couldn't be reached to verify -- a 5xx makes PayPal redeliver
     later. Sync on purpose: the DB session is synchronous, and an async
-    handler would block the event loop on it. `event` is the parsed body as
-    received, which is what PayPal's verify call expects back."""
+    handler would block the event loop on it. Verification uses the raw
+    body bytes (see paypal_client.verify_webhook_signature); the parsed
+    copy is only used to act on the event."""
     try:
-        verified = paypal_client.verify_webhook_signature(request.headers, event)
+        event = json.loads(raw_body)
+    except ValueError:
+        event = None
+    if not isinstance(event, dict):
+        logger.warning(
+            "Rejected PayPal webhook with a non-JSON body",
+            extra={"event": "billing.webhook_rejected", "reason": "bad_json"},
+        )
+        raise HTTPException(status_code=400, detail="Invalid webhook body")
+
+    fields = {"paypal_event_id": event.get("id"), "paypal_event": event.get("event_type")}
+    try:
+        verified = paypal_client.verify_webhook_signature(request.headers, raw_body)
     except PayPalError as exc:
-        logger.warning("PayPal webhook verification call failed: %s", exc)
+        logger.warning(
+            "PayPal webhook verification call failed: %s",
+            exc,
+            extra={**fields, "event": "billing.webhook_rejected", "reason": "verify_unavailable"},
+        )
         raise HTTPException(status_code=503, detail="Could not verify webhook") from exc
     if not verified:
-        logger.warning("Rejected unverified PayPal webhook %s (%s)", event.get("id"), event.get("event_type"))
+        logger.warning(
+            "Rejected unverified PayPal webhook %s (%s)",
+            event.get("id"),
+            event.get("event_type"),
+            extra={**fields, "event": "billing.webhook_rejected", "reason": "bad_signature"},
+        )
         raise HTTPException(status_code=400, detail="Signature verification failed")
 
     result = billing_service.handle_webhook_event(db, event)
     db.commit()
-    logger.info("PayPal webhook %s (%s): %s", event.get("id"), event.get("event_type"), result)
+    logger.info(
+        "PayPal webhook %s (%s): %s",
+        event.get("id"),
+        event.get("event_type"),
+        result,
+        extra={**fields, "event": "billing.webhook_processed", "result": result},
+    )
     return {"status": "ok"}

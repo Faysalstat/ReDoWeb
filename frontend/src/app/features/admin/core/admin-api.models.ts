@@ -29,6 +29,7 @@ export interface AdminProjectListItem {
   owner_email: string;
   tier: string | null;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 export interface AdminProjectListResponse {
@@ -83,6 +84,18 @@ export interface AdminProjectDetailResponse {
   blueprint: AdminBlueprintSummary | null;
   generation_jobs: AdminGenerationJobSummary[];
   paid_tiers: AdminPaidTier[];
+  /** Admin soft delete: files gone, history kept, hidden from the owner. */
+  deleted_at?: string | null;
+  deleted_by_email?: string | null;
+  deletion_reason?: string | null;
+  /** Retention cleanup removed unpurchased previews. */
+  previews_expired_at?: string | null;
+}
+
+export interface AdminDeleteProjectResponse {
+  project_id: string;
+  deleted_at: string;
+  bytes_freed: number;
 }
 
 export interface AdminPaidTier {

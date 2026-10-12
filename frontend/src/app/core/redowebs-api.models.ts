@@ -144,6 +144,10 @@ export interface ProjectStatusResponse {
   cost_gate?: GenerationCostGateInfo | null;
   /** Tiers already paid for -- re-downloading these is free. */
   purchased_tiers: string[];
+  /** Past the storage retention window: unpurchased previews were deleted,
+   * so `generations` lists purchased tiers only and Buy/Retry are gone. */
+  previews_expired?: boolean;
+  previews_expired_at?: string | null;
   /** Crawled page count -- "Generate all pages" is offered only when > 1. */
   page_count: number;
   /** Per finished tier: Generate all pages / Run SEO state. */
@@ -201,6 +205,7 @@ export interface ProjectListItem {
   created_at: string;
   tier?: string | null;
   purchased_tiers: string[];
+  previews_expired?: boolean;
 }
 
 // --- Auth (Google SSO) ---

@@ -225,7 +225,6 @@
             </div>
 
             <div class="gp-topbar__actions">
-              <button appButton variant="secondary" (click)="tryAgain()">Start over</button>
               @if (isPurchased(gen.tier)) {
                 <button
                   appButton
@@ -405,6 +404,13 @@
                 Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
               </button>
             </div>
+          }
+
+          @if (s.previews_expired) {
+            <p class="text-muted" style="font-size: 12px; margin-top: var(--space-2)">
+              Previews of the designs you didn't buy have expired and were removed. Your purchased
+              design is kept.
+            </p>
           }
 
           <div class="gp-ready__layout">
@@ -589,6 +595,21 @@
                 }
               </app-card>
             </aside>
+          </div>
+        } @else if (s.previews_expired) {
+          <!-- Retention cleanup removed every unpurchased preview and nothing was bought. -->
+          <div class="gp-error">
+            <div class="gp-error__icon">
+              <app-icon-alert-triangle [size]="24" />
+            </div>
+            <h2 style="margin-top: var(--space-4)">This preview has expired</h2>
+            <p class="sub" style="margin: var(--space-2) auto 0; max-width: 480px">
+              We keep previews of designs that weren't bought for a limited time to save space. Submit
+              the site again to get fresh redesigns.
+            </p>
+            <button appButton variant="secondary" style="margin-top: var(--space-6)" (click)="tryAgain()">
+              Start over with this or another site
+            </button>
           </div>
         }
       }

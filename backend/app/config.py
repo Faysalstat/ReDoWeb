@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     # Rejects new work outright rather than silently running out of disk
     # mid-generation -- see storage_capacity_service.check_free_disk_space().
     min_free_disk_gb: float = 2.0
+    # Disk retention -- see services/storage_cleanup_service.py. A project
+    # older than this loses its crawl snapshot and every unpurchased tier
+    # preview; purchased designs are never deleted. 0 disables cleanup.
+    # Run by the queue worker every storage_cleanup_interval_hours (and
+    # manually via `python -m app.workers.storage_cleanup --dry-run`).
+    storage_retention_days: int = 45
+    storage_cleanup_interval_hours: float = 24.0
     # Raised 5 -> 20, 2026-09-17, at the user's explicit request (CLAUDE.md's
     # "settled decisions" previously said 3 while this was already 5 -- both
     # now reconciled to 20). Sites over this are still rejected outright, not
@@ -78,6 +85,15 @@ class Settings(BaseSettings):
     # multi-line traceback in a single log entry; "text" is for local dev.
     log_level: str = "INFO"
     log_format: str = "text"
+    # Tags every log line (and later Sentry events). Empty = Railway's own
+    # RAILWAY_ENVIRONMENT_NAME if present, else "development".
+    environment: str = ""
+    # Optional log archive (Axiom free tier, 30-day retention) -- see
+    # docs/LOGGING.md. Shipping is off while the token is empty, so local dev
+    # and tests never send anything.
+    axiom_token: str = ""
+    axiom_dataset: str = "redowebs"
+    axiom_ingest_url: str = "https://api.axiom.co/v1/datasets/{dataset}/ingest"
 
     rate_limit_auth: str = "10/minute"
     rate_limit_submit: str = "5/minute"
@@ -111,6 +127,14 @@ class Settings(BaseSettings):
     # frontend_url is localhost, so it can't leak into a deployment.
     payments_mode: str = "paypal"
     rate_limit_checkout: str = "10/minute"
+    # Pending-purchase reconciler (workers/billing_reconcile.py), run by the
+    # queue worker: re-checks PayPal purchases still pending/failed after
+    # min_age (the browser capture and webhook get first chance) and stops
+    # trying after max_age (older ones are left to the admin Re-check).
+    billing_reconcile_interval_minutes: float = 10.0
+    billing_reconcile_min_age_minutes: float = 5.0
+    billing_reconcile_max_age_hours: float = 72.0
+    billing_reconcile_batch_limit: int = 50
 
     class Config:
         env_prefix = "REDOWEBS_"

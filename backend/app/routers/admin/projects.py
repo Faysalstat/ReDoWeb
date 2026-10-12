@@ -3,9 +3,13 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from ...auth.dependencies import require_admin
 from ...db.session import get_db
+from ...models import User
 from ...schemas.admin.projects import (
     AdminBlueprintSummary,
+    AdminDeleteProjectRequest,
+    AdminDeleteProjectResponse,
     AdminGenerationJobSummary,
     AdminGenerationOutputSummary,
     AdminPaidTier,
@@ -13,9 +17,16 @@ from ...schemas.admin.projects import (
     AdminProjectListItem,
     AdminProjectListResponse,
 )
-from ...services import admin_analytics_service, wallet_service
+from ...services import admin_analytics_service, project_deletion_service, wallet_service
 
 router = APIRouter()
+
+
+def _parse_project_id(project_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"No project found for id {project_id}") from None
 
 
 @router.get("/projects", response_model=AdminProjectListResponse)
@@ -46,6 +57,7 @@ def list_projects(
                 owner_email=item.owner_email,
                 tier=item.tier,
                 created_at=item.created_at,
+                deleted_at=item.deleted_at,
             )
             for item in result.items
         ],
@@ -57,10 +69,11 @@ def list_projects(
 
 @router.get("/projects/{project_id}", response_model=AdminProjectDetailResponse)
 def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminProjectDetailResponse:
-    result = admin_analytics_service.get_project_detail(db, uuid.UUID(project_id))
+    result = admin_analytics_service.get_project_detail(db, _parse_project_id(project_id))
     if result is None:
         raise HTTPException(status_code=404, detail=f"No project found for id {project_id}")
     project, owner, blueprint, jobs, token_usage_by_job = result
+    deleted_by = db.get(User, project.deleted_by_admin_id) if project.deleted_by_admin_id else None
 
     blueprint_summary = None
     if blueprint is not None:
@@ -117,4 +130,36 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
             AdminPaidTier(tier=c.tier, credits=c.credits, charged_at=c.charged_at)
             for c in wallet_service.download_charges_for_project(db, project.id)
         ],
+        deleted_at=project.deleted_at,
+        deleted_by_email=deleted_by.email if deleted_by is not None else None,
+        deletion_reason=project.deletion_reason,
+        previews_expired_at=project.previews_expired_at,
+    )
+
+
+@router.post("/projects/{project_id}/delete", response_model=AdminDeleteProjectResponse)
+def delete_project(
+    project_id: str,
+    body: AdminDeleteProjectRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+) -> AdminDeleteProjectResponse:
+    """Soft delete: removes every file on disk (purchased designs too -- no
+    automatic refund), keeps the project row and all its history, and hides
+    it from the owner. See services/project_deletion_service.py."""
+    try:
+        result = project_deletion_service.soft_delete_project(
+            db, _parse_project_id(project_id), admin_id=current_admin.id, reason=body.reason
+        )
+    except project_deletion_service.ProjectNotFoundError:
+        raise HTTPException(status_code=404, detail=f"No project found for id {project_id}") from None
+    except project_deletion_service.ProjectAlreadyDeletedError:
+        raise HTTPException(status_code=409, detail="This project is already deleted") from None
+    except project_deletion_service.ProjectBusyError:
+        raise HTTPException(
+            status_code=409,
+            detail="A job is still running for this project -- wait for it to finish, then delete",
+        ) from None
+    return AdminDeleteProjectResponse(
+        project_id=str(result.project_id), deleted_at=result.deleted_at, bytes_freed=result.bytes_freed
     )
