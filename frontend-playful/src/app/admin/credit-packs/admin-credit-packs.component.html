@@ -48,9 +48,9 @@
                 </div>
               </div>
               <div class="row" style="gap: var(--space-2); align-items: center">
-                <app-badge [variant]="pack.is_active ? 'success' : 'muted'">{{ pack.is_active ? 'on sale' : 'hidden' }}</app-badge>
+                <app-badge [variant]="pack.is_active ? 'success' : 'muted'" style="display: inline-flex; justify-content: center; min-width: 76px">{{ pack.is_active ? 'on sale' : 'hidden' }}</app-badge>
                 <button type="button" appButton variant="secondary" [disabled]="busyId() === pack.id" (click)="save(pack)">Save</button>
-                <button type="button" appButton variant="ghost" [disabled]="busyId() === pack.id" (click)="toggleActive(pack)">
+                <button type="button" appButton variant="ghost" style="min-width: 110px" [disabled]="busyId() === pack.id" (click)="toggleActive(pack)">
                   {{ pack.is_active ? 'Hide' : 'Put on sale' }}
                 </button>
               </div>

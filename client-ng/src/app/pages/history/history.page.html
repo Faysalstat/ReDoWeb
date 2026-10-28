@@ -1,0 +1,152 @@
+<!-- Layout follows the original dashboard Overview page: title, three stat
+     cards, then one card listing every redesign job. -->
+<section class="py-10 sm:py-14 px-4">
+<div class="max-w-5xl mx-auto space-y-6">
+  <div>
+    <h1 class="font-display text-2xl font-bold mb-1">History</h1>
+    <p class="text-sm text-muted-foreground">Manage your website redesign projects</p>
+  </div>
+
+  <div class="grid sm:grid-cols-3 gap-4">
+    @for (s of stats(); track s.label; let i = $index) {
+      <div reveal [revealDelay]="i * 100" uiCard class="bg-card/50 border-border/50">
+        <div uiCardContent class="p-5 flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <lucide-icon [img]="s.icon" class="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">{{ s.label }}</p>
+            <p class="font-display text-xl font-bold">{{ loading() ? '–' : s.value }}</p>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div uiCard class="bg-card/50 border-border/50">
+    <div uiCardHeader class="flex flex-row items-center justify-between space-y-0">
+      <h2 uiCardTitle class="text-lg">Recent Redesign Jobs</h2>
+      <a uiButton size="sm" variant="outline" routerLink="/" fragment="hero" class="text-xs">
+        <lucide-icon [img]="icons.Plus" class="w-3 h-3" /> New
+      </a>
+    </div>
+    <div uiCardContent>
+      @if (loading()) {
+        <div class="flex justify-center py-8">
+          <lucide-icon [img]="icons.Loader2" class="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      } @else if (errorMessage()) {
+        <div class="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{{ errorMessage() }}</div>
+      } @else if (projects().length === 0) {
+        <div class="text-center py-8">
+          <p class="text-sm text-muted-foreground mb-4">No jobs yet. Start your first website redesign!</p>
+          <a uiButton size="sm" routerLink="/" fragment="hero" class="bg-primary hover:bg-primary/90 text-white">
+            <lucide-icon [img]="icons.Sparkles" class="w-3 h-3" /> Start Redesign
+          </a>
+        </div>
+      } @else {
+        <div class="space-y-2">
+          @for (project of projects(); track project.project_id) {
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate" [title]="project.source_url">{{ project.source_url }}</p>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                  <app-status-pill [status]="project.status" />
+                  @if (project.purchased_tiers.length > 0) {
+                    <span class="text-xs px-2 py-0.5 rounded-full border font-medium bg-green-500/10 text-green-400 border-green-500/20" title="Paid for — re-downloading is free">
+                      Paid{{ project.purchased_tiers.length > 1 ? ' · ' + paidLabels(project.purchased_tiers) : '' }}
+                    </span>
+                  }
+                  @if (project.tier) {
+                    <span class="text-xs text-muted-foreground">{{ tierLabel(project.tier) }}</span>
+                  }
+                  <span class="text-xs text-muted-foreground">{{ project.created_at | date: 'MMM d, h:mm a' }}</span>
+                </div>
+                @if (!isTerminal(project.status)) {
+                  <div class="flex items-center gap-2 mt-2">
+                    <div class="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div class="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-700" [style.width.%]="stagePercent(project.status)"></div>
+                    </div>
+                    <span class="text-xs text-muted-foreground tabular-nums">{{ stagePercent(project.status) }}%</span>
+                  </div>
+                }
+              </div>
+              <div class="flex flex-wrap items-center gap-2 shrink-0 sm:ml-3">
+                @for (tier of project.purchased_tiers; track tier) {
+                  <a
+                    uiButton
+                    size="sm"
+                    variant="outline"
+                    [routerLink]="['/projects', project.project_id]"
+                    [queryParams]="{ download: tier }"
+                    [title]="'Download the ' + tierLabel(tier) + ' ZIP again — free'"
+                    class="gap-1 text-xs border-green-500/30 text-green-400 hover:bg-green-500/10 hover:text-green-400"
+                  >
+                    <lucide-icon [img]="icons.Download" class="w-3 h-3" />
+                    Download{{ project.purchased_tiers.length > 1 ? ' ' + tierLabel(tier) : '' }}
+                  </a>
+                }
+                @if (isPreviewExpired(project)) {
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    (click)="openExpiredNotice(project)"
+                    class="inline-flex items-center gap-1 h-8 px-3 rounded-md border text-xs font-medium border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+                  >
+                    <lucide-icon [img]="icons.AlertTriangle" class="w-3 h-3" /> Preview expired
+                  </button>
+                } @else {
+                  <a
+                    uiButton
+                    size="sm"
+                    variant="outline"
+                    [routerLink]="['/projects', project.project_id]"
+                    class="gap-1 text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                  >
+                    {{ project.status === 'ready' ? 'View Preview' : isTerminal(project.status) ? 'View Details' : 'Watch Progress' }}
+                    <lucide-icon [img]="icons.ArrowRight" class="w-3 h-3" />
+                  </a>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Native <dialog>: showModal() gives the backdrop, focus trap and Esc-to-close. -->
+<dialog
+  #expiredDialog
+  aria-labelledby="expired-dialog-title"
+  (click)="onExpiredDialogClick($event, expiredDialog)"
+  class="w-[calc(100%-2rem)] max-w-md bg-transparent p-0 text-foreground backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+>
+  <div class="relative bg-card border border-border rounded-2xl p-8 text-center shadow-2xl">
+    <div class="flex justify-center mb-4">
+      <div class="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center">
+        <lucide-icon [img]="icons.AlertTriangle" class="w-8 h-8 text-yellow-400" />
+      </div>
+    </div>
+    <h2 id="expired-dialog-title" class="text-xl font-bold mb-2">This preview has expired</h2>
+    <p class="text-muted-foreground text-sm leading-relaxed mb-3">
+      We keep previews of designs that weren't bought for a limited time, then remove them to save space. The redesigns for
+      <strong class="text-foreground break-all">{{ expiredProject()?.source_url }}</strong>
+      are no longer available, so they can't be viewed or bought.
+    </p>
+    <p class="text-muted-foreground text-sm mb-6">Submit the site again to get fresh redesigns.</p>
+    <div class="flex flex-col sm:flex-row gap-2">
+      <button uiButton variant="outline" type="button" class="flex-1" (click)="expiredDialog.close()">Close</button>
+      <a
+        uiButton
+        routerLink="/"
+        fragment="hero"
+        class="flex-1 text-white bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90"
+        (click)="expiredDialog.close()"
+        >Start a new redesign</a
+      >
+    </div>
+  </div>
+</dialog>

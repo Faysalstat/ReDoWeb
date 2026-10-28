@@ -1,0 +1,103 @@
+<div>
+  <h2 class="display" style="font-size: 20px">Credit packs</h2>
+  <p class="sub">
+    The packs users can buy at checkout (PayPal or card). Each pack has its own price, so larger packs can be
+    discounted. Hidden packs stay in purchase history; an order already in progress keeps the price it started with.
+  </p>
+
+  @if (errorMessage()) {
+    <p style="color: var(--color-danger); margin-top: var(--space-4)">{{ errorMessage() }}</p>
+  }
+  @if (savedMessage()) {
+    <p style="color: var(--color-accent); margin-top: var(--space-4)">{{ savedMessage() }}</p>
+  }
+
+  @if (loading() && packs().length === 0) {
+    <div class="row" style="justify-content: center; padding: calc(2 * var(--leading)) 0">
+      <app-spinner size="lg" />
+    </div>
+  } @else {
+    @if (packs().length === 0) {
+      <p class="sub" style="margin-top: var(--space-4)">No packs yet — create one below.</p>
+    }
+    <div class="rows" style="margin-top: var(--space-4)">
+      @for (pack of packs(); track pack.id) {
+        @if (draft(pack.id); as d) {
+          <div class="rows__item">
+            <div class="row row--between" style="flex-wrap: wrap; gap: var(--space-3); align-items: flex-end">
+              <div class="row" style="gap: var(--space-3); flex-wrap: wrap; align-items: flex-end">
+                <div class="field">
+                  <label [attr.for]="'name-' + pack.id">Name</label>
+                  <input class="input" [id]="'name-' + pack.id" style="width: 160px" maxlength="64"
+                    [ngModel]="d.name" (ngModelChange)="updateDraft(pack.id, 'name', $event)" />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'credits-' + pack.id">Credits</label>
+                  <input class="input" type="number" min="1" step="1" [id]="'credits-' + pack.id" style="width: 100px"
+                    [ngModel]="d.credits" (ngModelChange)="updateDraft(pack.id, 'credits', $event)" />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'price-' + pack.id">Price (USD)</label>
+                  <input class="input" type="number" min="0.01" step="0.01" [id]="'price-' + pack.id" style="width: 110px"
+                    [ngModel]="d.priceUsd" (ngModelChange)="updateDraft(pack.id, 'priceUsd', $event)" />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'sort-' + pack.id">Order</label>
+                  <input class="input" type="number" step="1" [id]="'sort-' + pack.id" style="width: 80px"
+                    [ngModel]="d.sortOrder" (ngModelChange)="updateDraft(pack.id, 'sortOrder', $event)" />
+                </div>
+              </div>
+              <div class="row" style="gap: var(--space-2); align-items: center">
+                <app-badge [variant]="pack.is_active ? 'success' : 'muted'">{{ pack.is_active ? 'on sale' : 'hidden' }}</app-badge>
+                <button type="button" appButton variant="secondary" [disabled]="busyId() === pack.id" (click)="save(pack)">Save</button>
+                <button type="button" appButton variant="ghost" [disabled]="busyId() === pack.id" (click)="toggleActive(pack)">
+                  {{ pack.is_active ? 'Hide' : 'Put on sale' }}
+                </button>
+              </div>
+            </div>
+            <p class="sub" style="margin: var(--space-2) 0 0; font-size: 13px">
+              {{ perCredit(d.priceUsd, d.credits) }} per credit
+              @if (pack.updated_at) { · last edited {{ pack.updated_at | date: 'medium' }} }
+              @if (isSmall(d.priceUsd)) {
+                <span style="color: var(--color-warning, #b54708)"> · PayPal's ~$0.49 fixed fee takes a large share of a pack this small</span>
+              }
+            </p>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <h2 class="display" style="font-size: 20px; margin-top: calc(1.5 * var(--leading))">New pack</h2>
+  <form class="row" style="gap: var(--space-3); flex-wrap: wrap; align-items: flex-end; margin-top: var(--space-3)" (ngSubmit)="create()">
+    <div class="field">
+      <label for="new-name">Name</label>
+      <input class="input" id="new-name" name="name" style="width: 160px" maxlength="64" placeholder="e.g. Starter" [(ngModel)]="newPack.name" />
+    </div>
+    <div class="field">
+      <label for="new-credits">Credits</label>
+      <input class="input" id="new-credits" name="credits" type="number" min="1" step="1" style="width: 100px" [(ngModel)]="newPack.credits" />
+    </div>
+    <div class="field">
+      <label for="new-price">Price (USD)</label>
+      <input class="input" id="new-price" name="price" type="number" min="0.01" step="0.01" style="width: 110px" [(ngModel)]="newPack.priceUsd" />
+    </div>
+    <div class="field">
+      <label for="new-sort">Order</label>
+      <input class="input" id="new-sort" name="sort" type="number" step="1" style="width: 80px" [(ngModel)]="newPack.sortOrder" />
+    </div>
+    <label class="row" style="gap: var(--space-2); align-items: center; font-size: 14px">
+      <input type="checkbox" name="active" [(ngModel)]="newPack.isActive" />
+      Put on sale now
+    </label>
+    <button type="submit" appButton variant="primary" [disabled]="busyId() === 'new'">
+      {{ busyId() === 'new' ? 'Creating…' : 'Create pack' }}
+    </button>
+  </form>
+  <p class="sub" style="font-size: 13px">
+    {{ perCredit(newPack.priceUsd, newPack.credits) }} per credit
+    @if (isSmall(newPack.priceUsd)) {
+      <span style="color: var(--color-warning, #b54708)"> · PayPal's ~$0.49 fixed fee takes a large share of a pack this small</span>
+    }
+  </p>
+</div>

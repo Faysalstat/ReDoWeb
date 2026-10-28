@@ -1,0 +1,684 @@
+<section class="py-10 sm:py-14 px-4">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-8">
+      <a routerLink="/history" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <lucide-icon [img]="icons.ArrowLeft" class="w-4 h-4" /> History
+      </a>
+      @if (status(); as s) {
+        <a [href]="s.source_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground truncate max-w-full">
+          <lucide-icon [img]="icons.Globe" class="w-4 h-4 shrink-0" /> <span class="truncate">{{ s.source_url }}</span>
+        </a>
+      }
+    </div>
+
+    <!-- In progress: blueprint §7.12 processing progress -->
+    @if (isBusy) {
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <div class="p-6 sm:p-8 rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm">
+          <div class="flex items-center gap-5 mb-6">
+            <div class="relative w-14 h-14 shrink-0">
+              <div class="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+              <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin"></div>
+              <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary tabular-nums">{{ progressPercent }}%</div>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase">{{ statusLabelFor(stage()) }}</p>
+              <h1 class="text-2xl sm:text-3xl font-black mt-1">Redesigning your site</h1>
+            </div>
+          </div>
+
+          <div class="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+            <div class="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-700 ease-out" [style.width.%]="progressPercent"></div>
+          </div>
+          <div class="flex flex-wrap justify-between gap-2 mt-3 text-sm">
+            <span class="text-foreground">{{ subStatus() || 'Working on it…' }}</span>
+            <span class="text-muted-foreground">Usually 15–30 minutes · {{ formattedElapsed }} elapsed</span>
+          </div>
+
+          <ol class="mt-8 space-y-3">
+            @for (st of stages; track st.key) {
+              @let state = stepStatus(st.key);
+              <li
+                class="flex items-center gap-4 p-4 rounded-xl border transition-all"
+                [class]="
+                  state === 'active'
+                    ? 'border-primary/40 bg-primary/5'
+                    : state === 'done'
+                      ? 'border-border/20 bg-card/30 opacity-60'
+                      : 'border-border/20 bg-card/10 opacity-30'
+                "
+              >
+                <div
+                  class="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                  [class]="
+                    state === 'active'
+                      ? 'bg-primary/15 text-primary animate-pulse'
+                      : state === 'done'
+                        ? 'bg-green-500/15 text-green-400'
+                        : 'bg-muted text-muted-foreground'
+                  "
+                >
+                  <lucide-icon [img]="state === 'done' ? icons.Check : st.icon" class="w-4 h-4" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm">{{ st.label }}</p>
+                  <p class="text-xs text-muted-foreground">{{ st.desc }}</p>
+                </div>
+                @if (state === 'active') {
+                  <div class="flex flex-col items-end gap-1.5 shrink-0">
+                    <span class="text-xs text-primary font-medium animate-pulse">In progress…</span>
+                    <div class="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div class="h-full bg-primary rounded-full animate-bar-sweep"></div>
+                    </div>
+                  </div>
+                } @else if (state === 'done') {
+                  <span class="text-xs text-green-400 shrink-0">Done</span>
+                }
+              </li>
+            }
+          </ol>
+        </div>
+
+        <aside class="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+          <div class="bg-gradient-to-r from-primary to-purple-500 text-white p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
+              <lucide-icon [img]="icons.Sparkles" class="w-5 h-5" />
+            </div>
+            <div>
+              <p class="font-semibold leading-tight">What's happening</p>
+              <p class="text-xs text-white/70">Redesign engine • Working</p>
+            </div>
+          </div>
+          <div class="p-4 space-y-4">
+            <div class="max-w-full px-4 py-2.5 rounded-2xl rounded-bl-none bg-muted text-sm leading-relaxed">
+              We never touch your live site during this — we're only reading it to build the replacement. You can close this tab;
+              find this project anytime under <a routerLink="/history" class="text-primary hover:underline">History</a>.
+            </div>
+            <div class="px-4 py-2.5 rounded-2xl rounded-bl-none bg-muted text-sm leading-relaxed">
+              Working on <strong class="break-all">{{ status()?.source_url }}</strong>
+              <span class="inline-flex gap-1 ml-1 align-middle" aria-hidden="true">
+                <span class="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"></span>
+                <span class="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                <span class="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.4s]"></span>
+              </span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    }
+
+    <!-- Failed / rejected -->
+    @if (stage() === 'error') {
+      <div class="max-w-xl mx-auto text-center">
+        <div class="flex justify-center mb-4">
+          <div class="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center">
+            <lucide-icon [img]="icons.X" class="w-8 h-8 text-red-400" />
+          </div>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black mb-3">{{ errorHeading() }}</h1>
+        <p class="text-muted-foreground">{{ errorMessage() }}</p>
+
+        @if (status()?.tier_failures?.length) {
+          <div class="mt-8 p-6 rounded-2xl border border-border/50 bg-card/50 text-left">
+            <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase">Retry a single tier</p>
+            <p class="text-sm text-muted-foreground mt-2">
+              Your site was already crawled and analysed — retrying reuses that work, so there's no re-crawl and no extra credits.
+            </p>
+            <ng-container *ngTemplateOutlet="tierFailures" />
+          </div>
+        }
+
+        <button uiButton variant="outline" type="button" class="mt-8 h-11 px-6 rounded-xl" (click)="tryAgain()">
+          Start over with a new site
+        </button>
+      </div>
+    }
+
+    <!-- Awaiting cost approval -->
+    @if (stage() === 'awaiting_approval') {
+      @if (status()?.cost_gate; as gate) {
+        <div class="max-w-xl mx-auto text-center">
+          <div class="flex justify-center mb-4">
+            <div class="w-16 h-16 rounded-full bg-orange-500/15 flex items-center justify-center">
+              <lucide-icon [img]="icons.AlertTriangle" class="w-8 h-8 text-orange-400" />
+            </div>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-black mb-3">This page is bigger than usual</h1>
+          <p class="text-muted-foreground">
+            Generating every enabled tier for this page is estimated to cost about ${{ gate.estimated_cost_usd.toFixed(2) }} —
+            more than usual for a single page. We pause here so you can confirm before we spend it.
+          </p>
+
+          <div class="grid grid-cols-3 gap-3 mt-8 text-left">
+            <div class="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <p class="text-xs text-muted-foreground">Estimated cost</p>
+              <p class="text-xl font-bold text-purple-400">${{ gate.estimated_cost_usd.toFixed(2) }}</p>
+            </div>
+            <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <p class="text-xs text-muted-foreground">Credits required</p>
+              <p class="text-xl font-bold text-blue-400">{{ gate.required_credits }}</p>
+            </div>
+            <div class="p-3 rounded-lg border" [class]="gate.shortfall_credits > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'">
+              <p class="text-xs text-muted-foreground">Your balance</p>
+              <p class="text-xl font-bold" [class]="gate.shortfall_credits > 0 ? 'text-red-400' : 'text-green-400'">{{ gate.current_balance }}</p>
+            </div>
+          </div>
+
+          @if (gate.shortfall_credits > 0) {
+            <p class="mt-6 text-sm text-red-400">
+              You need {{ gate.shortfall_credits }} more credit{{ gate.shortfall_credits === 1 ? '' : 's' }} to continue.
+            </p>
+            <button uiButton type="button" class="mt-4 h-11 px-6 rounded-xl text-white bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90" (click)="goToTopUp()">
+              Top Up Credits
+            </button>
+          } @else {
+            <button
+              uiButton
+              type="button"
+              class="mt-8 h-11 px-6 rounded-xl text-white bg-green-500 hover:bg-green-600"
+              [disabled]="approving()"
+              (click)="approveGeneration()"
+            >
+              @if (approving()) {
+                <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Starting…
+              } @else {
+                Continue — spend credits and generate
+              }
+            </button>
+          }
+
+          @if (approveError()) {
+            <div class="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{{ approveError() }}</div>
+          }
+
+          <p class="mt-6 text-xs text-muted-foreground">
+            <a routerLink="/" class="hover:text-foreground underline underline-offset-2">Cancel and go back</a>
+          </p>
+        </div>
+      }
+    }
+
+    <!-- Ready -->
+    @if (stage() === 'ready') {
+      @if (status(); as s) {
+        @if (activeGeneration(); as gen) {
+          <!-- Title + primary action -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-3">
+                <h1 class="text-2xl sm:text-3xl font-black truncate">{{ s.blueprint?.site_name || 'Your modernized site' }}</h1>
+                <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium bg-green-500/10 text-green-400 border-green-500/20">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Redesign complete
+                </span>
+              </div>
+              <p class="text-sm text-muted-foreground mt-1">{{ tierLabel(gen.tier) }} tier · generated in {{ formattedElapsed }}</p>
+            </div>
+
+            <div class="shrink-0">
+              @if (isPurchased(gen.tier)) {
+                <button
+                  uiButton
+                  type="button"
+                  class="h-11 px-6 rounded-xl font-semibold text-white bg-green-500 hover:bg-green-600"
+                  [disabled]="downloadStatus()[gen.tier] === 'downloading'"
+                  (click)="download(gen.tier)"
+                >
+                  @if (downloadStatus()[gen.tier] === 'downloading') {
+                    <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Preparing ZIP…
+                  } @else {
+                    <lucide-icon [img]="icons.Download" class="w-4 h-4" /> Download ZIP
+                  }
+                </button>
+              } @else {
+                <button
+                  uiButton
+                  type="button"
+                  class="h-11 px-6 rounded-xl font-semibold text-white bg-orange-500 hover:bg-orange-600"
+                  [disabled]="buyStatus()[gen.tier] === 'buying'"
+                  (click)="buy(gen.tier)"
+                >
+                  @if (buyStatus()[gen.tier] === 'buying') {
+                    <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Buying…
+                  } @else if (tierCost(gen.tier) !== null) {
+                    Buy design · {{ tierCost(gen.tier) }} credits
+                  } @else {
+                    Buy design
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Post-purchase actions: locked until the design is bought -->
+          <section
+            class="p-5 rounded-2xl border mb-6 transition-colors"
+            [class]="isPurchased(gen.tier) ? 'border-green-500/20 bg-green-500/5' : 'border-border/40 bg-card/30'"
+            [attr.aria-label]="isPurchased(gen.tier) ? 'Your design' : 'Unlocks with purchase'"
+          >
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+              @if (isPurchased(gen.tier)) {
+                <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-semibold bg-green-500/10 text-green-400 border-green-500/20">
+                  <lucide-icon [img]="icons.Check" class="w-3.5 h-3.5" /> Purchased
+                </span>
+                <span class="text-sm text-muted-foreground">ZIP contains: <b class="text-foreground">{{ zipContents(gen.tier) }}</b></span>
+              } @else {
+                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                  <lucide-icon [img]="icons.Lock" class="w-4 h-4" /> Unlocks with purchase
+                </span>
+              }
+            </div>
+
+            <div class="flex flex-wrap items-start gap-3">
+              @if (!isPurchased(gen.tier)) {
+                <button uiButton variant="outline" type="button" disabled title="Buy this design to unlock" class="rounded-xl">
+                  <lucide-icon [img]="icons.Lock" class="w-4 h-4" /> Download ZIP
+                </button>
+              }
+
+              @if (hasMorePages()) {
+                <div>
+                  <button
+                    uiButton
+                    variant="outline"
+                    type="button"
+                    class="rounded-xl"
+                    [class]="fullSiteStatus(gen.tier) === 'succeeded' ? 'border-green-500/40 text-green-400 disabled:opacity-100' : 'border-blue-500/40 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300'"
+                    [disabled]="!canGenerateAllPages(gen.tier)"
+                    [attr.title]="isPurchased(gen.tier) ? null : 'Buy this design to unlock'"
+                    (click)="generateAllPages(gen.tier)"
+                  >
+                    @if (!isPurchased(gen.tier)) {
+                      <lucide-icon [img]="icons.Lock" class="w-4 h-4" /> Generate all {{ pageCount() }} pages
+                    } @else {
+                      @switch (fullSiteStatus(gen.tier)) {
+                        @case ('running') {
+                          <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Generating pages…
+                        }
+                        @case ('succeeded') {
+                          <lucide-icon [img]="icons.Check" class="w-4 h-4" /> All {{ pageCount() }} pages generated
+                        }
+                        @case ('failed') {
+                          <lucide-icon [img]="icons.RotateCcw" class="w-4 h-4" /> Retry generating pages
+                        }
+                        @default {
+                          <lucide-icon [img]="icons.Layers" class="w-4 h-4" />
+                          {{ actionStarting()[gen.tier] === 'full_site' ? 'Starting…' : 'Generate all ' + pageCount() + ' pages' }}
+                        }
+                      }
+                    }
+                  </button>
+                  @if (fullSiteStatus(gen.tier) === 'failed' && tierActions(gen.tier).full_site_failure_reason) {
+                    <p class="mt-2 text-xs text-red-400 max-w-xs">{{ tierActions(gen.tier).full_site_failure_reason }}</p>
+                  }
+                </div>
+              }
+
+              @if (tierActions(gen.tier).seo_available) {
+                <div>
+                  <button
+                    uiButton
+                    variant="outline"
+                    type="button"
+                    class="rounded-xl"
+                    [class]="seoStatus(gen.tier) === 'succeeded' ? 'border-green-500/40 text-green-400 disabled:opacity-100' : 'border-green-500/40 text-green-400 hover:bg-green-500/10 hover:text-green-300'"
+                    [disabled]="!canRunSeo(gen.tier)"
+                    [attr.title]="!isPurchased(gen.tier) ? 'Buy this design to unlock' : seoNeedsAllPages(gen.tier) ? 'Generate all pages first' : null"
+                    (click)="runSeo(gen.tier)"
+                  >
+                    @if (!isPurchased(gen.tier)) {
+                      <lucide-icon [img]="icons.Lock" class="w-4 h-4" /> Run SEO agent
+                    } @else {
+                      @switch (seoStatus(gen.tier)) {
+                        @case ('running') {
+                          <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Optimizing for search…
+                        }
+                        @case ('succeeded') {
+                          <lucide-icon [img]="icons.Check" class="w-4 h-4" /> SEO optimized
+                        }
+                        @case ('failed') {
+                          <lucide-icon [img]="icons.RotateCcw" class="w-4 h-4" /> Retry SEO
+                        }
+                        @default {
+                          <lucide-icon [img]="icons.Search" class="w-4 h-4" />
+                          {{ actionStarting()[gen.tier] === 'seo' ? 'Starting…' : 'Run SEO agent' }}
+                        }
+                      }
+                    }
+                  </button>
+                  @if (isPurchased(gen.tier) && seoNeedsAllPages(gen.tier) && seoStatus(gen.tier) === 'none') {
+                    <p class="mt-2 text-xs text-muted-foreground">Generate all pages first</p>
+                  }
+                  @if (seoStatus(gen.tier) === 'failed' && tierActions(gen.tier).seo_failure_reason) {
+                    <p class="mt-2 text-xs text-red-400 max-w-xs">{{ tierActions(gen.tier).seo_failure_reason }}</p>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- SEO agent run: live progress while running, run log afterwards -->
+            @if (isPurchased(gen.tier) && tierActions(gen.tier).seo_progress; as sp) {
+              @if (sp.status === 'running') {
+                <div class="mt-5 p-4 rounded-xl border border-primary/40 bg-primary/5" aria-live="polite">
+                  <div class="flex justify-between gap-3 text-sm mb-2">
+                    <span><b>{{ sp.label }}</b> · step {{ stepPosition(sp) }}</span>
+                    <span class="tabular-nums text-primary font-semibold">{{ sp.percent }}%</span>
+                  </div>
+                  <div
+                    class="w-full h-2.5 bg-muted rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-label="SEO optimization progress"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    [attr.aria-valuenow]="sp.percent"
+                  >
+                    <div class="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-700 ease-out" [style.width.%]="sp.percent"></div>
+                  </div>
+                  @if (sp.detail) {
+                    <p class="mt-2 text-xs text-muted-foreground">{{ sp.detail }}</p>
+                  }
+                </div>
+              } @else {
+                <details class="mt-5 group rounded-xl border border-border/40 bg-card/30">
+                  <summary class="cursor-pointer list-none p-4 text-sm font-semibold flex items-center justify-between gap-3">
+                    <span>
+                      {{ sp.status === 'succeeded' ? 'What the SEO agent did' : 'What happened' }}
+                      @if (sp.detail) {
+                        <span class="font-normal text-muted-foreground"> · {{ sp.detail }}</span>
+                      }
+                    </span>
+                    <span class="text-primary text-xs group-open:hidden">Show</span>
+                    <span class="text-primary text-xs hidden group-open:inline">Hide</span>
+                  </summary>
+                  <div class="px-4 pb-4">
+                    <ol class="space-y-1.5 mb-3">
+                      @for (step of sp.steps; track step.key) {
+                        <li class="flex items-center gap-2 text-sm" [class]="step.status === 'done' ? 'text-foreground' : step.status === 'failed' ? 'text-red-400' : 'text-muted-foreground'">
+                          <lucide-icon
+                            [img]="step.status === 'done' ? icons.Check : step.status === 'failed' ? icons.X : icons.Sparkles"
+                            class="w-3.5 h-3.5"
+                            [class]="step.status === 'done' ? 'text-green-400' : ''"
+                          />
+                          {{ step.label }}
+                        </li>
+                      }
+                    </ol>
+                    @if (sp.activity?.length) {
+                      <ul class="max-h-56 overflow-y-auto space-y-1 border-t border-border/40 pt-3">
+                        @for (entry of sp.activity; track $index) {
+                          <li class="text-xs" [class]="entry.level === 'error' ? 'text-red-400' : entry.level === 'warning' ? 'text-yellow-400' : 'text-muted-foreground'">
+                            {{ entry.message }}
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </details>
+              }
+            }
+
+            @if (actionError()[gen.tier]) {
+              <div class="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">{{ actionError()[gen.tier] }}</div>
+            }
+          </section>
+
+          @if (buyStatus()[gen.tier] === 'failed') {
+            <div class="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">Something went wrong buying this design — try again.</div>
+          }
+          @if (downloadStatus()[gen.tier] === 'failed') {
+            <div class="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">Something went wrong preparing your download — try again.</div>
+          }
+          @if (buyStatus()[gen.tier] === 'needs-credits' && downloadShortfall()[gen.tier]; as short) {
+            <div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 py-3 rounded-xl border border-yellow-400/30 bg-yellow-400/5 text-yellow-300 text-sm" role="alert">
+              <p>
+                Buying the {{ tierLabel(gen.tier) }} design needs <b>{{ short.required }} credits</b>; you have {{ short.balance }}.
+                Buy {{ short.shortfall }} more and your purchase will continue.
+              </p>
+              <button uiButton type="button" class="shrink-0 rounded-xl text-white bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90" (click)="topUpForBuy(gen.tier)">
+                Top up {{ short.shortfall }} credit{{ short.shortfall === 1 ? '' : 's' }}
+              </button>
+            </div>
+          }
+          @if (s.previews_expired) {
+            <div class="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-yellow-400/30 bg-yellow-400/5 text-yellow-300 text-sm font-medium">
+              <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4 shrink-0" />
+              Previews of the designs you didn't buy have expired and were removed. Your purchased design is kept.
+            </div>
+          }
+
+          <div class="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+            <!-- Preview: blueprint §7.15 -->
+            <div class="w-full rounded-xl overflow-hidden border border-border/40 bg-card min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border/40">
+                <div class="flex overflow-x-auto" role="tablist" aria-label="Design tier">
+                  @for (item of s.generations; track item.tier) {
+                    <button
+                      type="button"
+                      role="tab"
+                      [attr.aria-selected]="selectedTier() === item.tier"
+                      (click)="selectTier(item.tier)"
+                      class="px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                      [class]="selectedTier() === item.tier ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                    >
+                      {{ tierLabel(item.tier) }}
+                      @if (isPurchased(item.tier)) {
+                        <lucide-icon [img]="icons.Check" class="w-3.5 h-3.5 inline-block align-[-2px] text-green-400" />
+                      }
+                    </button>
+                  }
+                </div>
+                <div class="flex gap-1 p-2 items-center" role="group" aria-label="Device">
+                  <button
+                    type="button"
+                    title="Desktop"
+                    aria-label="Desktop preview"
+                    (click)="device.set('desktop')"
+                    class="p-2 rounded-md"
+                    [class]="device() === 'desktop' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
+                  >
+                    <lucide-icon [img]="icons.Monitor" class="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Phone"
+                    aria-label="Phone preview"
+                    (click)="device.set('phone')"
+                    class="p-2 rounded-md"
+                    [class]="device() === 'phone' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
+                  >
+                    <lucide-icon [img]="icons.Smartphone" class="w-4 h-4" />
+                  </button>
+                  <span class="w-px h-5 bg-border mx-1"></span>
+                  <button type="button" title="Full page preview" aria-label="Full page preview" (click)="toggleFullscreenPreview()" class="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
+                    <lucide-icon [img]="icons.Maximize2" class="w-4 h-4" />
+                  </button>
+                  <button type="button" title="Open in new tab" aria-label="Open in new tab" (click)="openPreviewInNewTab()" class="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
+                    <lucide-icon [img]="icons.ExternalLink" class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div [class]="device() === 'phone' ? 'bg-gray-200 py-6 px-2' : 'bg-gray-50'">
+                <div class="mx-auto w-full" [style.maxWidth.px]="device() === 'phone' ? frameWidth : null">
+                  @if (activePreviewUrl()) {
+                    <iframe
+                      [src]="safePreviewUrl()"
+                      title="Website preview"
+                      class="block w-full h-[70vh] min-h-[480px] bg-white"
+                      [class]="device() === 'phone' ? 'rounded-2xl border-4 border-gray-800' : ''"
+                    ></iframe>
+                  } @else {
+                    <div class="h-[70vh] min-h-[480px] flex items-center justify-center">
+                      <div class="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <aside class="space-y-4">
+              <div class="p-5 rounded-2xl border border-border/50 bg-card/50">
+                <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase mb-4">Generation details</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <p class="text-xs text-muted-foreground">Tier</p>
+                    <p class="text-lg font-bold text-purple-400 truncate">{{ tierLabel(gen.tier) }}</p>
+                  </div>
+                  <div class="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                    <p class="text-xs text-muted-foreground">Template</p>
+                    <p class="text-sm font-semibold text-cyan-400 leading-snug break-words" [title]="gen.template_used">{{ templateName(gen.template_used) }}</p>
+                  </div>
+                  <div class="p-3 rounded-lg border" [class]="gen.contrast_warnings.length > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-green-500/10 border-green-500/20'">
+                    <p class="text-xs text-muted-foreground">Accessibility notes</p>
+                    <p class="text-lg font-bold" [class]="gen.contrast_warnings.length > 0 ? 'text-orange-400' : 'text-green-400'">{{ gen.contrast_warnings.length }}</p>
+                  </div>
+                  <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p class="text-xs text-muted-foreground">Page rebuilt</p>
+                    <p class="text-lg font-bold text-blue-400">1</p>
+                  </div>
+                </div>
+              </div>
+
+              @if (s.tier_failures.length > 0) {
+                <div class="p-5 rounded-2xl border border-orange-500/20 bg-orange-500/5">
+                  <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase">Tiers that didn't finish</p>
+                  <p class="text-sm text-muted-foreground mt-2">
+                    Everything above generated fine. These didn't — retrying rebuilds only that tier from the blueprint we already
+                    have, and costs no extra credits.
+                  </p>
+                  <ng-container *ngTemplateOutlet="tierFailures" />
+                </div>
+              }
+
+              <div class="p-5 rounded-2xl border border-border/50 bg-card/50">
+                <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase mb-4">What changed</p>
+                <ul class="space-y-3 text-sm">
+                  @for (line of changeList; track line) {
+                    <li class="flex items-start gap-3"><lucide-icon [img]="icons.Check" class="w-4 h-4 mt-0.5 text-green-400" /><span>{{ line }}</span></li>
+                  }
+                  <li class="flex items-start gap-3">
+                    @if (gen.contrast_warnings.length === 0) {
+                      <lucide-icon [img]="icons.Check" class="w-4 h-4 mt-0.5 text-green-400" /><span>No color-contrast issues found</span>
+                    } @else {
+                      <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4 mt-0.5 text-orange-400" />
+                      <span>{{ gen.contrast_warnings.length }} contrast issue{{ gen.contrast_warnings.length === 1 ? '' : 's' }} flagged below</span>
+                    }
+                  </li>
+                  <li class="flex items-start gap-3"><lucide-icon [img]="icons.Check" class="w-4 h-4 mt-0.5 text-green-400" /><span>Your original copy and contact details, kept as-is</span></li>
+                </ul>
+              </div>
+
+              @if (gen.contrast_warnings.length > 0) {
+                <div class="p-5 rounded-2xl border border-orange-500/20 bg-orange-500/5">
+                  <p class="flex items-center gap-2 text-sm font-semibold">
+                    <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4 text-orange-400" /> Accessibility note
+                  </p>
+                  <ul class="mt-2 pl-5 list-disc space-y-1 text-xs text-muted-foreground leading-relaxed">
+                    @for (warning of gen.contrast_warnings; track warning) {
+                      <li>{{ warning }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              <div class="p-5 rounded-2xl border bg-gradient-to-r from-primary/10 to-purple-500/5 border-primary/20">
+                @if (isPurchased(gen.tier)) {
+                  <p class="text-xs font-bold text-primary tracking-widest uppercase">Purchased</p>
+                  <p class="text-sm text-muted-foreground mt-2">
+                    You own this tier's source — download it again any time at no cost. It's also available from History.
+                  </p>
+                } @else {
+                  <p class="text-xs font-bold text-primary tracking-widest uppercase">Nothing downloaded yet</p>
+                  <p class="text-sm text-muted-foreground mt-2">
+                    Downloading the full HTML/CSS source
+                    @if (tierCost(gen.tier) !== null) {
+                      costs {{ tierCost(gen.tier) }} credits
+                    } @else {
+                      spends credits
+                    }
+                    @if (wallet.balance() !== null) {
+                      — you have {{ wallet.balance() }}.
+                    }
+                    Previews stay free.
+                    <a routerLink="/checkout" class="text-primary font-medium hover:underline">Buy credits</a>
+                  </p>
+                }
+              </div>
+            </aside>
+          </div>
+        } @else if (s.previews_expired) {
+          <!-- Retention cleanup removed every unpurchased preview and nothing was bought -->
+          <div class="max-w-xl mx-auto text-center">
+            <div class="flex justify-center mb-4">
+              <div class="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center">
+                <lucide-icon [img]="icons.AlertTriangle" class="w-8 h-8 text-yellow-400" />
+              </div>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-black mb-3">This preview has expired</h1>
+            <p class="text-muted-foreground">
+              We keep previews of designs that weren't bought for a limited time to save space. Submit the site again to get fresh
+              redesigns.
+            </p>
+            <button uiButton variant="outline" type="button" class="mt-8 h-11 px-6 rounded-xl" (click)="tryAgain()">
+              Start over with this or another site
+            </button>
+          </div>
+        }
+      }
+    }
+  </div>
+</section>
+
+<!-- Shared by the error state and the ready state's side panel -->
+<ng-template #tierFailures>
+  @for (failure of status()?.tier_failures ?? []; track failure.tier) {
+    <div class="mt-4 pt-4 border-t border-border/40">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="flex items-center gap-2 font-semibold text-sm">
+          <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4 text-orange-400" /> {{ tierLabel(failure.tier) }}
+        </span>
+        <button
+          uiButton
+          size="sm"
+          variant="outline"
+          type="button"
+          class="gap-1 text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+          [disabled]="isRetrying(failure.tier)"
+          (click)="retryTier(failure.tier)"
+        >
+          @if (isRetrying(failure.tier)) {
+            <lucide-icon [img]="icons.Loader2" class="w-3 h-3 animate-spin" /> Starting…
+          } @else {
+            <lucide-icon [img]="icons.RotateCcw" class="w-3 h-3" /> Retry
+          }
+        </button>
+      </div>
+      @if (failure.failure_reason) {
+        <p class="mt-2 text-xs text-muted-foreground">{{ failure.failure_reason }}</p>
+      }
+    </div>
+  }
+  @if (retryError()) {
+    <div class="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-xs">{{ retryError() }}</div>
+  }
+</ng-template>
+
+<!-- Fullscreen preview overlay -->
+@if (isFullscreenPreview()) {
+  <div class="fixed inset-0 z-50 flex flex-col bg-background animate-in fade-in-0 duration-200" role="dialog" aria-label="Full page website preview">
+    <div class="flex items-center gap-3 px-4 py-2 border-b border-border/50 bg-card">
+      <div class="flex gap-1.5 shrink-0" aria-hidden="true">
+        <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+      </div>
+      <span class="flex-1 min-w-0 truncate text-xs text-muted-foreground">{{ status()?.blueprint?.site_name || status()?.source_url }}</span>
+      <button uiButton variant="outline" size="sm" type="button" (click)="openPreviewInNewTab()">
+        <lucide-icon [img]="icons.ExternalLink" class="w-3.5 h-3.5" /> <span class="hidden sm:inline">Open in new tab</span>
+      </button>
+      <button uiButton variant="outline" size="sm" type="button" (click)="toggleFullscreenPreview()">
+        <lucide-icon [img]="icons.X" class="w-3.5 h-3.5" /> Close
+      </button>
+    </div>
+    <iframe [src]="safePreviewUrl()" title="Full page website preview" class="flex-1 w-full bg-white"></iframe>
+  </div>
+}

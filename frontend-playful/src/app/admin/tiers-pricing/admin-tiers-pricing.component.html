@@ -27,9 +27,10 @@
           <div class="rows__item">
             <div class="row row--between" style="flex-wrap: wrap; gap: var(--space-3); align-items: flex-end">
               <div class="row" style="gap: var(--space-3); flex-wrap: wrap; align-items: flex-end">
-                <div class="field">
+                <!-- Fixed width + input-height chip: keys differ in length, and every row's fields must line up. -->
+                <div class="field" style="width: 120px">
                   <label>Key</label>
-                  <span class="tag tag-neutral" style="font-family: ui-monospace, monospace" title="Used in storage paths — can't be changed">{{ tier.key }}</span>
+                  <span class="tag tag-neutral" style="font-family: ui-monospace, monospace; min-height: 40px; box-sizing: border-box" title="Used in storage paths — can't be changed">{{ tier.key }}</span>
                 </div>
                 <div class="field">
                   <label [attr.for]="'label-' + tier.key">Label</label>
@@ -48,11 +49,20 @@
                 </div>
               </div>
               <div class="row" style="gap: var(--space-2); align-items: center">
-                <app-badge [variant]="tier.is_active ? 'success' : 'muted'">{{ tier.is_active ? 'enabled' : 'disabled' }}</app-badge>
-                <button type="button" appButton variant="secondary" [disabled]="busyKey() === tier.key" (click)="save(tier)">Save</button>
-                <button type="button" appButton variant="ghost" [disabled]="busyKey() === tier.key" (click)="toggle(tier)">
-                  {{ tier.is_active ? 'Disable' : 'Enable' }}
+                <!-- On/off switch: same toggle() as the old Enable/Disable button. -->
+                <button
+                  type="button"
+                  role="switch"
+                  class="pg-switch"
+                  [attr.aria-checked]="tier.is_active"
+                  [attr.aria-label]="(tier.is_active ? 'Disable ' : 'Enable ') + tier.label"
+                  [disabled]="busyKey() === tier.key"
+                  (click)="toggle(tier)"
+                >
+                  <span class="pg-switch__track" aria-hidden="true"><span class="pg-switch__thumb"></span></span>
+                  <span class="pg-switch__text">{{ tier.is_active ? 'Enabled' : 'Disabled' }}</span>
                 </button>
+                <button type="button" appButton variant="secondary" [disabled]="busyKey() === tier.key" (click)="save(tier)">Save</button>
               </div>
             </div>
             @if (costWarning(tier.key)) {

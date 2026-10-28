@@ -2,7 +2,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { BadgeComponent } from '../ui/badge/badge.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { SpinnerComponent } from '../ui/spinner/spinner.component';
 import { AdminApiService } from '../core/admin-api.service';
@@ -23,7 +22,7 @@ interface TierDraft {
 @Component({
   selector: 'app-admin-tiers-pricing',
   standalone: true,
-  imports: [FormsModule, BadgeComponent, ButtonComponent, SpinnerComponent, AdminCreditPacksComponent],
+  imports: [FormsModule, ButtonComponent, SpinnerComponent, AdminCreditPacksComponent],
   templateUrl: './admin-tiers-pricing.component.html',
 })
 export class AdminTiersPricingComponent implements OnInit {

@@ -1,0 +1,335 @@
+<!-- 1. Hero -->
+<section id="hero" class="relative py-24 sm:py-40 px-4 text-center overflow-hidden border-b border-border/20 scroll-mt-16">
+  <div reveal [revealY]="30" class="w-full max-w-2xl mx-auto">
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-semibold mb-8">
+      <lucide-icon [img]="icons.Sparkles" class="w-4 h-4" /> AI Website Redesign Engine
+    </div>
+    <h1 class="text-4xl sm:text-6xl font-black mb-6 leading-tight">
+      Your Website,
+      <span class="bg-gradient-to-r from-purple-400 via-purple-500 to-blue-500 text-transparent bg-clip-text">Redesigned by AI</span>
+    </h1>
+    <p class="text-muted-foreground text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
+      Paste your website URL and get modern, on-brand redesigns you can preview live. Your real content is kept, nothing is
+      invented, and previews are free.
+    </p>
+
+    <form
+      (ngSubmit)="submit()"
+      class="mb-8 p-6 rounded-2xl border-2 border-green-400 bg-green-500/5 backdrop-blur-sm glow-flash text-left"
+    >
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-1">
+          <lucide-icon [img]="icons.Globe" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            uiInput
+            type="url"
+            name="url"
+            required
+            aria-label="Your website URL"
+            [(ngModel)]="url"
+            [disabled]="isSubmitting()"
+            placeholder="https://yourbusiness.com"
+            class="pl-12 h-14 text-base md:text-base rounded-xl border-0 bg-transparent shadow-none text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+        <button
+          uiButton
+          type="submit"
+          size="lg"
+          [disabled]="!canSubmit"
+          class="h-14 px-8 rounded-xl text-base font-bold transition-colors whitespace-nowrap text-white"
+          [class]="hasUrl ? 'bg-green-500 hover:bg-green-600 active:bg-green-700' : 'bg-primary hover:bg-primary/90'"
+        >
+          @if (isSubmitting()) {
+            <lucide-icon [img]="icons.Loader2" class="w-5 h-5 animate-spin" /> Analyzing...
+          } @else {
+            Upgrade My Website <lucide-icon [img]="icons.ArrowRight" class="w-5 h-5" />
+          }
+        </button>
+      </div>
+
+      <label class="mt-4 flex items-start gap-3 text-sm text-muted-foreground cursor-pointer">
+        <input
+          type="checkbox"
+          name="tos"
+          [(ngModel)]="tosAccepted"
+          class="mt-1 h-4 w-4 shrink-0 rounded border-input accent-green-500"
+        />
+        <span>
+          I own this website, or am authorized to have it redesigned, and I agree to the
+          <a routerLink="/terms" class="text-primary hover:underline">Terms</a>.
+        </span>
+      </label>
+      @if (hasUrl && !tosAccepted) {
+        <p class="mt-2 text-xs text-yellow-400">Tick the box above to continue.</p>
+      }
+    </form>
+
+    @if (errorMessage()) {
+      <div class="mb-8 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center justify-center gap-2" role="alert">
+        <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4" /> {{ errorMessage() }}
+      </div>
+    }
+
+    <div class="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+      <span class="flex items-center gap-2"><lucide-icon [img]="icons.Zap" class="w-4 h-4 text-primary" /> Multiple design tiers</span>
+      <span class="flex items-center gap-2"><lucide-icon [img]="icons.Shield" class="w-4 h-4 text-green-400" /> No payment until you choose</span>
+      <span class="flex items-center gap-2"><lucide-icon [img]="icons.Sparkles" class="w-4 h-4 text-purple-400" /> Live previews</span>
+      @if (wallet.balance() !== null) {
+        <span class="flex items-center gap-2 text-foreground">
+          {{ wallet.balance() }} credit{{ wallet.balance() === 1 ? '' : 's' }} available
+        </span>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 2. Live counter (placeholder numbers, see home-content.ts) -->
+<section class="py-12 px-4 border-b border-border/20 bg-primary/5">
+  <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-8 text-center">
+    <div reveal revealFrom="scale" class="flex items-center gap-3">
+      <div class="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+      <span class="text-sm text-muted-foreground"><span class="text-foreground font-bold text-lg">{{ counter.today }}</span> websites redesigned today</span>
+    </div>
+    <div class="w-px h-6 bg-border/40 hidden sm:block"></div>
+    <div reveal revealFrom="scale" class="flex items-center gap-2">
+      <lucide-icon [img]="icons.Globe" class="w-4 h-4 text-cyan-400" />
+      <span class="text-sm text-muted-foreground"><span class="text-foreground font-bold text-lg">{{ counter.total.toLocaleString() }}</span> total redesigns generated</span>
+    </div>
+    <div class="w-px h-6 bg-border/40 hidden sm:block"></div>
+    <div reveal revealFrom="scale" class="flex items-center gap-2">
+      <lucide-icon [img]="icons.Star" class="w-4 h-4 text-yellow-400" />
+      <span class="text-sm text-muted-foreground"><span class="text-foreground font-bold text-lg">{{ counter.rating }}</span> average rating</span>
+    </div>
+    <div class="w-px h-6 bg-border/40 hidden sm:block"></div>
+    <div reveal revealFrom="scale" class="flex items-center gap-2">
+      <lucide-icon [img]="icons.Users" class="w-4 h-4 text-purple-400" />
+      <span class="text-sm text-muted-foreground"><span class="text-foreground font-bold text-lg">{{ counter.customers }}</span> happy customers</span>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Brand marquee (placeholder) -->
+<div class="py-8 border-b border-border/20 overflow-hidden bg-card/10">
+  <p class="text-center text-xs text-muted-foreground uppercase tracking-widest mb-6 font-medium">As featured in &amp; trusted by businesses using</p>
+  <div class="relative">
+    <div class="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none"></div>
+    <div class="flex gap-12 items-center animate-marquee w-max" aria-hidden="true">
+      @for (b of brandsDoubled; track $index) {
+        <span class="text-lg whitespace-nowrap select-none" [class]="b.style">{{ b.name }}</span>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- 4. Stats (placeholder numbers) -->
+<section class="py-20 px-4 border-b border-border/20">
+  <div class="max-w-5xl mx-auto">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      @for (s of stats; track s.label; let i = $index) {
+        <div reveal [revealDelay]="i * 100" class="text-center p-6 rounded-2xl border border-border/40 bg-card/30">
+          <div class="text-4xl font-black mb-1" [class]="s.color"><app-count-up [target]="s.value" [suffix]="s.suffix" /></div>
+          <div class="text-sm text-muted-foreground">{{ s.label }}</div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 5. How it works -->
+<section id="how-it-works" class="py-24 px-4 border-b border-border/20 scroll-mt-16">
+  <div class="max-w-5xl mx-auto">
+    <app-section-header eyebrow="How It Works" title="From URL to Redesign in Four Steps" subtitle="No designers, no templates to fill in. Just your site, rebuilt." />
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      @for (s of steps; track s.step) {
+        <div reveal [revealDelay]="$index * 100" class="p-6 rounded-2xl border border-border/40 bg-card/50 hover:bg-card/70 transition-colors">
+          <div class="text-4xl font-black text-orange-400/70 mb-4">{{ s.step }}</div>
+          <h3 class="font-bold text-base mb-3">{{ s.title }}</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">{{ s.desc }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 6. Features -->
+<section id="features" class="py-24 px-4 border-b border-border/20 scroll-mt-16">
+  <div class="max-w-5xl mx-auto">
+    <app-section-header eyebrow="Features" title="Everything You Need" subtitle="From the first preview to files you can put online." />
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (f of features; track f.title) {
+        <div
+          reveal
+          [revealDelay]="$index * 80"
+          class="p-6 rounded-2xl border border-border/40 bg-card/50 hover:bg-card/70 transition-colors"
+          [class]="accents[f.accent].hoverBorder"
+        >
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" [class]="accents[f.accent].tile">
+            <lucide-icon [img]="f.icon" class="w-6 h-6" [class]="accents[f.accent].icon" />
+          </div>
+          <h3 class="font-bold text-base mb-3">{{ f.title }}</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">{{ f.desc }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 7. Pricing (live credit packs and tier costs) -->
+<section id="pricing" class="py-24 px-4 border-b border-border/20 scroll-mt-16">
+  <div class="max-w-5xl mx-auto text-center">
+    <app-section-header eyebrow="Pricing" title="Simple, One-Time Pricing" subtitle="Buy a credit pack once, no subscription. Every design has a free live preview before you spend anything." />
+    <app-credit-pack-grid />
+  </div>
+</section>
+
+<!-- 8. Why choose us -->
+<section class="py-24 px-4 border-b border-border/20">
+  <div class="max-w-5xl mx-auto">
+    <app-section-header eyebrow="Why ReDoWebs" title="The Smarter Way to Redesign" subtitle="Skip the agencies, skip the freelancers. See results the same day." />
+    <div class="grid sm:grid-cols-2 gap-6">
+      @for (r of reasons; track r.title) {
+        <div reveal [revealDelay]="$index * 100" class="flex gap-5 p-6 rounded-2xl border bg-card/50 hover:bg-card/80 transition-colors" [class]="accents[r.accent].border">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" [class]="accents[r.accent].tile">
+            <lucide-icon [img]="r.icon" class="w-6 h-6" [class]="accents[r.accent].icon" />
+          </div>
+          <div>
+            <h3 class="font-bold text-base mb-2">{{ r.title }}</h3>
+            <p class="text-sm text-muted-foreground leading-relaxed">{{ r.desc }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 9a. Video demo (placeholder video) -->
+<section class="py-24 px-4 border-b border-border/20">
+  <div class="max-w-4xl mx-auto">
+    <app-section-header eyebrow="See It In Action" title="Watch the Magic Happen" subtitle="From URL to a modern redesign you can click through." />
+    <div reveal revealFrom="scale" class="relative rounded-2xl overflow-hidden border border-border/40 bg-card/50 aspect-video mb-10">
+      <video
+        src="/assets/media/video-demo.mp4"
+        poster="/assets/media/video-demo-poster.jpg"
+        controls
+        preload="none"
+        class="w-full h-full object-cover"
+      ></video>
+    </div>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-0">
+      @for (step of demoSteps; track step.label; let last = $last) {
+        <div reveal [revealDelay]="$index * 100" [revealY]="10" class="flex items-center gap-3 px-5 py-3 rounded-xl bg-card/60 border border-border/30">
+          <lucide-icon [img]="step.icon" class="w-5 h-5" [class]="step.color" />
+          <span class="text-sm font-semibold">{{ step.label }}</span>
+        </div>
+        @if (!last) {
+          <div class="hidden sm:block text-muted-foreground px-2">→</div>
+        }
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 9b. Comparison table -->
+<section class="py-24 px-4 border-b border-border/20">
+  <div class="max-w-4xl mx-auto">
+    <app-section-header eyebrow="Comparison" title="ReDoWebs vs The Alternatives" subtitle="See how we stack up against traditional options." />
+    <div reveal class="rounded-2xl border border-border/40 overflow-hidden overflow-x-auto">
+      <div class="min-w-[560px]">
+        <div class="grid grid-cols-4 bg-card/80 border-b border-border/40">
+          <div class="p-4 text-sm font-semibold text-muted-foreground">Feature</div>
+          <div class="p-4 text-center"><span class="text-sm font-black text-primary bg-primary/10 px-3 py-1 rounded-full whitespace-nowrap">ReDoWebs ✦</span></div>
+          <div class="p-4 text-center text-sm font-semibold text-muted-foreground">Agency</div>
+          <div class="p-4 text-center text-sm font-semibold text-muted-foreground">DIY Builder</div>
+        </div>
+        @for (row of comparison; track row.feature) {
+          <div class="grid grid-cols-4 border-b border-border/20 last:border-0" [class]="$even ? 'bg-card/20' : 'bg-transparent'">
+            <div class="p-4 text-sm text-muted-foreground">{{ row.feature }}</div>
+            <div class="p-4 text-center text-cyan-400"><ng-container *ngTemplateOutlet="cell; context: { $implicit: row.us }" /></div>
+            <div class="p-4 text-center text-foreground/70"><ng-container *ngTemplateOutlet="cell; context: { $implicit: row.agency }" /></div>
+            <div class="p-4 text-center text-foreground/70"><ng-container *ngTemplateOutlet="cell; context: { $implicit: row.diy }" /></div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<ng-template #cell let-val>
+  @if (val === true) {
+    <lucide-icon [img]="icons.Check" class="w-5 h-5 text-green-400 mx-auto" />
+  } @else if (val === false) {
+    <lucide-icon [img]="icons.X" class="w-5 h-5 text-red-400/70 mx-auto" />
+  } @else if (val === null) {
+    <lucide-icon [img]="icons.Minus" class="w-4 h-4 text-muted-foreground mx-auto" />
+  } @else {
+    <span class="text-sm font-semibold">{{ val }}</span>
+  }
+</ng-template>
+
+<!-- 10. Testimonials (placeholder) -->
+<section class="py-20 px-4 border-b border-border/20">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl sm:text-4xl font-black text-center mb-12">Loved by Businesses Worldwide</h2>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (t of testimonials; track t.name) {
+        <div reveal [revealDelay]="$index * 80" class="p-6 rounded-2xl border border-border/40 bg-card/30">
+          <div class="flex gap-1 mb-4" aria-label="5 out of 5 stars">
+            @for (s of [0, 1, 2, 3, 4]; track s) {
+              <lucide-icon [img]="icons.Star" class="w-4 h-4 fill-yellow-400 text-yellow-400" />
+            }
+          </div>
+          <p class="text-muted-foreground mb-4 italic">"{{ t.quote }}"</p>
+          <div class="flex items-center gap-3">
+            <img [src]="t.avatar" [alt]="t.name" class="w-10 h-10 rounded-full object-cover" loading="lazy" />
+            <div>
+              <p class="font-semibold text-sm leading-tight">{{ t.name }}</p>
+              <p class="text-xs text-muted-foreground">{{ t.role }}</p>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 11. Trust badges -->
+<section class="py-20 px-4 border-b border-border/20 bg-card/20">
+  <div class="max-w-4xl mx-auto">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      @for (b of trustBadges; track b.title) {
+        <div reveal [revealDelay]="$index * 80" class="text-center p-6 rounded-2xl border border-border/40 bg-background/50">
+          <lucide-icon [img]="b.icon" class="w-8 h-8 mx-auto mb-3" [class]="b.color" />
+          <h3 class="font-bold text-sm mb-1">{{ b.title }}</h3>
+          <p class="text-xs text-muted-foreground">{{ b.desc }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- 13. FAQ -->
+<section id="faq" class="py-20 px-4 border-b border-border/20 scroll-mt-16">
+  <div class="max-w-2xl mx-auto">
+    <h2 class="text-3xl sm:text-4xl font-black text-center mb-4">Frequently Asked Questions</h2>
+    <p class="text-center text-muted-foreground mb-12">Got questions? We've got answers.</p>
+    <app-faq-accordion [faqs]="faqs" />
+  </div>
+</section>
+
+<!-- 14. Final CTA -->
+<section class="py-24 px-4 text-center">
+  <div reveal class="max-w-2xl mx-auto">
+    <h2 class="text-3xl sm:text-4xl font-black mb-4">Ready to See Your New Website?</h2>
+    <p class="text-muted-foreground text-lg mb-10">Paste your URL and preview your redesigns for free. You only pay for the one you keep.</p>
+    <button
+      uiButton
+      type="button"
+      (click)="scrollToHero()"
+      class="h-14 px-10 text-lg font-bold rounded-xl bg-green-500 hover:bg-green-600 active:bg-green-700 text-white"
+    >
+      Redesign My Website <lucide-icon [img]="icons.ArrowRight" class="w-5 h-5" />
+    </button>
+  </div>
+</section>

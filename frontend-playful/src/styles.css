@@ -3,6 +3,9 @@
    live here; components consume tokens, not raw hex. Everything hangs off the
    `.pg` root set in app.ts. */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Admin pages' theme (scoped under .pg-admin) -- see admin-theme.css. Imported
+   here rather than listed in angular.json so a running `ng serve` picks it up. */
+@import './admin-theme.css';
 
 html {
   scroll-behavior: smooth;

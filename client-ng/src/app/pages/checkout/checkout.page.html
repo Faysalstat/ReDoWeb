@@ -1,0 +1,177 @@
+<section class="py-16 sm:py-20 px-4">
+  <div class="max-w-5xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_340px] gap-8 items-start">
+    <div class="p-6 sm:p-8 rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm">
+      <span class="text-sm font-semibold text-primary uppercase tracking-wider block mb-3">Checkout</span>
+      <h1 class="text-3xl sm:text-4xl font-black mb-2">Buy credits</h1>
+      @if (requestedCredits) {
+        <p class="text-muted-foreground">
+          You need {{ requestedCredits }} more credit{{ requestedCredits === 1 ? '' : 's' }} to continue.
+        </p>
+      }
+
+      <div class="mt-8">
+        @switch (state()) {
+          @case ('loading') {
+            <div class="flex items-center gap-3 text-muted-foreground">
+              <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Loading checkout…
+            </div>
+          }
+          @case ('unavailable') {
+            <div class="p-4 rounded-xl border border-yellow-400/30 bg-yellow-400/5 text-yellow-300 text-sm">
+              <p class="font-semibold">Payments aren't available right now.</p>
+              <p class="text-yellow-300/80">Checkout hasn't been switched on yet. Please check back soon.</p>
+            </div>
+          }
+          @case ('no-packs') {
+            <div class="p-4 rounded-xl border border-yellow-400/30 bg-yellow-400/5 text-yellow-300 text-sm">
+              <p class="font-semibold">No credit packs are on sale yet.</p>
+              <p class="text-yellow-300/80">Please check back soon. Previews stay free in the meantime.</p>
+            </div>
+          }
+          @case ('success') {
+            <div class="p-6 rounded-2xl border border-green-500/30 bg-green-500/5 text-center" role="status">
+              <div class="flex justify-center mb-4">
+                <div class="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                  <lucide-icon [img]="icons.CheckCircle" class="w-8 h-8 text-green-400" />
+                </div>
+              </div>
+              <h2 class="text-xl font-bold mb-1">Payment complete — {{ creditsAdded() }} credits added.</h2>
+              <p class="text-muted-foreground text-sm mb-6">Your balance is now {{ wallet.balance() }} credits.</p>
+              <button uiButton type="button" class="w-full h-11 rounded-xl bg-green-500 hover:bg-green-600 text-white" (click)="continue()">Continue</button>
+            </div>
+          }
+          @case ('pending') {
+            <div class="p-6 rounded-2xl border border-yellow-400/30 bg-yellow-400/5" role="status">
+              <div class="flex items-center gap-2 text-yellow-300 font-semibold mb-2">
+                <lucide-icon [img]="icons.Clock" class="w-4 h-4" /> Payment received — confirming with PayPal.
+              </div>
+              <p class="text-sm text-muted-foreground mb-6">
+                {{ message() }} Your credits will appear automatically once PayPal confirms it; you don't need to pay again.
+              </p>
+              <button uiButton variant="outline" type="button" class="w-full h-11 rounded-xl" (click)="continue()">Continue</button>
+            </div>
+          }
+        }
+
+        @if (state() === 'ready' || state() === 'processing' || state() === 'error' || state() === 'cancelled') {
+          <fieldset class="space-y-3" [disabled]="state() === 'processing'">
+            <legend class="text-xs font-bold text-muted-foreground tracking-widest uppercase mb-3">Choose a pack</legend>
+            @for (pack of packs(); track pack.id) {
+              @let selected = pack.id === selectedPackId();
+              <label
+                class="relative flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all duration-200"
+                [class]="selected ? 'border-primary bg-primary/10 ring-2 ring-primary/30' : 'border-border/50 bg-card/50 hover:border-primary/30 hover:bg-card'"
+              >
+                <input
+                  type="radio"
+                  name="pack"
+                  class="sr-only"
+                  [value]="pack.id"
+                  [checked]="selected"
+                  (change)="select(pack.id)"
+                />
+                <span
+                  class="w-5 h-5 rounded-full border flex items-center justify-center shrink-0"
+                  [class]="selected ? 'bg-primary border-primary' : 'border-input'"
+                >
+                  @if (selected) {
+                    <lucide-icon [img]="icons.Check" class="w-3 h-3 text-white" />
+                  }
+                </span>
+                <span class="flex-1 min-w-0">
+                  <span class="block font-semibold">{{ pack.name }}</span>
+                  <span class="block text-xs text-muted-foreground">{{ pack.credits }} credits · {{ perCredit(pack) }} per credit</span>
+                </span>
+                <span class="font-display text-xl font-bold tabular-nums">{{ price(pack.price_usd_cents) }}</span>
+              </label>
+            }
+          </fieldset>
+
+          @if (message()) {
+            <div
+              class="mt-4 p-3 rounded-lg text-sm"
+              [class]="state() === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-muted/50 text-muted-foreground'"
+              role="alert"
+            >
+              {{ message() }}
+              @if (state() === 'error') {
+                <button type="button" class="ml-1 font-semibold underline underline-offset-2" (click)="tryAgain()">Try again</button>
+              }
+            </div>
+          }
+          @if (state() === 'processing') {
+            <div class="mt-4 flex items-center gap-2 text-sm text-primary" role="status">
+              <lucide-icon [img]="icons.Loader2" class="w-4 h-4 animate-spin" /> Processing payment… don't close this tab.
+            </div>
+          }
+        }
+
+        @if (mockMode() && (state() === 'ready' || state() === 'error' || state() === 'cancelled')) {
+          <div class="mt-6 p-4 rounded-xl border border-yellow-400/30 bg-yellow-400/5 text-sm text-yellow-300">
+            <p><b>Test mode</b> — no real payment. Every purchase succeeds and the credits are added straight away.</p>
+            <button
+              uiButton
+              type="button"
+              class="mt-4 w-full h-11 rounded-xl text-white bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90"
+              (click)="payWithMock()"
+            >
+              Complete test payment
+              @if (selectedPack(); as pack) {
+                · {{ price(pack.price_usd_cents) }}
+              }
+            </button>
+          </div>
+        }
+
+        <!-- Kept in the DOM (not inside @if) so PayPal's rendered buttons
+             survive state changes; hidden whenever paying isn't possible. -->
+        <div
+          #paypalButtons
+          class="mt-6 rounded-xl bg-white p-3"
+          [hidden]="mockMode() || !(state() === 'ready' || state() === 'error' || state() === 'cancelled')"
+        ></div>
+
+        <p class="mt-6 flex items-start gap-2 text-xs text-muted-foreground">
+          <lucide-icon [img]="icons.Lock" class="w-3.5 h-3.5 mt-0.5" />
+          <span>
+            Pay with your PayPal account or any debit/credit card — no PayPal account needed. Card details are entered with
+            PayPal; ReDoWebs never sees them. Credits are added to your account as soon as the payment completes.
+          </span>
+        </p>
+      </div>
+    </div>
+
+    <aside class="space-y-6 lg:sticky lg:top-24">
+      <div class="p-6 rounded-2xl border border-primary/40 bg-gradient-to-b from-primary/5 to-card shadow-xl shadow-primary/10">
+        <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase mb-4">Order</p>
+        @if (selectedPack(); as pack) {
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between gap-4"><span class="font-semibold">{{ pack.name }}</span><span class="tabular-nums">{{ pack.credits }} credits</span></div>
+            @if (wallet.balance() !== null) {
+              <div class="flex justify-between gap-4 text-muted-foreground"><span>Current balance</span><span class="tabular-nums">{{ wallet.balance() }}</span></div>
+              <div class="flex justify-between gap-4 text-muted-foreground"><span>Balance after purchase</span><span class="tabular-nums">{{ balanceAfter() }}</span></div>
+            }
+            <div class="flex justify-between items-end gap-4 pt-4 mt-1 border-t border-border/50">
+              <span class="font-semibold">Due today</span>
+              <span class="font-display text-3xl font-bold">{{ price(pack.price_usd_cents) }}</span>
+            </div>
+          </div>
+        } @else {
+          <p class="text-sm text-muted-foreground">Pick a pack to see your order.</p>
+        }
+      </div>
+
+      <div class="p-6 rounded-2xl border border-border/50 bg-card/50">
+        <p class="text-xs font-bold text-muted-foreground tracking-widest uppercase mb-4">Good to know</p>
+        <ul class="space-y-3 mb-4">
+          @for (line of ['One-time payment, no subscription', 'Previews are always free', "Re-downloading a tier you've paid for is free"]; track line) {
+            <li class="flex items-start gap-3 text-sm">
+              <lucide-icon [img]="icons.Check" class="w-4 h-4 mt-0.5 text-green-400" /><span>{{ line }}</span>
+            </li>
+          }
+        </ul>
+        <a routerLink="/pricing" class="text-sm font-semibold text-primary hover:underline">See pricing</a>
+      </div>
+    </aside>
+  </div>
+</section>

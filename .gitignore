@@ -1,2 +1,55 @@
+# Single repo-wide ignore file. Patterns without a leading "/" match at any
+# depth, so they cover every frontend (frontend/, frontend-playful/,
+# client-ng/, angular-app/) and the backend without per-folder files.
+
 # Google OAuth client secret downloads -- never commit
 clients/
+
+# ---------- Node / Angular (all frontends) ----------
+node_modules/
+dist/
+tmp/
+out-tsc/
+bazel-out/
+.angular/
+.sass-cache/
+coverage/
+typings/
+__screenshots__/
+connect.lock
+libpeerconnection.log
+testem.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Python (backend) ----------
+venv/
+.venv/
+__pycache__/
+*.pyc
+storage_data/
+
+# ---------- Secrets ----------
+.env
+!.env.example
+
+# ---------- IDEs and editors ----------
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# ---------- System files ----------
+.DS_Store
+Thumbs.db

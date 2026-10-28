@@ -4,6 +4,19 @@ Tracks status against the milestones defined in [implementation-plan.md](impleme
 
 **Status legend**: ⬜ Not started · 🟨 In progress · ✅ Done (verified per the plan's Verification section)
 
+**2026-10-27 — `client-ng/` (third standalone frontend, from `docs/ANGULAR_UI_BLUEPRINT.md`): all pages built.** Angular 20 + Tailwind 3.4, dark violet blueprint design (see its README). Every route from `frontend/` exists with the same URLs:
+- **User pages:** home (with the ToS checkbox), Google login, `/auth/callback`, project progress/preview/buy/actions, history and billing (in the public layout with the site navbar and footer; the blueprint's sidebar dashboard layout was dropped 2026-10-28 at the user's request), pricing, checkout. New static `/privacy` and `/terms` drafts.
+- **Admin:** all 10 pages copied unchanged, with `frontend/src/styles.css` scoped under `.classic-admin` (regenerate with `client-ng/scripts/scope-admin-css.js`).
+- **Placeholder social proof** on the home page (counters, testimonials, logo strips) lives in `pages/home/home-content.ts` and must be replaced before launch.
+- **Checked:** `npm run build` passes. 2026-10-28, headless Chrome with the backend off: home, pricing, login, privacy, terms and not-found render at 1280 and 375 px with no console errors or sideways scroll, and `/history` and `/admin` redirect to `/login`. That check found and fixed three bugs:
+  - The signed-in route group sent signed-out visitors from `/` to `/login`. It now has `canMatch` so it stays off `/`.
+  - lucide-angular copies host classes onto the inner svg, so positioning was applied twice. `styles.css` now resets it on the svg.
+  - The floating cards didn't animate, because encapsulation renamed the `@keyframes`.
+
+  **Not yet checked** signed in, against the real backend (project page, history, billing, checkout, admin).
+- **To try:** stop any other frontend on port 4200, then `cd client-ng && npm install && npm start`.
+- `frontend/` and `frontend-playful/` were not modified.
+
 **2026-10-12 — `frontend-playful/` (independent experimental frontend): all pages built.** New standalone Angular 20 project in the Playful Geometric design (see its README). Every route from `frontend/` exists, with the same URLs and behaviour:
 - **User pages:** home, login, `/auth/callback`, project progress/preview/buy/actions, history, pricing, checkout, billing.
 - **Admin:** all 10 pages. Admin logic and markup are copied unchanged and re-skinned via `src/admin-theme.css`.

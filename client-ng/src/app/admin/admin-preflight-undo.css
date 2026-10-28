@@ -1,0 +1,35 @@
+/* client-ng only. frontend/ has no CSS reset, but client-ng's global
+   Tailwind preflight (and the blueprint's base rules) also reach the copied
+   admin markup. This puts the browser defaults back inside .classic-admin so
+   the admin panel renders like it does in frontend/. Selectors are kept at
+   low specificity (one class) so every rule in admin-classic.css still wins. */
+
+.classic-admin *,
+.classic-admin ::before,
+.classic-admin ::after {
+  border-width: revert;
+  border-style: revert;
+  border-color: revert;
+  outline-color: revert;
+}
+
+.classic-admin :where(ul, ol, menu) { list-style: revert; margin: revert; padding: revert; }
+.classic-admin :where(blockquote, dl, dd, pre, hr, figure) { margin: revert; }
+.classic-admin :where(p, li) { line-height: inherit; letter-spacing: inherit; }
+.classic-admin :where(a) { text-decoration: revert; }
+.classic-admin :where(svg, video, canvas, audio, iframe, embed, object) { display: revert; vertical-align: revert; }
+.classic-admin :where(table) { text-indent: revert; }
+.classic-admin :where(button, input, select, textarea, optgroup) {
+  font: revert;
+  color: revert;
+  margin: revert;
+  padding: revert;
+  letter-spacing: revert;
+  line-height: revert;
+}
+.classic-admin :where(button, [type='button'], [type='reset'], [type='submit']) {
+  background-color: revert;
+  background-image: revert;
+  cursor: revert;
+}
+.classic-admin :where(input::placeholder, textarea::placeholder) { color: revert; opacity: revert; }
