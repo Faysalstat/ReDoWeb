@@ -90,6 +90,10 @@ export interface AdminProjectDetailResponse {
   deletion_reason?: string | null;
   /** Retention cleanup removed unpurchased previews. */
   previews_expired_at?: string | null;
+  /** Logo / hero the user uploaded at submission, and whether they ticked "I'll change them later". */
+  brand_logo_path?: string | null;
+  brand_hero_path?: string | null;
+  brand_assets_later?: boolean;
 }
 
 export interface AdminDeleteProjectResponse {

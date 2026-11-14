@@ -1,20 +1,11 @@
 import { Component } from '@angular/core';
-import { LucideAngularModule, Sparkles } from 'lucide-angular';
+import { LogoComponent } from './logo.component';
 
-/** Secondary mark (sidebar, footer): gradient tile with Sparkles + name. */
+/** Secondary mark (footer): the same brand logo, slightly larger. */
 @Component({
   selector: 'app-brand-mark',
   standalone: true,
-  imports: [LucideAngularModule],
-  template: `
-    <span class="flex items-center gap-2">
-      <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center">
-        <lucide-icon [img]="Sparkles" class="w-4 h-4 text-white" />
-      </span>
-      <span class="font-display font-bold text-lg">ReDoWebs</span>
-    </span>
-  `,
+  imports: [LogoComponent],
+  template: `<app-logo size="lg" />`,
 })
-export class BrandMarkComponent {
-  protected readonly Sparkles = Sparkles;
-}
+export class BrandMarkComponent {}

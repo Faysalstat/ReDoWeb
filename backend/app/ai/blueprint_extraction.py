@@ -22,6 +22,8 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
+from ..services import brand_assets_service
+
 from .blueprint_schema import (
     AboutSection,
     AdditionalSection,
@@ -141,7 +143,11 @@ def extract_scraped_json(project_root: Path) -> BlueprintDocument:
     homepage_soup = BeautifulSoup(homepage_html, "lxml")
 
     site_name_guess = _guess_site_name(homepage_soup)
-    logo_path = _assign_logo(homepage_soup, homepage_url, assets_by_url)
+    # A logo / hero the user uploaded at submission always wins over the
+    # heuristic picks (services/brand_assets_service.py).
+    brand_logo = brand_assets_service.find(project_root, "logo")
+    brand_hero = brand_assets_service.find(project_root, "hero")
+    logo_path = brand_logo or _assign_logo(homepage_soup, homepage_url, assets_by_url)
     favicon_path = _assign_favicon(homepage_soup, homepage_url, assets_by_url)
 
     css_text = gather_css_text(homepage_html, homepage_url)
@@ -157,6 +163,8 @@ def extract_scraped_json(project_root: Path) -> BlueprintDocument:
     for page in pages_meta:
         html = (project_root / page["storage_path"]).read_text(encoding="utf-8")
         pages.append(_extract_page(page["url"], html, assets_by_url))
+    if brand_hero:
+        pages[0].sections.hero.background_image = brand_hero
 
     meta = MetaBlock(
         site_name=site_name_guess or "Untitled Business",

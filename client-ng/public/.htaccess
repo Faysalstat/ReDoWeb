@@ -1,0 +1,19 @@
+# SPA fallback for Apache/LiteSpeed hosting (reedoo.design).
+# Angular routes such as /login and /auth/callback (the backend's Google
+# sign-in redirect) are not real files, so without this the server answers
+# 404 before Angular loads. Real files and folders are still served as-is.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Don't cache index.html, so a new deploy's hashed bundles are picked up.
+<IfModule mod_headers.c>
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

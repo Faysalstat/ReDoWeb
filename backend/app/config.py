@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # multi-page crawl is reviewed/built lazily on first download/purchase
     # (see workers/tasks_full_site.py).
     max_pages: int = 20
+    # Logo / hero image the user uploads at submission (brand_assets_service).
+    # Byte limit is per file, before re-encoding; uploads are also downscaled
+    # to these long sides so a 6000 px phone photo doesn't bloat every preview.
+    brand_asset_max_bytes: int = 5 * 1024 * 1024
+    brand_logo_max_side_px: int = 1024
+    brand_hero_max_side_px: int = 2560
     crawler_user_agent: str = "ReDoWebsBot/0.1 (+https://redowebs.example/bot)"
     request_timeout_seconds: float = 15.0
 

@@ -4,6 +4,12 @@ Tracks status against the milestones defined in [implementation-plan.md](impleme
 
 **Status legend**: ⬜ Not started · 🟨 In progress · ✅ Done (verified per the plan's Verification section)
 
+**2026-11-12 — Logo & hero image pop-up before generation (client-ng).** Clicking "Upgrade My Website" now opens a pop-up asking for a logo and a hero image (plan: `C:\Users\Faysal\.claude\plans\i-need-some-feature-cozy-lerdorf.md`, summarised in CLAUDE.md's "Brand assets at submission" bullet). Both are required unless the user ticks "I'll change them later"; then each is optional and the crawled site's image is used.
+- **Backend:** new `POST /projects/with-brand-assets` (multipart) next to the unchanged JSON `POST /projects` (shared `_create_project`); `services/brand_assets_service.py` validates and re-encodes (PNG/JPEG/WEBP only, no SVG, 5 MB, EXIF stripped, downscaled) into `projects/{id}/brand_assets/`; `blueprint_extraction` prefers the uploads for `meta.logo` and the home hero; `site_generator` copies them into `images/` and names them in the prompt **only when uploaded**; cleanup deletes `brand_assets/` with `snapshot/`. New `projects` columns `brand_logo_path`, `brand_hero_path`, `brand_assets_later` (migration `e7b1c4d9a2f6`, audit only), shown on client-ng's admin project page.
+- **Frontend (client-ng only):** `shared/components/brand-assets-dialog.component.ts`, wired into the home page; a 0-credit wallet gets the error before the pop-up opens. `frontend/` and `frontend-playful/` are unchanged and still use the JSON route.
+- **Checked:** client-ng `ng build` passes and the backend imports cleanly. **Not yet run:** `pytest tests/test_brand_assets.py` (new) and the full suite, and a real submission with uploads.
+- **To try:** `alembic upgrade head`, restart the API and worker(s).
+
 **2026-10-27 — `client-ng/` (third standalone frontend, from `docs/ANGULAR_UI_BLUEPRINT.md`): all pages built.** Angular 20 + Tailwind 3.4, dark violet blueprint design (see its README). Every route from `frontend/` exists with the same URLs:
 - **User pages:** home (with the ToS checkbox), Google login, `/auth/callback`, project progress/preview/buy/actions, history and billing (in the public layout with the site navbar and footer; the blueprint's sidebar dashboard layout was dropped 2026-10-28 at the user's request), pricing, checkout. New static `/privacy` and `/terms` drafts.
 - **Admin:** all 10 pages copied unchanged, with `frontend/src/styles.css` scoped under `.classic-admin` (regenerate with `client-ng/scripts/scope-admin-css.js`).

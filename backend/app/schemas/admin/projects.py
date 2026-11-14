@@ -85,6 +85,11 @@ class AdminProjectDetailResponse(BaseModel):
     # Retention cleanup removed unpurchased previews -- see
     # services/storage_cleanup_service.py.
     previews_expired_at: datetime | None = None
+    # Logo / hero the user uploaded at submission (project-root-relative),
+    # and whether they ticked "I'll change them later".
+    brand_logo_path: str | None = None
+    brand_hero_path: str | None = None
+    brand_assets_later: bool = False
 
 
 class AdminDeleteProjectRequest(BaseModel):

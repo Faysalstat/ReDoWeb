@@ -1,7 +1,13 @@
+import shutil
 import uuid
+from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from ..auth.dependencies import get_current_user
 from ..config import get_settings
@@ -22,6 +28,7 @@ from ..schemas.project import (
     TierRetryResponse,
 )
 from ..services import (
+    brand_assets_service,
     cost_estimation_service,
     cost_settings_service,
     generation_status_service,
@@ -49,6 +56,102 @@ def submit_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ProjectSubmitResponse:
+    return _create_project(db, request, current_user, payload)
+
+
+def _form_bool(value) -> bool:
+    return isinstance(value, str) and value.strip().lower() in ("1", "true", "on", "yes")
+
+
+@router.post("/projects/with-brand-assets", response_model=ProjectSubmitResponse, status_code=202)
+@limiter.limit(get_settings().rate_limit_submit)
+async def submit_project_with_brand_assets(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ProjectSubmitResponse:
+    """Same as POST /projects, plus the logo / hero image from client-ng's
+    pop-up (multipart: url, tos_accepted, brand_assets_later, logo?, hero?).
+    Both files are required unless brand_assets_later is true; with it, each
+    is optional (the crawled site's image is used instead).
+
+    The form is parsed here, not through FastAPI params, so the size check
+    below runs *before* the body is read -- FastAPI reads a multipart body
+    before any dependency or handler code runs."""
+    settings = get_settings()
+    max_bytes = settings.brand_asset_max_bytes
+    content_length = request.headers.get("content-length")
+    if content_length is None or not content_length.isdigit():
+        raise HTTPException(status_code=411, detail="Content-Length is required")
+    if int(content_length) > 2 * max_bytes + 1024 * 1024:
+        raise HTTPException(status_code=413, detail="The uploaded files are too large")
+
+    form = await request.form(max_files=2, max_fields=10)
+    try:
+        try:
+            payload = CrawlRequest(url=form.get("url") or "", tos_accepted=_form_bool(form.get("tos_accepted")))
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail="Please enter a valid website URL") from exc
+        later = _form_bool(form.get("brand_assets_later"))
+
+        uploads = {}
+        for role in brand_assets_service.ROLES:
+            upload = form.get(role)
+            if isinstance(upload, StarletteUploadFile) and upload.filename:
+                uploads[role] = await upload.read(max_bytes + 1)
+
+        missing = brand_assets_service.missing_roles("logo" in uploads, "hero" in uploads, later)
+        if missing:
+            labels = " and ".join("a logo" if role == "logo" else "a hero image" for role in missing)
+            raise HTTPException(
+                status_code=422,
+                detail=f"Please upload {labels}, or tick \"I'll change them later\".",
+            )
+
+        def _process_all() -> list[brand_assets_service.ProcessedImage]:
+            return [
+                brand_assets_service.process_image_bytes(
+                    data,
+                    role,
+                    max_bytes=max_bytes,
+                    max_side=settings.brand_logo_max_side_px if role == "logo" else settings.brand_hero_max_side_px,
+                )
+                for role, data in uploads.items()
+            ]
+
+        try:
+            images = await run_in_threadpool(_process_all)
+        except brand_assets_service.BrandAssetError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        await form.close()
+
+    def _attach_brand_assets(project: Project) -> None:
+        project_root = Path(settings.storage_root) / "projects" / str(project.id)
+        project.brand_assets_later = later
+        for image in images:
+            path = brand_assets_service.save(project_root, image)
+            if image.role == "logo":
+                project.brand_logo_path = path
+            else:
+                project.brand_hero_path = path
+
+    return await run_in_threadpool(
+        _create_project, db, request, current_user, payload, _attach_brand_assets
+    )
+
+
+def _create_project(
+    db: Session,
+    request: Request,
+    current_user: User,
+    payload: CrawlRequest,
+    before_commit: Callable[[Project], None] | None = None,
+) -> ProjectSubmitResponse:
+    """Shared by both submit routes. `before_commit` runs after the project
+    row is flushed (so it has an id) and before anything is committed or
+    enqueued; if it raises, the row is rolled back, any brand_assets/ it wrote
+    is removed, and no crawl is enqueued."""
     client_ip = request.client.host if request.client else None
 
     # Checked before any DB writes or credit check -- a rejected submission
@@ -86,6 +189,20 @@ def submit_project(
             tos_accepted=payload.tos_accepted,
         )
     )
+    if before_commit is not None:
+        try:
+            before_commit(project)
+        except Exception:
+            db.rollback()
+            brand_dir = (
+                Path(get_settings().storage_root) / "projects" / str(project.id) / brand_assets_service.BRAND_ASSETS_DIR
+            )
+            shutil.rmtree(brand_dir, ignore_errors=True)
+            try:
+                brand_dir.parent.rmdir()  # only succeeds if nothing else is in it
+            except OSError:
+                pass
+            raise
     db.commit()
 
     project_id = str(project.id)

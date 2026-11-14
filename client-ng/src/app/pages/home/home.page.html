@@ -65,6 +65,12 @@
       }
     </form>
 
+    <app-brand-assets-dialog
+      [submitting]="isSubmitting()"
+      [error]="dialogError()"
+      (confirmed)="startGeneration($event)"
+    />
+
     @if (errorMessage()) {
       <div class="mb-8 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center justify-center gap-2" role="alert">
         <lucide-icon [img]="icons.AlertTriangle" class="w-4 h-4" /> {{ errorMessage() }}
@@ -173,6 +179,46 @@
         </div>
       }
     </div>
+  </div>
+</section>
+
+<!-- 6b. Industries -->
+<section id="industries" class="relative py-24 px-4 border-b border-border/20 overflow-hidden scroll-mt-16">
+  <!-- Faint floating design thumbnails (wide screens only). -->
+  <div class="hidden xl:block absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+    @for (t of industryThumbs; track t.src) {
+      <img
+        [src]="t.src"
+        alt=""
+        loading="lazy"
+        class="absolute w-52 rounded-lg border border-white/10 shadow-2xl opacity-[0.15] blur-[1px]"
+        [style.top]="t.top"
+        [style.left]="t.left"
+        [style.right]="t.right"
+        [style.transform]="'rotate(' + t.rotate + 'deg)'"
+      />
+    }
+  </div>
+  <div class="relative max-w-5xl mx-auto">
+    <app-section-header
+      eyebrow="Built for every industry"
+      title="Works for Your Business"
+      subtitle="Whatever your industry, our AI understands your niche and generates designs that fit."
+    />
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+      @for (ind of industries; track ind.label) {
+        <div
+          reveal
+          [revealDelay]="$index * 60"
+          class="flex flex-col items-center justify-center gap-3 rounded-2xl border px-4 py-8 backdrop-blur-sm transition-transform hover:-translate-y-0.5"
+          [class]="ind.tile"
+        >
+          <lucide-icon [img]="ind.icon" class="w-7 h-7" [class]="ind.iconColor" />
+          <span class="font-semibold text-sm sm:text-base text-center">{{ ind.label }}</span>
+        </div>
+      }
+    </div>
+    <p class="text-sm text-muted-foreground text-center mt-10">+ Nonprofits, HOAs, gyms, salons, contractors, and many more</p>
   </div>
 </section>
 

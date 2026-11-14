@@ -32,6 +32,14 @@
       </p>
     }
 
+    <p class="sub">
+      Brand images: logo {{ d.brand_logo_path ? 'uploaded' : 'from crawl' }} · hero
+      {{ d.brand_hero_path ? 'uploaded' : 'from crawl' }}
+      @if (d.brand_assets_later) {
+        · user will change them later
+      }
+    </p>
+
     @if (d.blueprint) {
       <p class="sub">Blueprint v{{ d.blueprint.version }}{{ d.blueprint.site_name ? ' · ' + d.blueprint.site_name : '' }}</p>
     }

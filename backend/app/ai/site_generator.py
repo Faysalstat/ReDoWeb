@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from ..config import get_settings
-from ..services import tier_service
+from ..services import brand_assets_service, tier_service
 from .blueprint_legacy_compat import render_design_md_compat
 from .blueprint_schema import BlueprintDocument
 from .errors import GenerationError, IterationLimitError, OpenRouterError
@@ -191,7 +191,7 @@ def generate_site(
     system_prompt = template_path.read_text(encoding="utf-8") + TECH_CONSTRAINTS
     strategy_used = template_path.name
 
-    user_message = _build_user_message(design_md, image_names)
+    user_message = _build_user_message(design_md, image_names, _brand_images_block(project_root))
 
     dispatch = make_tool_dispatch(output_dir)
     trace_path = output_dir / "_debug_trace.json"
@@ -269,6 +269,7 @@ def _build_full_site_batch_message(
     batch_filenames: list[str],
     image_names: list[str],
     shared_shell: str = "",
+    brand_block: str = "",
 ) -> str:
     image_list = "\n".join(f"- images/{name}" for name in image_names) or "(no images available)"
     pages_list = "\n".join(f"- {name}" for name in batch_filenames)
@@ -293,6 +294,7 @@ def _build_full_site_batch_message(
         f"{batch_design_md}\n\n"
         "Available image files already in the output directory's images/ "
         f"folder (reference these exact paths, do not invent new ones):\n{image_list}\n\n"
+        f"{brand_block}"
         "Build these pages now."
     )
 
@@ -427,7 +429,12 @@ def generate_full_site(
         batch_filenames = [page_filenames[i] for i in batch_indices]
 
         user_message = _build_full_site_batch_message(
-            batch_design_md, filename_map, batch_filenames, image_names, shared_shell
+            batch_design_md,
+            filename_map,
+            batch_filenames,
+            image_names,
+            shared_shell,
+            brand_block=_brand_images_block(project_root, include_hero=False),
         )
 
         trace_path = output_dir / f"_debug_trace_batch_{batch_number}.json"
@@ -917,10 +924,38 @@ def _copy_images(project_root: Path, output_dir: Path, assets: list[dict]) -> li
         dest = images_out / src.name
         dest.write_bytes(src.read_bytes())
         copied.append(src.name)
+    # Logo / hero the user uploaded at submission. The "brand-" prefix can't
+    # collide with a crawled name (crawler/assets.py prefixes an 8-char hash).
+    for role in brand_assets_service.ROLES:
+        rel = brand_assets_service.find(project_root, role)
+        if rel is None:
+            continue
+        src = project_root / rel
+        (images_out / src.name).write_bytes(src.read_bytes())
+        if src.name not in copied:
+            copied.append(src.name)
     return copied
 
 
-def _build_user_message(design_md: str, image_names: list[str]) -> str:
+def _brand_images_block(project_root: Path, include_hero: bool = True) -> str:
+    """Prompt lines naming the logo / hero the user uploaded. Empty when
+    nothing was uploaded, so those projects get exactly the old prompt."""
+    lines = []
+    logo = brand_assets_service.find(project_root, "logo")
+    if logo:
+        lines.append(f"- Logo: images/{Path(logo).name} -- use this as the site logo in the header and footer.")
+    hero = brand_assets_service.find(project_root, "hero") if include_hero else None
+    if hero:
+        lines.append(f"- Hero image: images/{Path(hero).name} -- use this as the home page's main hero image.")
+    if not lines:
+        return ""
+    return (
+        "The business owner uploaded their own brand images. Use them exactly as described "
+        "(do not swap in other images for these roles):\n" + "\n".join(lines) + "\n\n"
+    )
+
+
+def _build_user_message(design_md: str, image_names: list[str], brand_block: str = "") -> str:
     image_list = "\n".join(f"- images/{name}" for name in image_names) or "(no images available)"
     return (
         "Here is the business content and brand blueprint to build the site from "
@@ -929,5 +964,6 @@ def _build_user_message(design_md: str, image_names: list[str]) -> str:
         "Available image files already in the output directory's images/ folder "
         "(reference these exact paths, do not invent new ones):\n"
         f"{image_list}\n\n"
+        f"{brand_block}"
         "Build the complete website now."
     )

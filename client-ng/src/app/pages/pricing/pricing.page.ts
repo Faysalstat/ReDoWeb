@@ -14,13 +14,9 @@ import { RevealDirective } from '../../shared/motion/reveal.directive';
     <section class="py-20 sm:py-24 px-4 border-b border-border/20">
       <div class="max-w-5xl mx-auto text-center">
         <div reveal class="mb-16">
-          <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/5 mb-6">
-            <span class="text-xs font-medium text-primary">One-time credit packs · no subscription</span>
-          </div>
-          <h1 class="text-4xl sm:text-5xl font-black mb-4">Preview Costs Nothing. Downloading Costs Credits.</h1>
+          <h1 class="font-display text-4xl sm:text-5xl font-black mb-4">Simple Pricing</h1>
           <p class="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Every design includes a free live preview. Buy a credit pack once and spend credits only on the redesigns you
-            want to keep.
+            Browse your redesigns for free. Only pay when you're ready to download.
           </p>
         </div>
         <app-credit-pack-grid />

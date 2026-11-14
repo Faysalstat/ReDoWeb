@@ -60,6 +60,29 @@ export class RedoWebsApiService {
     });
   }
 
+  /** submitProject() plus the logo / hero image from the home page's
+   * pop-up (multipart). Without `later` both files are required; with it,
+   * each is optional and the crawled site's image fills the gap. */
+  submitProjectWithAssets(
+    url: string,
+    tosAccepted: boolean,
+    later: boolean,
+    logo: File | null,
+    hero: File | null,
+  ): Observable<ProjectSubmitResponse> {
+    const body = new FormData();
+    body.append('url', url);
+    body.append('tos_accepted', String(tosAccepted));
+    body.append('brand_assets_later', String(later));
+    if (logo) {
+      body.append('logo', logo, logo.name);
+    }
+    if (hero) {
+      body.append('hero', hero, hero.name);
+    }
+    return this.http.post<ProjectSubmitResponse>(`${API_BASE_URL}/api/v1/projects/with-brand-assets`, body);
+  }
+
   getProjectStatus(projectId: string): Observable<ProjectStatusResponse> {
     return this.http.get<ProjectStatusResponse>(`${API_BASE_URL}/api/v1/projects/${projectId}`);
   }

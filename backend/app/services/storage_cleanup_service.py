@@ -6,7 +6,8 @@ A project older than `storage_retention_days` (config.py) loses:
 - its crawl snapshot (snapshot/: page HTML + downloaded images) -- unless a
   purchased tier still needs it: "Generate all pages" copies its images from
   snapshot/, so a paid multi-page project keeps the crawl until every
-  purchased tier's full-site build has succeeded;
+  purchased tier's full-site build has succeeded. The user's uploaded
+  logo/hero (brand_assets/) go with it, under the same rule;
 - the cached download ZIPs (downloads/) -- rebuilt on every download anyway.
 
 Never deleted: purchased tiers' output (preview, full/, seo/), blueprint/,
@@ -113,6 +114,9 @@ def apply_cleanup_plan(project_root: Path, plan: CleanupPlan, dry_run: bool = Fa
             targets.append(tier_dir)
     if plan.delete_snapshot:
         targets.append(project_root / "snapshot")
+        # The user's uploaded logo/hero follow the crawl's lifetime: "Generate
+        # all pages" copies both into its output.
+        targets.append(project_root / "brand_assets")
     if plan.delete_downloads:
         targets.append(project_root / "downloads")
 

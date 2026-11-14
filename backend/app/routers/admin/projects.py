@@ -134,6 +134,9 @@ def get_project_detail(project_id: str, db: Session = Depends(get_db)) -> AdminP
         deleted_by_email=deleted_by.email if deleted_by is not None else None,
         deletion_reason=project.deletion_reason,
         previews_expired_at=project.previews_expired_at,
+        brand_logo_path=project.brand_logo_path,
+        brand_hero_path=project.brand_hero_path,
+        brand_assets_later=project.brand_assets_later,
     )
 
 

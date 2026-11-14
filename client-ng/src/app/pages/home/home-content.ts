@@ -1,4 +1,11 @@
 import {
+  Briefcase,
+  GraduationCap,
+  HeartPulse,
+  House,
+  Scale,
+  ShoppingBag,
+  Utensils,
   Award,
   CheckCircle,
   Clock,
@@ -91,6 +98,18 @@ export const COMPARISON: { feature: string; us: string | boolean | null; agency:
 // ════════════════════════════════════════════════════════════════════════
 // Real product copy: how ReDoWebs actually works.
 // ════════════════════════════════════════════════════════════════════════
+
+/** "Works for your business" industry tiles: tile tint, border and icon colour per industry. */
+export const INDUSTRIES: { label: string; icon: LucideIconData; tile: string; iconColor: string }[] = [
+  { label: 'Restaurants', icon: Utensils, tile: 'bg-orange-500/15 border-orange-500/20', iconColor: 'text-orange-400' },
+  { label: 'Law Firms', icon: Scale, tile: 'bg-blue-500/15 border-blue-500/20', iconColor: 'text-blue-400' },
+  { label: 'Medical', icon: HeartPulse, tile: 'bg-red-500/15 border-red-500/20', iconColor: 'text-red-400' },
+  { label: 'E-Commerce', icon: ShoppingBag, tile: 'bg-green-500/15 border-green-500/20', iconColor: 'text-green-400' },
+  { label: 'Real Estate', icon: House, tile: 'bg-cyan-500/15 border-cyan-500/20', iconColor: 'text-cyan-400' },
+  { label: 'Agencies', icon: Briefcase, tile: 'bg-purple-500/15 border-purple-500/20', iconColor: 'text-purple-400' },
+  { label: 'Education', icon: GraduationCap, tile: 'bg-yellow-500/15 border-yellow-500/20', iconColor: 'text-yellow-400' },
+  { label: 'Creatives', icon: Palette, tile: 'bg-pink-500/15 border-pink-500/20', iconColor: 'text-pink-400' },
+];
 
 export const STEPS = [
   { step: '01', title: 'Paste your URL', desc: 'We crawl what is publicly on your site: copy, images, structure and contact details. Sites up to 20 pages.' },

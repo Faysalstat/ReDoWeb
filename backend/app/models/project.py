@@ -38,6 +38,15 @@ class Project(Base):
         PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     deletion_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Logo / hero image the user uploaded at submission (project-root-relative,
+    # e.g. "brand_assets/brand-logo.png") and whether they ticked "I'll change
+    # them later". Audit/support only -- the pipeline reads brand_assets/ on
+    # disk (blueprint_extraction, site_generator), never these columns.
+    brand_logo_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    brand_hero_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    brand_assets_later: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     tos_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     submitted_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
